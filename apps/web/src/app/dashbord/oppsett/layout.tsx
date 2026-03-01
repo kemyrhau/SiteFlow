@@ -52,6 +52,7 @@ const navigasjon: NavElement[] = [
     href: "/dashbord/oppsett/prosjektoppsett",
     ikon: <Home className="h-4 w-4" />,
     barn: [
+      { label: "Eierportalens brukere", href: "/dashbord/oppsett/eierportal-brukere" },
       { label: "Prosjektoppsett", href: "/dashbord/oppsett/prosjektoppsett" },
     ],
   },
