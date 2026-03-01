@@ -35,12 +35,14 @@ export const createEnterpriseSchema = z.object({
   color: z.string().max(50).optional(),
   industry: z.string().max(100).optional(),
   companyName: z.string().max(255).optional(),
+  memberIds: z.array(z.string().uuid()).default([]),
 });
 
 // Kopier entreprise
 export const copyEnterpriseSchema = z.object({
   sourceEnterpriseId: z.string().uuid(),
   targetProjectId: z.string().uuid(),
+  memberIds: z.array(z.string().uuid()).default([]),
 });
 
 // Bygningsvalidering

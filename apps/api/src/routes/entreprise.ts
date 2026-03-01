@@ -41,14 +41,24 @@ export const entrepriseRouter = router({
   opprett: publicProcedure
     .input(createEnterpriseSchema)
     .mutation(async ({ ctx, input }) => {
+      const { memberIds, ...data } = input;
       return ctx.prisma.$transaction(async (tx) => {
-        const entreprise = await tx.enterprise.create({ data: input });
+        const entreprise = await tx.enterprise.create({ data });
         await tx.workflow.create({
           data: {
             enterpriseId: entreprise.id,
             name: "Navnløst arbeidsforløp",
           },
         });
+        if (memberIds.length > 0) {
+          await tx.projectMember.updateMany({
+            where: {
+              id: { in: memberIds },
+              projectId: input.projectId,
+            },
+            data: { enterpriseId: entreprise.id },
+          });
+        }
         return entreprise;
       });
     }),
@@ -108,6 +118,16 @@ export const entrepriseRouter = router({
               enterpriseId: nyEntreprise.id,
               name: "Navnløst arbeidsforløp",
             },
+          });
+        }
+
+        if (input.memberIds.length > 0) {
+          await tx.projectMember.updateMany({
+            where: {
+              id: { in: input.memberIds },
+              projectId: input.targetProjectId,
+            },
+            data: { enterpriseId: nyEntreprise.id },
           });
         }
 

@@ -23,7 +23,6 @@ import {
   Trash2,
   Workflow as WorkflowIcon,
   ArrowRight,
-  Check,
 } from "lucide-react";
 import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@siteflow/shared";
 
@@ -679,6 +678,9 @@ function EntrepriseVeiviser({
   const [nyBransje, setNyBransje] = useState("");
   const [nyFirma, setNyFirma] = useState("");
 
+  // Medlemmer-steg
+  const [valgteMedlemmer, setValgteMedlemmer] = useState<Set<string>>(new Set());
+
   // Lazy-loaded entrepriser for import-prosjektet
   const { data: importEntrepriser } =
     trpc.entreprise.hentForProsjekt.useQuery(
@@ -686,12 +688,19 @@ function EntrepriseVeiviser({
       { enabled: !!importProsjektId && metode === "importer" },
     );
 
+  // Hent prosjektmedlemmer for medlemsvalg-steget
+  const { data: medlemmer } = trpc.medlem.hentForProsjekt.useQuery(
+    { projectId: prosjektId },
+    { enabled: !!prosjektId },
+  );
+
   const utils = trpc.useUtils();
 
   const opprettMutation = trpc.entreprise.opprett.useMutation({
     onSuccess: () => {
       utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId });
       utils.arbeidsforlop.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
       onOpprettet();
       lukkOgNullstill();
     },
@@ -701,6 +710,7 @@ function EntrepriseVeiviser({
     onSuccess: () => {
       utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId });
       utils.arbeidsforlop.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
       onOpprettet();
       lukkOgNullstill();
     },
@@ -716,6 +726,7 @@ function EntrepriseVeiviser({
     setNyFarge("blue");
     setNyBransje("");
     setNyFirma("");
+    setValgteMedlemmer(new Set());
     onClose();
   }
 
@@ -723,6 +734,17 @@ function EntrepriseVeiviser({
   const andreProsjekter = prosjekter.filter((p) => p.id !== prosjektId);
   const harAndreProsjekter = andreProsjekter.length > 0;
   const harEntrepriser = entrepriser.length > 0;
+
+  // Siste steg-nummer avhenger av metode
+  // kopier: steg 1 (metode+valg) → steg 2 (medlemmer) → submit
+  // importer: steg 1 (metode) → steg 2 (velg prosjekt+entreprise) → steg 3 (medlemmer) → submit
+  // tom: steg 1 (metode) → steg 2 (detaljer) → steg 3 (medlemmer) → submit
+  const sisteSteg =
+    metode === "kopier" ? 2 : 3;
+
+  const erPaMedlemSteg =
+    (metode === "kopier" && steg === 2) ||
+    ((metode === "tom" || metode === "importer") && steg === 3);
 
   // Synkroniser state ved åpning
   const [forrigeOpen, setForrigeOpen] = useState(false);
@@ -736,16 +758,43 @@ function EntrepriseVeiviser({
     setNyFarge("blue");
     setNyBransje("");
     setNyFirma("");
+    setValgteMedlemmer(new Set());
   }
   if (open !== forrigeOpen) setForrigeOpen(open);
 
   function handleNeste() {
-    if (steg === 1) {
-      if (metode === "kopier" && kopierEntrepriseId) {
+    // Hvis vi er på medlemssteget → submit
+    if (erPaMedlemSteg) {
+      const memberIds = Array.from(valgteMedlemmer);
+      if (metode === "tom") {
+        opprettMutation.mutate({
+          name: nyNavn.trim(),
+          projectId: prosjektId,
+          color: nyFarge || undefined,
+          industry: nyBransje.trim() || undefined,
+          companyName: nyFirma.trim() || undefined,
+          memberIds,
+        });
+      } else if (metode === "kopier") {
         kopierMutation.mutate({
           sourceEnterpriseId: kopierEntrepriseId,
           targetProjectId: prosjektId,
+          memberIds,
         });
+      } else if (metode === "importer") {
+        kopierMutation.mutate({
+          sourceEnterpriseId: importEntrepriseId,
+          targetProjectId: prosjektId,
+          memberIds,
+        });
+      }
+      return;
+    }
+
+    if (steg === 1) {
+      if (metode === "kopier" && kopierEntrepriseId) {
+        // Gå til medlemsvalg (steg 2)
+        setSteg(2);
         return;
       }
       setSteg(2);
@@ -754,27 +803,28 @@ function EntrepriseVeiviser({
 
     if (steg === 2) {
       if (metode === "importer" && importEntrepriseId) {
-        kopierMutation.mutate({
-          sourceEnterpriseId: importEntrepriseId,
-          targetProjectId: prosjektId,
-        });
+        // Gå til medlemsvalg (steg 3)
+        setSteg(3);
         return;
       }
-
       if (metode === "tom" && nyNavn.trim()) {
-        opprettMutation.mutate({
-          name: nyNavn.trim(),
-          projectId: prosjektId,
-          color: nyFarge || undefined,
-          industry: nyBransje.trim() || undefined,
-          companyName: nyFirma.trim() || undefined,
-        });
+        // Gå til medlemsvalg (steg 3)
+        setSteg(3);
         return;
       }
     }
   }
 
+  function handleForrige() {
+    if (erPaMedlemSteg) {
+      setSteg(metode === "kopier" ? 1 : 2);
+    } else if (steg === 2) {
+      setSteg(1);
+    }
+  }
+
   const kanGaVidere = (() => {
+    if (erPaMedlemSteg) return true; // Medlemsvalg er valgfritt
     if (steg === 1) {
       if (metode === "kopier") return !!kopierEntrepriseId;
       if (metode === "mal") return false;
@@ -787,6 +837,24 @@ function EntrepriseVeiviser({
     }
     return false;
   })();
+
+  const knappTekst = (() => {
+    if (erPaMedlemSteg) {
+      if (metode === "tom") return "Opprett";
+      if (metode === "kopier") return "Kopier";
+      return "Importer";
+    }
+    return "Neste";
+  })();
+
+  function toggleMedlem(id: string) {
+    setValgteMedlemmer((prev) => {
+      const neste = new Set(prev);
+      if (neste.has(id)) neste.delete(id);
+      else neste.add(id);
+      return neste;
+    });
+  }
 
   return (
     <Modal
@@ -977,6 +1045,51 @@ function EntrepriseVeiviser({
           </>
         )}
 
+        {/* Medlemsvalg-steg (siste steg for alle metoder) */}
+        {erPaMedlemSteg && (
+          <>
+            <p className="text-sm text-gray-600">
+              Velg hvilke prosjektmedlemmer som skal tilknyttes entreprisen:
+            </p>
+            {medlemmer && medlemmer.length > 0 ? (
+              <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-3">
+                {medlemmer.map((m) => (
+                  <label
+                    key={m.id}
+                    className="flex items-center gap-3 rounded px-2 py-1.5 hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 accent-siteflow-primary"
+                      checked={valgteMedlemmer.has(m.id)}
+                      onChange={() => toggleMedlem(m.id)}
+                    />
+                    <div className="flex flex-1 items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {m.user.name ?? m.user.email}
+                      </span>
+                      {m.user.name && (
+                        <span className="text-xs text-gray-400">
+                          {m.user.email}
+                        </span>
+                      )}
+                    </div>
+                    {m.enterprise && (
+                      <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                        {m.enterprise.name}
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">
+                Ingen prosjektmedlemmer funnet. Du kan legge til medlemmer senere.
+              </p>
+            )}
+          </>
+        )}
+
         {/* Knapper */}
         <div className="flex gap-3 pt-2">
           <Button
@@ -986,11 +1099,11 @@ function EntrepriseVeiviser({
           >
             Avbryt
           </Button>
-          {steg === 2 && (
+          {steg > 1 && (
             <Button
               variant="secondary"
               type="button"
-              onClick={() => setSteg(1)}
+              onClick={handleForrige}
             >
               Forrige
             </Button>
@@ -1000,13 +1113,7 @@ function EntrepriseVeiviser({
             loading={erLagrer}
             disabled={!kanGaVidere}
           >
-            {steg === 1 && metode === "kopier" && kopierEntrepriseId
-              ? "Kopier"
-              : steg === 2 && (metode === "tom" || metode === "importer")
-                ? metode === "tom"
-                  ? "Opprett"
-                  : "Importer"
-                : "Neste"}
+            {knappTekst}
           </Button>
         </div>
       </div>
