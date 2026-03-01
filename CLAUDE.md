@@ -478,6 +478,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - All kode, kommentarer, UI-tekst, dokumentasjon og commit-meldinger skal skrives på **norsk**
 - Variabelnavn og tekniske identifikatorer kan være på engelsk der det er naturlig (f.eks. `id`, `status`, `config`)
 - Brukervendt tekst (knapper, labels, feilmeldinger, hjelpetekst) skal ALLTID være på norsk
+- Bruk alltid norske tegn (æ, ø, å) i all UI-tekst, kommentarer og strenger — ALDRI ASCII-erstatninger (aa, oe, ae)
 
 ## Viktige regler
 

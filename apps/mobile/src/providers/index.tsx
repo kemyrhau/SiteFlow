@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { trpc, opprettTrpcKlient } from "../lib/trpc";
 import { NettverkProvider } from "./NettverkProvider";
 import { AuthProvider } from "./AuthProvider";
@@ -26,14 +27,16 @@ export function Providers({ children }: { children: ReactNode }) {
   const [trpcClient] = useState(() => opprettTrpcKlient());
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <NettverkProvider>
-          <AuthProvider>
-            <ProsjektProvider>{children}</ProsjektProvider>
-          </AuthProvider>
-        </NettverkProvider>
-      </QueryClientProvider>
-    </trpc.Provider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <NettverkProvider>
+            <AuthProvider>
+              <ProsjektProvider>{children}</ProsjektProvider>
+            </AuthProvider>
+          </NettverkProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
+    </GestureHandlerRootView>
   );
 }
