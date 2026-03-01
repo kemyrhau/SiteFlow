@@ -128,12 +128,12 @@ siteflow/
 | `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon |
 | `report_objects` | Rapportobjekter i maler (21 typer, JSON-konfig) |
 | `checklists` | Sjekklister med oppretter/svarer-entreprise, status, data (JSON) |
-| `tasks` | Oppgaver med prioritet, frist, oppretter/svarer |
+| `tasks` | Oppgaver med prioritet, frist, oppretter/svarer, valgfri tegningsposisjon |
 | `document_transfers` | Sporbarhet: all sending mellom entrepriser |
 | `images` | Bilder med valgfri GPS-data |
 | `folders` | Rekursiv mappestruktur (Box-modul) med parent_id |
 | `documents` | Dokumenter i mapper med fil-URL og versjon |
-| `workflows` | Arbeidsforløp med oppretter- og svarer-entreprise |
+| `workflows` | Arbeidsforløp med oppretter-entreprise og valgfri svarer-entreprise (`responder_enterprise_id`) |
 | `workflow_templates` | Kobling mellom arbeidsforløp og maler (mange-til-mange) |
 | `project_invitations` | E-postinvitasjoner med token, status (pending/accepted/expired), utløpsdato |
 
@@ -141,7 +141,8 @@ Viktige relasjoner:
 - Sjekklister og oppgaver har ALLTID `creator_enterprise_id` (oppretter) og `responder_enterprise_id` (svarer)
 - `document_transfers` logger all sending mellom entrepriser med full sporbarhet
 - Bilder har valgfri GPS-data (`gps_lat`, `gps_lng`, `gps_enabled`)
-- `workflows` tilhører en oppretter-entreprise (`enterpriseId`) med valgfri svarer-entreprise (`responderEnterpriseId`), kobler til maler via `workflow_templates`
+- Oppgaver kan kobles til en tegning med posisjon (`drawing_id`, `position_x`, `position_y`) — brukes for markør-plassering på tegninger
+- `workflows` tilhører en oppretter-entreprise (`enterpriseId`) med valgfri svarer-entreprise (`responderEnterpriseId`), kobler til maler via `workflow_templates`. Relasjoner er navngitte: `WorkflowCreator` / `WorkflowResponder`
 - `report_templates` har `category` (`oppgave` | `sjekkliste`) og valgfritt `prefix`
 - `buildings` tilhører et prosjekt, med tegninger koblet via `building_id`
 - `drawings` har full metadata (tegningsnummer, fagdisiplin, revisjon, etasje, målestokk, status) med `drawing_revisions` for historikk
@@ -157,11 +158,11 @@ Alle routere i `apps/api/src/routes/`:
 | `prosjekt` | hentAlle, hentMedId, opprett, oppdater |
 | `entreprise` | hentForProsjekt, hentMedId, opprett, oppdater, slett |
 | `sjekkliste` | hentForProsjekt (m/statusfilter), hentMedId, opprett, oppdaterData, endreStatus |
-| `oppgave` | hentForProsjekt (m/statusfilter), hentMedId, opprett, oppdater, endreStatus |
+| `oppgave` | hentForProsjekt (m/statusfilter), hentMedId, opprett (m/tegningsposisjon), oppdater, endreStatus |
 | `mal` | hentForProsjekt, hentMedId, opprett, oppdaterMal, slettMal, leggTilObjekt, oppdaterObjekt, oppdaterRekkefølge, slettObjekt |
 | `bygning` | hentForProsjekt, hentMedId, opprett, oppdater, publiser, slett |
 | `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, slett |
-| `arbeidsforlop` | hentForEnterprise, opprett, oppdater, slett |
+| `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
 | `mappe` | hentForProsjekt, opprett, oppdater, slett |
 | `medlem` | hentForProsjekt, leggTil (m/invitasjon), fjern, oppdaterRolle, sokBrukere |
 | `gruppe` | hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem |
@@ -207,13 +208,49 @@ Arbeidsforløp kobler maler til entrepriser og definerer oppretter/svarer-flyten
 - Hvert arbeidsforløp har en valgfri `responderEnterpriseId` som angir svarer-entreprisen
   - Når `responderEnterpriseId` er `null` → svarer er samme entreprise som oppretter (intern flyt)
   - Når satt → dokumenter sendes til en annen entreprise (f.eks. admin sender til UE for utbedring)
+  - Svarer-entreprise velges via dropdown i opprett/rediger-modal
 - Hvert arbeidsforløp velger hvilke maler (oppgavetyper og sjekklistetyper) som er tilgjengelige
 - Maler kategoriseres som `oppgave` eller `sjekkliste` via `report_templates.category`
-- Visningen bruker to-kolonne layout: Oppretter (venstre) → pil → Svarer (høyre)
+- Visningen bruker to-kolonne layout: Oppretter (venstre) → pil → Svarer (høyre) med fargekodet badge
+- Entreprise-headere har fast bredde (280px) og kun oppretter-kolonnen, arbeidsforløp-rader har oppretter + pil + svarer-badge
 - Treprikk-menyer (⋮) på to nivåer: entreprise-header og arbeidsforløp-rad
+- Alle arbeidsforløp for et prosjekt hentes i én query (`hentForProsjekt`) og grupperes klient-side per entreprise
+
+### Prosjektgrupper
+
+Prosjektgrupper kategoriserer brukere med tilhørende tillatelser. Gruppekategorier: `generelt`, `field`, `brukergrupper`.
+
+**Standardgrupper** (opprettes automatisk via seed/`opprettStandardgrupper`):
+- **Field-administratorer** (`field-admin`) — `manage_field`, `create_tasks`, `create_checklists`
+- **Oppgave- og sjekklistekoordinatorer** (`oppgave-sjekkliste-koord`) — `create_tasks`, `create_checklists`
+- **Field-observatorer** (`field-observatorer`) — `view_field`
+- **HMS-ledere** (`hms-ledere`) — `create_tasks`, `create_checklists`
+
+Standardgruppene er definert i `@siteflow/shared` (`STANDARD_PROJECT_GROUPS`).
+
+### Tegningsmarkører (mobil)
+
+Oppgaver kan opprettes direkte fra tegninger i mobilappen:
+1. Bruker trykker på tegning → markør plasseres (rød pin)
+2. OppgaveModal åpnes med posisjon, tegningsnavn, entreprisevalg og prioritet
+3. Oppgaven lagres med `drawingId`, `positionX`, `positionY` (0–100 prosent)
+
+Komponenter:
+- `TegningsVisning` — Støtter `onTrykk`-callback og `markører`-prop for å vise pins
+- `OppgaveModal` — Fullskjerm modal for oppgaveoppretting fra tegning
+- Både bilde- og PDF-visning (WebView med injisert JS) støtter trykk-registrering
 
 ### TODO
 - Nedtrekksmeny for å velge eksisterende prosjektmedlemmer i brukergrupper (erstatt e-postfelt)
+- Oppgave-fra-tegning: Android-tilpasning for tegningstrykk (iOS/web implementert)
+
+### Oppgave fra tegning (mobil)
+
+Brukeren kan opprette oppgaver direkte fra tegningsvisningen i Lokasjoner-taben:
+- Trykk på tegningen plasserer en markør og åpner OppgaveModal
+- Oppgaven lagres med `drawingId`, `positionX` og `positionY` (prosent 0-100)
+- Task-modellen har valgfrie felter: `drawingId`, `positionX`, `positionY`
+- Implementert for iOS/web. Android-tilpasning gjøres ved behov.
 
 ### Tegninger (drawings)
 
@@ -413,6 +450,9 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `REPORT_OBJECT_TYPE_META` — Komplett metadata for alle 21 typer med label, ikon, kategori, standardkonfig
 - `TemplateZone` — Malsoner: `topptekst` | `datafelter`
 - `EnterpriseRole` — `creator` | `responder`
+- `GroupCategory` — 3 gruppekategorier (`generelt`, `field`, `brukergrupper`)
+- `StandardProjectGroup` — Interface for standardgrupper med slug, navn, kategori, tillatelser
+- `STANDARD_PROJECT_GROUPS` — Konstantarray med 4 standardgrupper
 - `BaseEntity`, `GpsData`, `SyncableEntity` — Grunnleggende interfaces
 
 **Valideringsschemaer** (`packages/shared/src/validation/`):
@@ -425,17 +465,22 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `createProjectSchema` — Prosjektopprettelse (navn, beskrivelse, adresse)
 - `createEnterpriseSchema` — Entrepriseopprettelse (navn, prosjektId, org.nr)
 - `createBuildingSchema` — Bygningsopprettelse (navn, prosjektId, beskrivelse, adresse)
-- `createWorkflowSchema` — Arbeidsforløp (enterpriseId, navn, malIder)
-- `updateWorkflowSchema` — Arbeidsforløp-oppdatering (id, navn, malIder)
+- `createWorkflowSchema` — Arbeidsforløp (enterpriseId, responderEnterpriseId, navn, malIder)
+- `updateWorkflowSchema` — Arbeidsforløp-oppdatering (id, responderEnterpriseId, navn, malIder)
 - `addMemberSchema` — Legg til medlem (prosjektId, e-post, rolle, entrepriseId)
 - `drawingDisciplineSchema` — Fagdisiplin-enum (ARK, LARK, RIB, RIV, RIE, RIG, RIBr, RIAku)
 - `drawingTypeSchema` — Tegningstype-enum (plan, snitt, fasade, detalj, oversikt, skjema, montering)
 - `drawingStatusSchema` — Tegningstatus-enum (utkast, delt, under_behandling, godkjent, for_bygging, som_bygget)
 - `createDrawingSchema` — Tegningsopprettelse (alle metadatafelter)
+- `groupCategorySchema` — Gruppekategori-enum (generelt, field, brukergrupper)
+- `createProjectGroupSchema` — Prosjektgruppe-opprettelse (prosjektId, navn, slug, kategori)
+- `updateProjectGroupSchema` — Prosjektgruppe-oppdatering (id, navn)
+- `addGroupMemberByEmailSchema` — Legg til gruppemedlem via e-post (groupId, prosjektId, e-post, fornavn, etternavn, telefon)
 
 **Konstanter og typer:**
 - `DRAWING_DISCIPLINES`, `DRAWING_TYPES`, `DRAWING_STATUSES` — Konstantarrayer
 - `DrawingDiscipline`, `DrawingType`, `DrawingStatus` — TypeScript-typer
+- `GROUP_CATEGORIES` — Konstantarray for gruppekategorier
 
 **Utilities** (`packages/shared/src/utils/`):
 - `generateProjectNumber(sekvens)` — Format: `SF-YYYYMMDD-XXXX`
@@ -473,12 +518,14 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - **Tegning:** Prosjekttegning (PDF/DWG) med versjonering
 - **Rapportobjekt:** Byggeblokk i en mal (21 typer)
 - **Mal (template):** Gjenbrukbar oppskrift for sjekklister/rapporter bygget med drag-and-drop, med prefiks og versjon
-- **Arbeidsforløp (workflow):** Navngitt kobling mellom en entreprise og et sett maler (oppgave-/sjekklistetyper)
+- **Arbeidsforløp (workflow):** Navngitt kobling mellom en oppretter-entreprise, valgfri svarer-entreprise, og et sett maler (oppgave-/sjekklistetyper)
 - **Box:** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur
 - **Bygning:** Fysisk bygning i et prosjekt, med tilknyttede tegninger og publiseringsstatus
 - **Prosjektnummer:** Unikt, autogenerert nummer på format `SF-YYYYMMDD-XXXX`
 - **Prefiks:** Kort kode for en mal (f.eks. BHO, S-BET, KBO)
 - **Invitasjon (ProjectInvitation):** E-postinvitasjon til et prosjekt med unik token, utløpsdato og status (pending/accepted/expired)
+- **Prosjektgruppe (ProjectGroup):** Navngitt gruppe med kategori og tillatelser, brukes for rollestyring (f.eks. Field-admin, HMS-ledere)
+- **Tegningsmarkør:** Posisjon (0–100% X/Y) på en tegning der en oppgave er opprettet fra mobilappen
 
 ## Språk
 

@@ -39,6 +39,7 @@ export const oppgaveRouter = router({
           creator: true,
           creatorEnterprise: true,
           responderEnterprise: true,
+          drawing: true,
           images: true,
           transfers: {
             include: { sender: true },
@@ -59,6 +60,9 @@ export const oppgaveRouter = router({
         description: z.string().optional(),
         priority: z.enum(["low", "medium", "high", "critical"]).default("medium"),
         dueDate: z.string().datetime().optional(),
+        drawingId: z.string().uuid().optional(),
+        positionX: z.number().min(0).max(100).optional(),
+        positionY: z.number().min(0).max(100).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

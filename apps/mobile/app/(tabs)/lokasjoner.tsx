@@ -6,6 +6,7 @@ import {
   Platform,
   ActionSheetIOS,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -18,7 +19,9 @@ import { useProsjekt } from "../../src/kontekst/ProsjektKontekst";
 import { AUTH_CONFIG } from "../../src/config/auth";
 import { KartVisning } from "../../src/components/KartVisning";
 import { TegningsVisning } from "../../src/components/TegningsVisning";
+import type { Markør } from "../../src/components/TegningsVisning";
 import { TegningsVelger } from "../../src/components/TegningsVelger";
+import { OppgaveModal } from "../../src/components/OppgaveModal";
 
 // Type-casts for å unngå TS2589 (excessively deep type instantiation)
 interface BygningData {
@@ -48,6 +51,10 @@ export default function LokasjonerSkjerm() {
   const { valgtProsjektId } = useProsjekt();
   const [valgtBygningId, setValgtBygningId] = useState<string | null>(null);
   const [valgtTegningId, setValgtTegningId] = useState<string | null>(null);
+
+  // Markør- og oppgavemodal-state
+  const [markørPosisjon, setMarkørPosisjon] = useState<{ x: number; y: number } | null>(null);
+  const [visOppgaveModal, setVisOppgaveModal] = useState(false);
 
   // Hent bygninger for valgt prosjekt
   const bygningQuery = trpc.bygning.hentForProsjekt.useQuery(
@@ -84,6 +91,12 @@ export default function LokasjonerSkjerm() {
     [tegninger, valgtTegningId],
   );
 
+  // Bygg markørliste fra state
+  const markører: Markør[] = useMemo(() => {
+    if (!markørPosisjon) return [];
+    return [{ x: markørPosisjon.x, y: markørPosisjon.y, id: "ny-oppgave" }];
+  }, [markørPosisjon]);
+
   // Treprikk-meny
   const visTreprikkmeny = useCallback(() => {
     if (Platform.OS === "ios") {
@@ -98,7 +111,6 @@ export default function LokasjonerSkjerm() {
           cancelButtonIndex: 0,
         },
         (indeks) => {
-          // Funksjonalitet implementeres ved behov
           if (indeks === 1) {
             // Tegningsinformasjon
           } else if (indeks === 2) {
@@ -114,17 +126,42 @@ export default function LokasjonerSkjerm() {
   // Håndter tegningsvalg
   const håndterVelgTegning = useCallback((id: string) => {
     setValgtTegningId(id);
+    setMarkørPosisjon(null); // Nullstill markør ved ny tegning
   }, []);
 
   // Håndter lukking av tegning
   const håndterLukkTegning = useCallback(() => {
     setValgtTegningId(null);
+    setMarkørPosisjon(null);
   }, []);
 
   // Håndter avbryt i bottom sheet
   const håndterAvbryt = useCallback(() => {
     setValgtTegningId(null);
     setValgtBygningId(null);
+    setMarkørPosisjon(null);
+  }, []);
+
+  // Håndter trykk på tegning — plasser markør og åpne oppgavemodal
+  const håndterTegningTrykk = useCallback(
+    (posX: number, posY: number) => {
+      setMarkørPosisjon({ x: posX, y: posY });
+      setVisOppgaveModal(true);
+    },
+    [],
+  );
+
+  // Håndter oppgave opprettet
+  const håndterOppgaveOpprettet = useCallback(() => {
+    setVisOppgaveModal(false);
+    setMarkørPosisjon(null);
+    Alert.alert("Oppgave opprettet", "Oppgaven ble opprettet og koblet til tegningen.");
+  }, []);
+
+  // Håndter lukking av oppgavemodal
+  const håndterLukkOppgaveModal = useCallback(() => {
+    setVisOppgaveModal(false);
+    setMarkørPosisjon(null);
   }, []);
 
   // Ingen prosjekt valgt
@@ -146,7 +183,7 @@ export default function LokasjonerSkjerm() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      {/* Grønn filterbar */}
+      {/* Blå filterbar */}
       <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
         <Pressable className="flex-row items-center gap-1">
           <Text className="text-base font-semibold text-white">Oppgaver</Text>
@@ -175,6 +212,8 @@ export default function LokasjonerSkjerm() {
             }
             tegningNavn={valgtTegningDetalj.name}
             onLukk={håndterLukkTegning}
+            onTrykk={håndterTegningTrykk}
+            markører={markører}
           />
         ) : (
           <KartVisning />
@@ -192,6 +231,19 @@ export default function LokasjonerSkjerm() {
         onAvbryt={håndterAvbryt}
         laster={lasterData}
       />
+
+      {/* Oppgave-opprettelsesmodal */}
+      {valgtTegningId && valgtTegning && markørPosisjon && (
+        <OppgaveModal
+          synlig={visOppgaveModal}
+          onLukk={håndterLukkOppgaveModal}
+          onOpprettet={håndterOppgaveOpprettet}
+          tegningNavn={valgtTegning.drawingNumber || valgtTegning.name}
+          tegningId={valgtTegningId}
+          posisjonX={markørPosisjon.x}
+          posisjonY={markørPosisjon.y}
+        />
+      )}
     </SafeAreaView>
   );
 }

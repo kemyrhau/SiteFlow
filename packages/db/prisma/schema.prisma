@@ -179,7 +179,8 @@ model Enterprise {
   respondChecklists  Checklist[]      @relation("ChecklistResponderEnterprise")
   createdTasks       Task[]           @relation("TaskCreatorEnterprise")
   respondTasks       Task[]           @relation("TaskResponderEnterprise")
-  workflows          Workflow[]
+  createdWorkflows   Workflow[]       @relation("WorkflowCreator")
+  respondWorkflows   Workflow[]       @relation("WorkflowResponder")
   invitations        ProjectInvitation[]
 
   @@map("enterprises")
@@ -210,6 +211,7 @@ model Drawing {
   project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   building  Building?         @relation(fields: [buildingId], references: [id], onDelete: SetNull)
   revisions DrawingRevision[]
+  tasks     Task[]
 
   @@map("drawings")
 }
@@ -317,12 +319,16 @@ model Task {
   description          String?
   priority             String    @default("medium")
   dueDate              DateTime? @map("due_date")
+  drawingId            String?   @map("drawing_id")
+  positionX            Float?    @map("position_x")
+  positionY            Float?    @map("position_y")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
   creator            User               @relation("TaskCreator", fields: [creatorUserId], references: [id])
   creatorEnterprise  Enterprise         @relation("TaskCreatorEnterprise", fields: [creatorEnterpriseId], references: [id])
   responderEnterprise Enterprise        @relation("TaskResponderEnterprise", fields: [responderEnterpriseId], references: [id])
+  drawing            Drawing?           @relation(fields: [drawingId], references: [id])
   transfers          DocumentTransfer[]
   images             Image[]
 
@@ -397,14 +403,16 @@ model Document {
 }
 
 model Workflow {
-  id           String   @id @default(uuid())
-  enterpriseId String   @map("enterprise_id")
-  name         String
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(uuid())
+  enterpriseId          String   @map("enterprise_id")
+  responderEnterpriseId String?  @map("responder_enterprise_id")
+  name                  String
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
-  enterprise Enterprise         @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-  templates  WorkflowTemplate[]
+  enterprise          Enterprise  @relation("WorkflowCreator", fields: [enterpriseId], references: [id], onDelete: Cascade)
+  responderEnterprise Enterprise? @relation("WorkflowResponder", fields: [responderEnterpriseId], references: [id], onDelete: SetNull)
+  templates           WorkflowTemplate[]
 
   @@map("workflows")
 }
