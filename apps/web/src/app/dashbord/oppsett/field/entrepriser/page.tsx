@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
 import {
   Button,
@@ -519,7 +519,7 @@ function RedigerArbeidsforlopModal({
 /* ------------------------------------------------------------------ */
 
 export default function EntrepriserSide() {
-  const params = useParams<{ prosjektId: string }>();
+  const { prosjektId } = useProsjekt();
   const utils = trpc.useUtils();
 
   // Søk
@@ -546,13 +546,13 @@ export default function EntrepriserSide() {
   // Data
   const { data: entrepriser, isLoading } =
     trpc.entreprise.hentForProsjekt.useQuery(
-      { projectId: params.prosjektId! },
-      { enabled: !!params.prosjektId },
+      { projectId: prosjektId! },
+      { enabled: !!prosjektId },
     );
 
   const { data: maler } = trpc.mal.hentForProsjekt.useQuery(
-    { projectId: params.prosjektId! },
-    { enabled: !!params.prosjektId },
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
   );
 
   // Hent arbeidsforløp for alle entrepriser
@@ -577,7 +577,7 @@ export default function EntrepriserSide() {
   // Mutasjoner — entreprise
   const opprettEntrepriseMutation = trpc.entreprise.opprett.useMutation({
     onSuccess: () => {
-      utils.entreprise.hentForProsjekt.invalidate({ projectId: params.prosjektId! });
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId! });
       setVisNyEntrepriseModal(false);
       setNyEntrepriseNavn("");
       setNyOrgNummer("");
@@ -586,14 +586,14 @@ export default function EntrepriserSide() {
 
   const oppdaterEntrepriseMutation = trpc.entreprise.oppdater.useMutation({
     onSuccess: () => {
-      utils.entreprise.hentForProsjekt.invalidate({ projectId: params.prosjektId! });
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId! });
       setRedigerEntrepriseId(null);
     },
   });
 
   const slettEntrepriseMutation = trpc.entreprise.slett.useMutation({
     onSuccess: () => {
-      utils.entreprise.hentForProsjekt.invalidate({ projectId: params.prosjektId! });
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId! });
       setSlettEntrepriseId(null);
     },
   });
@@ -797,10 +797,10 @@ export default function EntrepriserSide() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!nyEntrepriseNavn.trim() || !params.prosjektId) return;
+            if (!nyEntrepriseNavn.trim() || !prosjektId) return;
             opprettEntrepriseMutation.mutate({
               name: nyEntrepriseNavn.trim(),
-              projectId: params.prosjektId,
+              projectId: prosjektId,
               organizationNumber: nyOrgNummer.trim() || undefined,
             });
           }}

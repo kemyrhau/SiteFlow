@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
 import { Button, Input, Modal, Spinner, EmptyState } from "@siteflow/ui";
 import {
@@ -29,7 +29,7 @@ function RedigerBygning({
   bygningId: string;
   onLukk: () => void;
 }) {
-  const params = useParams<{ prosjektId: string }>();
+  const { prosjektId } = useProsjekt();
   const utils = trpc.useUtils();
   const filInputRef = useRef<HTMLInputElement>(null);
   const [visTilføyMeny, setVisTilføyMeny] = useState(false);
@@ -40,18 +40,18 @@ function RedigerBygning({
 
   // Alle prosjekttegninger uten bygning (for tilknytning)
   const { data: alleTegninger } = trpc.tegning.hentForProsjekt.useQuery(
-    { projectId: params.prosjektId! },
-    { enabled: !!params.prosjektId },
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
   );
 
   const tilknyttMutation = trpc.tegning.tilknyttBygning.useMutation({
     onSuccess: () => {
       utils.bygning.hentMedId.invalidate({ id: bygningId });
       utils.tegning.hentForProsjekt.invalidate({
-        projectId: params.prosjektId!,
+        projectId: prosjektId!,
       });
       utils.bygning.hentForProsjekt.invalidate({
-        projectId: params.prosjektId!,
+        projectId: prosjektId!,
       });
     },
   });
@@ -290,7 +290,7 @@ function PublisertBygningKort({
 /* ------------------------------------------------------------------ */
 
 export default function BygningerSide() {
-  const params = useParams<{ prosjektId: string }>();
+  const { prosjektId } = useProsjekt();
   const utils = trpc.useUtils();
   const [visModal, setVisModal] = useState(false);
   const [visEndreNavnModal, setVisEndreNavnModal] = useState(false);
@@ -301,14 +301,14 @@ export default function BygningerSide() {
   const [visMerMeny, setVisMerMeny] = useState(false);
 
   const { data: bygninger, isLoading } = trpc.bygning.hentForProsjekt.useQuery(
-    { projectId: params.prosjektId! },
-    { enabled: !!params.prosjektId },
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
   );
 
   const opprettMutation = trpc.bygning.opprett.useMutation({
     onSuccess: () => {
       utils.bygning.hentForProsjekt.invalidate({
-        projectId: params.prosjektId!,
+        projectId: prosjektId!,
       });
       setVisModal(false);
       setNyNavn("");
@@ -318,7 +318,7 @@ export default function BygningerSide() {
   const slettMutation = trpc.bygning.slett.useMutation({
     onSuccess: () => {
       utils.bygning.hentForProsjekt.invalidate({
-        projectId: params.prosjektId!,
+        projectId: prosjektId!,
       });
       setValgtId(null);
     },
@@ -327,7 +327,7 @@ export default function BygningerSide() {
   const publiserMutation = trpc.bygning.publiser.useMutation({
     onSuccess: () => {
       utils.bygning.hentForProsjekt.invalidate({
-        projectId: params.prosjektId!,
+        projectId: prosjektId!,
       });
     },
   });
@@ -335,7 +335,7 @@ export default function BygningerSide() {
   const oppdaterMutation = trpc.bygning.oppdater.useMutation({
     onSuccess: () => {
       utils.bygning.hentForProsjekt.invalidate({
-        projectId: params.prosjektId!,
+        projectId: prosjektId!,
       });
       setVisEndreNavnModal(false);
       setEndreNavn("");
@@ -351,10 +351,10 @@ export default function BygningerSide() {
 
   function handleOpprett(e: React.FormEvent) {
     e.preventDefault();
-    if (!params.prosjektId) return;
+    if (!prosjektId) return;
     opprettMutation.mutate({
       name: nyNavn,
-      projectId: params.prosjektId,
+      projectId: prosjektId,
     });
   }
 

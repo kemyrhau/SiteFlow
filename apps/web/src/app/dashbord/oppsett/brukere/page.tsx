@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
+import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { Button, Input, Modal, Spinner, SearchInput, Card } from "@siteflow/ui";
 import {
   Plus,
@@ -507,7 +507,7 @@ function GruppeSeksjon({
 /* ------------------------------------------------------------------ */
 
 export default function BrukereSide() {
-  const params = useParams<{ prosjektId: string }>();
+  const { prosjektId } = useProsjekt();
   const [sok, setSok] = useState("");
   const [visNyGruppeModal, setVisNyGruppeModal] = useState(false);
   const [nyGruppeNavn, setNyGruppeNavn] = useState("");
@@ -519,13 +519,13 @@ export default function BrukereSide() {
 
   // Hent prosjektmedlemmer og entrepriser for å populere grupper
   const { data: prosjekt } = trpc.prosjekt.hentMedId.useQuery(
-    { id: params.prosjektId! },
-    { enabled: !!params.prosjektId },
+    { id: prosjektId! },
+    { enabled: !!prosjektId },
   );
 
   const { data: entrepriser } = trpc.entreprise.hentForProsjekt.useQuery(
-    { projectId: params.prosjektId! },
-    { enabled: !!params.prosjektId },
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
   );
 
   // Bygg grupper fra data
@@ -669,12 +669,12 @@ export default function BrukereSide() {
       )}
 
       {/* Rediger gruppe modal */}
-      {redigerGruppe && params.prosjektId && (
+      {redigerGruppe && prosjektId && (
         <RedigerGruppeModal
           open={!!redigerGruppe}
           onClose={() => setRedigerGruppe(null)}
           gruppe={redigerGruppe}
-          prosjektId={params.prosjektId}
+          prosjektId={prosjektId}
         />
       )}
 

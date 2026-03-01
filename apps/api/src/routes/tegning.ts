@@ -1,15 +1,42 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc/trpc";
+import {
+  drawingDisciplineSchema,
+  drawingTypeSchema,
+  drawingStatusSchema,
+} from "@siteflow/shared";
+
+const fagdisipliner = drawingDisciplineSchema;
+const tegningstyper = drawingTypeSchema;
+const tegningStatuser = drawingStatusSchema;
 
 export const tegningRouter = router({
   // Hent alle tegninger for et prosjekt
   hentForProsjekt: publicProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(
+      z.object({
+        projectId: z.string().uuid(),
+        discipline: z.string().optional(),
+        status: z.string().optional(),
+        buildingId: z.string().uuid().optional(),
+        floor: z.string().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
+      const { projectId, discipline, status, buildingId, floor } = input;
       return ctx.prisma.drawing.findMany({
-        where: { projectId: input.projectId },
-        include: { building: { select: { id: true, name: true } } },
-        orderBy: { name: "asc" },
+        where: {
+          projectId,
+          ...(discipline ? { discipline } : {}),
+          ...(status ? { status } : {}),
+          ...(buildingId ? { buildingId } : {}),
+          ...(floor ? { floor } : {}),
+        },
+        include: {
+          building: { select: { id: true, name: true } },
+          _count: { select: { revisions: true } },
+        },
+        orderBy: [{ discipline: "asc" }, { drawingNumber: "asc" }, { name: "asc" }],
       });
     }),
 
@@ -19,7 +46,135 @@ export const tegningRouter = router({
     .query(async ({ ctx, input }) => {
       return ctx.prisma.drawing.findMany({
         where: { buildingId: input.buildingId },
-        orderBy: { name: "asc" },
+        include: { _count: { select: { revisions: true } } },
+        orderBy: [{ discipline: "asc" }, { drawingNumber: "asc" }],
+      });
+    }),
+
+  // Hent én tegning med revisjonshistorikk
+  hentMedId: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.drawing.findUniqueOrThrow({
+        where: { id: input.id },
+        include: {
+          building: true,
+          project: { select: { id: true, name: true } },
+          revisions: {
+            orderBy: { createdAt: "desc" },
+            include: { uploadedBy: { select: { id: true, name: true, email: true } } },
+          },
+        },
+      });
+    }),
+
+  // Opprett ny tegning
+  opprett: publicProcedure
+    .input(
+      z.object({
+        projectId: z.string().uuid(),
+        buildingId: z.string().uuid().optional(),
+        name: z.string().min(1).max(255),
+        drawingNumber: z.string().max(50).optional(),
+        discipline: fagdisipliner.optional(),
+        drawingType: tegningstyper.optional(),
+        revision: z.string().max(10).default("A"),
+        status: tegningStatuser.default("utkast"),
+        floor: z.string().max(20).optional(),
+        scale: z.string().max(20).optional(),
+        description: z.string().optional(),
+        originator: z.string().max(255).optional(),
+        fileUrl: z.string(),
+        fileType: z.string(),
+        fileSize: z.number().int().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.drawing.create({ data: input });
+    }),
+
+  // Oppdater tegningsmetadata
+  oppdater: publicProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(255).optional(),
+        drawingNumber: z.string().max(50).optional(),
+        discipline: fagdisipliner.optional(),
+        drawingType: tegningstyper.optional(),
+        status: tegningStatuser.optional(),
+        floor: z.string().max(20).optional(),
+        scale: z.string().max(20).optional(),
+        description: z.string().optional(),
+        originator: z.string().max(255).optional(),
+        buildingId: z.string().uuid().nullable().optional(),
+        issuedAt: z.date().nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      return ctx.prisma.drawing.update({ where: { id }, data });
+    }),
+
+  // Last opp ny revisjon av en tegning
+  lastOppRevisjon: publicProcedure
+    .input(
+      z.object({
+        drawingId: z.string().uuid(),
+        revision: z.string().max(10),
+        fileUrl: z.string(),
+        fileSize: z.number().int().optional(),
+        description: z.string().optional(),
+        uploadedById: z.string().uuid().optional(),
+        status: tegningStatuser.optional(),
+        issuedAt: z.date().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { drawingId, revision, fileUrl, fileSize, description, uploadedById, status, issuedAt } = input;
+
+      // Hent gjeldende tegning
+      const tegning = await ctx.prisma.drawing.findUniqueOrThrow({
+        where: { id: drawingId },
+      });
+
+      // Lagre gjeldende versjon som revisjonshistorikk
+      await ctx.prisma.drawingRevision.create({
+        data: {
+          drawingId,
+          revision: tegning.revision,
+          version: tegning.version,
+          fileUrl: tegning.fileUrl,
+          fileSize: tegning.fileSize,
+          status: tegning.status,
+          issuedAt: tegning.issuedAt,
+          uploadedById,
+        },
+      });
+
+      // Oppdater tegningen med ny revisjon
+      return ctx.prisma.drawing.update({
+        where: { id: drawingId },
+        data: {
+          revision,
+          version: tegning.version + 1,
+          fileUrl,
+          fileSize: fileSize ?? null,
+          status: status ?? tegning.status,
+          issuedAt: issuedAt ?? null,
+          description,
+        },
+      });
+    }),
+
+  // Hent revisjonshistorikk for en tegning
+  hentRevisjoner: publicProcedure
+    .input(z.object({ drawingId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.drawingRevision.findMany({
+        where: { drawingId: input.drawingId },
+        include: { uploadedBy: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "desc" },
       });
     }),
 
@@ -36,5 +191,12 @@ export const tegningRouter = router({
         where: { id: input.drawingId },
         data: { buildingId: input.buildingId },
       });
+    }),
+
+  // Slett tegning
+  slett: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.drawing.delete({ where: { id: input.id } });
     }),
 });

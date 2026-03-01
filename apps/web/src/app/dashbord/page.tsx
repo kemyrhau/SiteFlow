@@ -22,7 +22,7 @@ export default function DashbordSide() {
           <h2 className="text-xl font-bold text-gray-900">
             Velkommen, {session?.user?.name ?? "bruker"}
           </h2>
-          <Link href="/dashbord/prosjekter/nytt">
+          <Link href="/dashbord/nytt-prosjekt">
             <Button size="sm">
               <Plus className="mr-1.5 h-4 w-4" />
               Nytt prosjekt
@@ -39,7 +39,7 @@ export default function DashbordSide() {
             title="Ingen prosjekter ennå"
             description="Opprett ditt første byggeprosjekt for å komme i gang."
             action={
-              <Link href="/dashbord/prosjekter/nytt">
+              <Link href="/dashbord/nytt-prosjekt">
                 <Button>Opprett prosjekt</Button>
               </Link>
             }

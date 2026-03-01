@@ -1,8 +1,16 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
+
+const STORAGE_KEY = "siteflow-valgt-prosjekt";
 
 interface Prosjekt {
   id: string;
@@ -23,10 +31,30 @@ interface ProsjektKontekstType {
 
 const ProsjektKontekst = createContext<ProsjektKontekstType | null>(null);
 
+function hentLagretProsjektId(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(STORAGE_KEY);
+}
+
 export function ProsjektProvider({ children }: { children: ReactNode }) {
   const params = useParams<{ prosjektId?: string }>();
   const router = useRouter();
-  const prosjektId = params.prosjektId ?? null;
+  const urlProsjektId = params.prosjektId ?? null;
+
+  // Bruk URL-param hvis tilgjengelig, ellers bruk lagret verdi
+  const [lagretProsjektId, setLagretProsjektId] = useState<string | null>(
+    () => hentLagretProsjektId(),
+  );
+
+  const prosjektId = urlProsjektId ?? lagretProsjektId;
+
+  // Synkroniser: når URL har prosjektId → lagre det
+  useEffect(() => {
+    if (urlProsjektId) {
+      setLagretProsjektId(urlProsjektId);
+      localStorage.setItem(STORAGE_KEY, urlProsjektId);
+    }
+  }, [urlProsjektId]);
 
   const { data: prosjekter, isLoading: lasterProsjekter } =
     trpc.prosjekt.hentAlle.useQuery();
@@ -34,10 +62,12 @@ export function ProsjektProvider({ children }: { children: ReactNode }) {
   const { data: valgtProsjekt, isLoading: lasterValgt } =
     trpc.prosjekt.hentMedId.useQuery(
       { id: prosjektId! },
-      { enabled: !!prosjektId },
+      { enabled: !!prosjektId, retry: false },
     );
 
   function velgProsjekt(id: string) {
+    setLagretProsjektId(id);
+    localStorage.setItem(STORAGE_KEY, id);
     router.push(`/dashbord/${id}`);
   }
 

@@ -19,7 +19,7 @@ export default function ProsjekterSide() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-bold">Prosjekter</h2>
-        <Link href="/dashbord/prosjekter/nytt">
+        <Link href="/dashbord/nytt-prosjekt">
           <Button>Nytt prosjekt</Button>
         </Link>
       </div>
@@ -29,7 +29,7 @@ export default function ProsjekterSide() {
           title="Ingen prosjekter ennå"
           description="Opprett ditt første byggeprosjekt for å komme i gang."
           action={
-            <Link href="/dashbord/prosjekter/nytt">
+            <Link href="/dashbord/nytt-prosjekt">
               <Button>Opprett prosjekt</Button>
             </Link>
           }

@@ -10,37 +10,37 @@ const nextConfig = {
       {
         source: "/dashbord/prosjekter/:id",
         destination: "/dashbord/:id",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/dashbord/prosjekter/:id/sjekklister",
         destination: "/dashbord/:id/sjekklister",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/dashbord/prosjekter/:id/sjekklister/:sjekklisteId",
         destination: "/dashbord/:id/sjekklister/:sjekklisteId",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/dashbord/prosjekter/:id/oppgaver",
         destination: "/dashbord/:id/oppgaver",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/dashbord/prosjekter/:id/maler",
         destination: "/dashbord/:id/maler",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/dashbord/prosjekter/:id/maler/:malId",
         destination: "/dashbord/:id/maler/:malId",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/dashbord/prosjekter/:id/entrepriser",
         destination: "/dashbord/:id/entrepriser",
-        permanent: true,
+        permanent: false,
       },
     ];
   },

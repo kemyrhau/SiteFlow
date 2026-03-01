@@ -65,3 +65,42 @@ export const addMemberSchema = z.object({
   role: z.enum(["member", "admin"]).default("member"),
   enterpriseId: z.string().uuid().optional(),
 });
+
+// Tegningsvalidering
+export const DRAWING_DISCIPLINES = [
+  "ARK", "LARK", "RIB", "RIV", "RIE", "RIG", "RIBr", "RIAku",
+] as const;
+
+export const DRAWING_TYPES = [
+  "plan", "snitt", "fasade", "detalj", "oversikt", "skjema", "montering",
+] as const;
+
+export const DRAWING_STATUSES = [
+  "utkast", "delt", "under_behandling", "godkjent", "for_bygging", "som_bygget",
+] as const;
+
+export type DrawingDiscipline = (typeof DRAWING_DISCIPLINES)[number];
+export type DrawingType = (typeof DRAWING_TYPES)[number];
+export type DrawingStatus = (typeof DRAWING_STATUSES)[number];
+
+export const drawingDisciplineSchema = z.enum(DRAWING_DISCIPLINES);
+export const drawingTypeSchema = z.enum(DRAWING_TYPES);
+export const drawingStatusSchema = z.enum(DRAWING_STATUSES);
+
+export const createDrawingSchema = z.object({
+  projectId: z.string().uuid(),
+  buildingId: z.string().uuid().optional(),
+  name: z.string().min(1).max(255),
+  drawingNumber: z.string().max(50).optional(),
+  discipline: drawingDisciplineSchema.optional(),
+  drawingType: drawingTypeSchema.optional(),
+  revision: z.string().max(10).default("A"),
+  status: drawingStatusSchema.default("utkast"),
+  floor: z.string().max(20).optional(),
+  scale: z.string().max(20).optional(),
+  description: z.string().optional(),
+  originator: z.string().max(255).optional(),
+  fileUrl: z.string(),
+  fileType: z.string(),
+  fileSize: z.number().int().optional(),
+});

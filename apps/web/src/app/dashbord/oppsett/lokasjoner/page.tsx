@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { Building2, Map } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -15,11 +15,11 @@ interface LokasjonKategori {
 }
 
 export default function LokasjonerSide() {
-  const params = useParams<{ prosjektId: string }>();
+  const { prosjektId } = useProsjekt();
 
   const { data: bygninger } = trpc.bygning.hentForProsjekt.useQuery(
-    { projectId: params.prosjektId! },
-    { enabled: !!params.prosjektId },
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
   );
 
   const kategorier: LokasjonKategori[] = [

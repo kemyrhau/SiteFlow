@@ -23,6 +23,7 @@ model User {
   createdChecklists    Checklist[]        @relation("ChecklistCreator")
   createdTasks         Task[]             @relation("TaskCreator")
   sentTransfers        DocumentTransfer[] @relation("TransferSender")
+  drawingRevisions     DrawingRevision[]  @relation("DrawingRevisionUploader")
 
   @@map("users")
 }
@@ -124,20 +125,51 @@ model Enterprise {
 }
 
 model Drawing {
-  id         String   @id @default(uuid())
-  projectId  String   @map("project_id")
-  buildingId String?  @map("building_id")
-  name       String
-  version    Int      @default(1)
-  fileUrl    String   @map("file_url")
-  fileType   String   @map("file_type")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id            String    @id @default(uuid())
+  projectId     String    @map("project_id")
+  buildingId    String?   @map("building_id")
+  name          String
+  drawingNumber String?   @map("drawing_number")     // Tegningsnummer: ARK-P-101
+  discipline    String?                               // Fagdisiplin: ARK, RIB, RIV, RIE, RIBr, RIG, LARK, RIAku
+  drawingType   String?   @map("drawing_type")        // Tegningstype: plan, snitt, fasade, detalj, oversikt, skjema
+  revision      String    @default("A")               // Revisjonskode: A, B, C eller R01, R02
+  version       Int       @default(1)                 // Internversjon (økes ved opplasting)
+  status        String    @default("utkast")          // utkast, delt, under_behandling, godkjent, for_bygging, som_bygget
+  floor         String?                               // Etasje: U2, U1, 01, 02, 03, Tak
+  scale         String?                               // Målestokk: 1:50, 1:100, 1:200
+  description   String?                               // Innholdsbeskrivelse
+  originator    String?                               // Opphav (firma/person)
+  fileUrl       String    @map("file_url")
+  fileType      String    @map("file_type")           // PDF, DWG, DXF, IFC
+  fileSize      Int?      @map("file_size")           // Filstørrelse i bytes
+  issuedAt      DateTime? @map("issued_at")           // Utstedelsesdato
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  building  Building?         @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  revisions DrawingRevision[]
 
   @@map("drawings")
+}
+
+model DrawingRevision {
+  id           String   @id @default(uuid())
+  drawingId    String   @map("drawing_id")
+  revision     String                                  // Revisjonskode ved denne versjonen (A, B, C)
+  version      Int                                     // Versjonsnummer ved denne revisjonen
+  fileUrl      String   @map("file_url")
+  fileSize     Int?     @map("file_size")
+  description  String?                                 // Beskrivelse av endringer
+  uploadedById String?  @map("uploaded_by_id")
+  status       String                                  // Status ved revisjon
+  issuedAt     DateTime? @map("issued_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  drawing    Drawing @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation("DrawingRevisionUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@map("drawing_revisions")
 }
 
 model Building {

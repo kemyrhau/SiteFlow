@@ -4,11 +4,11 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 
 ## Tech Stack
 
-- **Monorepo:** Turborepo
+- **Monorepo:** Turborepo med pnpm workspaces
 - **Frontend web:** Next.js 14+ (App Router), React, TypeScript
 - **Frontend mobil:** React Native, Expo (SDK 52+)
 - **Backend API:** Node.js, Fastify, tRPC
-- **Database (server):** PostgreSQL med Prisma ORM
+- **Database (server):** PostgreSQL med Prisma ORM (v6.19)
 - **Database (lokal):** SQLite via expo-sqlite, Drizzle ORM
 - **Fillagring:** S3-kompatibel (AWS S3 / Cloudflare R2 / MinIO)
 - **Auth:** Auth.js v5 (next-auth) med Google og Microsoft Entra ID (Office 365), PrismaAdapter, database-sesjoner
@@ -17,47 +17,72 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 - **PDF-eksport:** react-pdf
 - **Styling:** Tailwind CSS (web), NativeWind (mobil)
 - **Drag-and-drop:** dnd-kit (malbygger på PC)
+- **Ikoner:** lucide-react
 
 ## Prosjektstruktur
 
 ```
 siteflow/
 ├── apps/
-│   ├── web/            # Next.js PC-applikasjon
+│   ├── web/              # Next.js PC-applikasjon
 │   │   └── src/
-│   │       ├── app/dashbord/
-│   │       │   ├── layout.tsx              # Tre-kolonne layout (Toppbar + Sidebar + innhold)
-│   │       │   ├── page.tsx                # Dashbord med prosjektliste
-│   │       │   ├── oppsett/               # Innstillinger
-│   │       │   │   ├── layout.tsx          # Innstillings-sidebar med navigasjon
-│   │       │   │   ├── brukere/           # Brukergrupper og roller
-│   │       │   │   ├── lokasjoner/        # Lokasjoner + bygninger
-│   │       │   │   ├── field/             # Field-innstillinger
-│   │       │   │   │   ├── entrepriser/   # Entrepriser med arbeidsforløp
-│   │       │   │   │   ├── box/           # Box (filstruktur/dokumenthåndtering)
-│   │       │   │   │   ├── oppgavemaler/  # Oppgavens arbeidsflyt
-│   │       │   │   │   └── kontrollplaner/# Kontrollplaner
-│   │       │   │   ├── prosjektoppsett/   # Prosjektoppsett (navn, status, adresse)
-│   │       │   │   └── eierportal-brukere/# Owners Portal brukere
-│   │       │   └── [prosjektId]/          # Prosjektspesifikke ruter
-│   │       │       ├── layout.tsx          # Verktøylinje-wrapper
-│   │       │       ├── page.tsx            # Prosjektoversikt
-│   │       │       ├── sjekklister/       # Sjekkliste-tabell + detalj
-│   │       │       ├── oppgaver/          # Oppgave-tabell
-│   │       │       ├── maler/             # Maler med malbygger
-│   │       │       ├── entrepriser/       # Entreprise-liste
-│   │       │       └── tegninger/         # Tegninger (kommer)
+│   │       ├── app/
+│   │       │   ├── page.tsx                  # Landingsside med innlogging
+│   │       │   ├── logg-inn/                 # OAuth-innlogging (Google + Entra ID)
+│   │       │   ├── registrer/                # Redirect til innlogging
+│   │       │   ├── api/trpc/                 # tRPC API-rutehåndterer for Next.js
+│   │       │   ├── providers.tsx             # TRPCProvider + SessionProvider
+│   │       │   └── dashbord/
+│   │       │       ├── layout.tsx            # Tre-kolonne layout (Toppbar + Sidebar + innhold)
+│   │       │       ├── page.tsx              # Dashbord med prosjektliste
+│   │       │       ├── [prosjektId]/         # Nytt prosjektspesifikt rutetré
+│   │       │       │   ├── layout.tsx        # Verktøylinje-wrapper
+│   │       │       │   ├── page.tsx          # Prosjektoversikt
+│   │       │       │   ├── sjekklister/      # Sjekkliste-tabell + detalj (med layout + panel)
+│   │       │       │   ├── oppgaver/         # Oppgave-tabell (med layout + panel)
+│   │       │       │   ├── maler/            # Mal-liste + malbygger (med layout + panel)
+│   │       │       │   ├── entrepriser/      # Entreprise-liste (med layout + panel)
+│   │       │       │   └── tegninger/        # Tegninger (med layout + panel)
+│   │       │       ├── oppsett/              # Innstillinger
+│   │       │       │   ├── layout.tsx        # Innstillings-sidebar med navigasjon
+│   │       │       │   ├── brukere/          # Brukergrupper, roller, legg til medlemmer
+│   │       │       │   ├── lokasjoner/       # Lokasjonsoversikt + bygninger
+│   │       │       │   ├── field/            # Field-innstillinger
+│   │       │       │   │   ├── page.tsx      # Field-oversikt (kategorikort)
+│   │       │       │   │   ├── entrepriser/  # Entrepriser med arbeidsforløp
+│   │       │       │   │   ├── oppgavemaler/ # Oppgavemaler (filtrert malliste)
+│   │       │       │   │   ├── sjekklistemaler/ # Sjekklistemaler (filtrert malliste)
+│   │       │       │   │   ├── _components/  # Delt MalListe-komponent
+│   │       │       │   │   ├── box/          # Box (filstruktur/dokumenthåndtering)
+│   │       │       │   │   └── kontrollplaner/ # Kontrollplaner (kommer)
+│   │       │       │   ├── prosjektoppsett/  # Prosjektoppsett (navn, status, adresse)
+│   │       │       │   └── eierportal-brukere/ # Owners Portal brukere
+│   │       │       └── prosjekter/           # LEGACY: Gamle flat-navigasjonsruter
+│   │       │           ├── page.tsx          # Prosjektliste (gammel)
+│   │       │           ├── nytt/             # Opprett prosjekt (gammel)
+│   │       │           └── [id]/             # Prosjektdetalj med tabs (gammel)
 │   │       ├── components/
-│   │       │   ├── layout/                # Toppbar, HovedSidebar, SekundaertPanel, Verktoylinje, ProsjektVelger
-│   │       │   └── paneler/               # Seksjonspaneler (filter/statusgrupper per seksjon)
-│   │       ├── kontekst/                  # ProsjektKontekst, NavigasjonKontekst
-│   │       └── hooks/                     # useAktivSeksjon, useVerktoylinje
-│   ├── mobile/         # Expo React Native app
-│   └── api/            # Fastify backend
+│   │       │   ├── Toppmeny.tsx              # LEGACY: Gammel toppmeny
+│   │       │   ├── layout/                   # Toppbar, HovedSidebar, SekundaertPanel, Verktoylinje, ProsjektVelger
+│   │       │   └── paneler/                  # Seksjonspaneler (Dashbord, Sjekklister, Oppgaver, Maler, Entrepriser, Tegninger)
+│   │       ├── kontekst/                     # ProsjektKontekst, NavigasjonKontekst
+│   │       ├── hooks/                        # useAktivSeksjon, useVerktoylinje
+│   │       ├── lib/
+│   │       │   └── trpc.ts                   # tRPC-klient med React-Query (httpBatchLink → /api/trpc)
+│   │       └── auth.ts                       # Auth.js konfigurasjon
+│   ├── mobile/           # Expo React Native app
+│   └── api/              # Fastify backend
+│       └── src/
+│           ├── routes/                       # tRPC-routere (se API-seksjonen)
+│           │   └── health.ts                 # REST: GET /health
+│           └── trpc/
+│               ├── trpc.ts                   # publicProcedure + protectedProcedure
+│               ├── context.ts                # Auth-verifisering fra sesjonstokens
+│               └── router.ts                 # Samler alle routere til appRouter
 ├── packages/
-│   ├── shared/         # Delte typer, utils, validering (Zod)
-│   ├── db/             # Prisma schema, migreringer, seed
-│   └── ui/             # Delte UI-komponenter (Button, Card, Table, Tooltip, SidebarIkon, SearchInput, m.m.)
+│   ├── shared/           # Delte typer, Zod-schemaer, utils
+│   ├── db/               # Prisma schema, migreringer, seed
+│   └── ui/               # 14 delte UI-komponenter
 ├── CLAUDE.md
 ├── turbo.json
 └── package.json
@@ -66,7 +91,7 @@ siteflow/
 ## Kommandoer
 
 - `pnpm dev` — Start alle apps i dev-modus
-- `pnpm dev --filter web` — Kun web
+- `pnpm dev --filter web` — Kun web (port 3100)
 - `pnpm dev --filter mobile` — Kun mobil (Expo)
 - `pnpm dev --filter api` — Kun API
 - `pnpm build` — Bygg alle apps
@@ -74,7 +99,7 @@ siteflow/
 - `pnpm test --filter api` — Tester kun for API
 - `pnpm lint` — Kjør ESLint på alle pakker
 - `pnpm typecheck` — TypeScript typesjekk hele monorepo
-- `pnpm db:migrate` — Kjør Prisma-migreringer
+- `pnpm db:migrate` — Kjør Prisma-migreringer (NB: bruk prosjektets Prisma, ikke global `npx prisma`)
 - `pnpm db:seed` — Seed database med testdata
 - `pnpm db:studio` — Åpne Prisma Studio
 
@@ -82,21 +107,69 @@ siteflow/
 
 ### Database (PostgreSQL)
 
-Kjernetabeller: `projects`, `enterprises`, `drawings`, `report_templates`, `report_objects`, `checklists`, `tasks`, `document_transfers`, `images`, `folders`, `documents`, `users`, `buildings`, `workflows`, `workflow_templates`.
+20 tabeller totalt. Kjernetabeller:
+
+| Tabell | Beskrivelse |
+|--------|-------------|
+| `users` | Brukere med Auth.js-felter (email, name, image, role) |
+| `accounts` | OAuth-tilkoblinger (Google, Microsoft Entra ID) |
+| `sessions` | Database-sesjoner for Auth.js |
+| `verification_tokens` | E-postverifiseringstokens |
+| `projects` | Prosjekter med prosjektnummer (SF-YYYYMMDD-XXXX), status |
+| `project_members` | Prosjektmedlemmer med rolle (member/admin) og valgfri entreprisetilknytning |
+| `enterprises` | Entrepriser/kontrakter per prosjekt |
+| `buildings` | Bygninger med status (unpublished/published) |
+| `drawings` | Tegninger med metadata: tegningsnummer, fagdisiplin, revisjon, status, etasje, målestokk, opphav |
+| `drawing_revisions` | Revisjonshistorikk for tegninger med fil, status og hvem som lastet opp |
+| `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon |
+| `report_objects` | Rapportobjekter i maler (21 typer, JSON-konfig) |
+| `checklists` | Sjekklister med oppretter/svarer-entreprise, status, data (JSON) |
+| `tasks` | Oppgaver med prioritet, frist, oppretter/svarer |
+| `document_transfers` | Sporbarhet: all sending mellom entrepriser |
+| `images` | Bilder med valgfri GPS-data |
+| `folders` | Rekursiv mappestruktur (Box-modul) med parent_id |
+| `documents` | Dokumenter i mapper med fil-URL og versjon |
+| `workflows` | Arbeidsforløp under entrepriser |
+| `workflow_templates` | Kobling mellom arbeidsforløp og maler (mange-til-mange) |
 
 Viktige relasjoner:
 - Sjekklister og oppgaver har ALLTID `creator_enterprise_id` (oppretter) og `responder_enterprise_id` (svarer)
 - `document_transfers` logger all sending mellom entrepriser med full sporbarhet
 - Bilder har valgfri GPS-data (`gps_lat`, `gps_lng`, `gps_enabled`)
 - `workflows` tilhører en entreprise og kobler til maler via `workflow_templates`
-- `report_templates` har `category` (`oppgave` | `sjekkliste`) for å skille maltyper
+- `report_templates` har `category` (`oppgave` | `sjekkliste`) og valgfritt `prefix`
 - `buildings` tilhører et prosjekt, med tegninger koblet via `building_id`
+- `drawings` har full metadata (tegningsnummer, fagdisiplin, revisjon, etasje, målestokk, status) med `drawing_revisions` for historikk
+- `folders` bruker selvrefererande relasjon (`parent_id`) for mappetreet i Box
+
+### API-routere (tRPC)
+
+Alle routere i `apps/api/src/routes/`:
+
+| Router | Prosedyrer |
+|--------|-----------|
+| `prosjekt` | hentAlle, hentMedId, opprett, oppdater |
+| `entreprise` | hentForProsjekt, hentMedId, opprett, oppdater, slett |
+| `sjekkliste` | hentForProsjekt (m/statusfilter), hentMedId, opprett, oppdaterData, endreStatus |
+| `oppgave` | hentForProsjekt (m/statusfilter), hentMedId, opprett, oppdater, endreStatus |
+| `mal` | hentForProsjekt, hentMedId, opprett, oppdaterMal, slettMal, leggTilObjekt, oppdaterObjekt, oppdaterRekkefølge, slettObjekt |
+| `bygning` | hentForProsjekt, hentMedId, opprett, oppdater, publiser, slett |
+| `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, slett |
+| `arbeidsforlop` | hentForEnterprise, opprett, oppdater, slett |
+| `mappe` | hentForProsjekt, opprett, oppdater, slett |
+| `medlem` | hentForProsjekt, leggTil, fjern, oppdaterRolle, sokBrukere |
+
+**Auth-nivåer:** `publicProcedure` (åpen) og `protectedProcedure` (krever autentisert userId i context). Context bygges i `context.ts` som verifiserer Auth.js-sesjonstokens.
+
+**Statusoverganger** valideres via `isValidStatusTransition()` fra `@siteflow/shared`:
+```
+draft → sent → received → in_progress → responded → approved | rejected → closed
+                                                      rejected → in_progress (tilbake til arbeid)
+```
 
 ### Entrepriseflyt
 
 Sentral forretningslogikk. Dokumenter (sjekklister/oppgaver) flyter mellom entrepriser:
-
-Statusverdier: `draft` → `sent` → `received` → `in_progress` → `responded` → `approved` | `rejected` → `closed`
 
 - Oppretter-entreprise initierer og godkjenner/avviser
 - Svar-entreprise mottar, fyller ut og besvarer
@@ -111,21 +184,69 @@ Arbeidsforløp kobler maler til entrepriser. Konfigureres under Innstillinger > 
 - Maler kategoriseres som `oppgave` eller `sjekkliste` via `report_templates.category`
 - Treprikk-menyer (⋮) på to nivåer: entreprise-header og arbeidsforløp-rad
 
+### Tegninger (drawings)
+
+Tegninger har full metadata basert på bransjestandarder (Dalux, ISO 19650, norsk praksis):
+
+**Fagdisipliner:** ARK, LARK, RIB, RIV, RIE, RIG, RIBr, RIAku
+**Tegningstyper:** plan, snitt, fasade, detalj, oversikt, skjema, montering
+**Statuser:** utkast → delt → under_behandling → godkjent → for_bygging → som_bygget
+
+Metadatafelter: tegningsnummer (f.eks. ARK-P-101), fagdisiplin, tegningstype, revisjon (A/B/C), versjon (autoinkrement), status, etasje, målestokk, beskrivelse, opphav (firma), utstedelsesdato, filstørrelse.
+
+**Revisjonshistorikk:** Ved opplasting av ny revisjon lagres gjeldende versjon automatisk i `drawing_revisions` med full sporbarhet (fil, status, hvem som lastet opp). `Drawing`-tabellen viser alltid gjeldende versjon.
+
+**Planlagt utvidelse (etter behov):**
+- `DrawingSet` (tegningssett) — gruppering ved utsendelse ("Anbud", "For bygging", "Som bygget")
+- Egendefinerte metadata-felter per prosjekt
+- Filnavnmaler for automatisk utlesing av metadata
+
+### Rapportobjekter (21 typer)
+
+Maler bygges på PC med drag-and-drop. Hver mal inneholder objekter med definert type og konfigurasjon. Typene er definert i `packages/shared/src/types/index.ts`:
+
+| Type | Kategori | Beskrivelse |
+|------|----------|-------------|
+| `heading` | tekst | Overskrift |
+| `subtitle` | tekst | Undertittel |
+| `text_field` | tekst | Tekstfelt |
+| `list_single` | valg | Enkeltvalg (radio/dropdown) |
+| `list_multi` | valg | Flervalg (avkrysning) |
+| `integer` | tall | Heltall |
+| `decimal` | tall | Desimaltall |
+| `calculation` | tall | Beregning (formel) |
+| `traffic_light` | valg | Trafikklys (rød/gul/grønn) |
+| `date` | dato | Dato |
+| `date_time` | dato | Dato og tid |
+| `person` | person | Enkeltperson |
+| `persons` | person | Flere personer |
+| `company` | person | Firma/entreprise |
+| `attachments` | fil | Filvedlegg |
+| `bim_property` | spesial | BIM-egenskap |
+| `zone_property` | spesial | Sone-egenskap |
+| `room_property` | spesial | Rom-egenskap |
+| `weather` | spesial | Vær |
+| `signature` | spesial | Signatur |
+| `repeater` | spesial | Repeterende seksjon |
+
+Hvert objekt har metadata (`REPORT_OBJECT_TYPE_META`) med label, ikon, kategori og standardkonfigurasjon. Objektkonfigurasjon lagres som JSON i `report_objects.config`.
+
 ### Innstillings-sidebar
 
 Sidebaren under `/dashbord/oppsett/` er organisert i seksjoner:
-- **Brukere** — Brukergrupper og rollestyring
-- **Lokasjoner** — Bygninger
-- **Field** — Entrepriser, Oppgavens arbeidsflyt, Kontrollplan, Box
+- **Brukere** — Brukergrupper, rollestyring, legg til medlemmer (med bruker-søk)
+- **Lokasjoner** — Bygninger (med publisering/status)
+- **Field** — Entrepriser (med arbeidsforløp), Oppgavemaler, Sjekklistemaler, Kontrollplan, Box
 - **Owners Portal** — Eierportalens brukere, Prosjektoppsett
 
-### Rapportobjekter (15 typer)
+### Malliste-UI (Dalux-inspirert)
 
-Maler bygges på PC med drag-and-drop. Hver mal inneholder objekter med definert type og konfigurasjon:
-
-1. Tekstfelt, 2. Kamerafelt, 3. Bildevelger, 4. Avkrysning, 5. Flervalg, 6. Tallverdi, 7. Dato/Tid, 8. Signatur, 9. Lokasjonsvelger, 10. Kommentarfelt, 11. Statusvelger, 12. Entreprisevelger (med rolle: creator/responder), 13. Filvedlegg, 14. Tegningsreferanse, 15. Seksjonsdeler
-
-Objektkonfigurasjon lagres som JSON i `report_objects.config`.
+Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
+- **Verktøylinje:** +Tilføy (dropdown: Opprett ny, Importer fra prosjekt/firma/PDF), Rediger, Slett, Mer, Søk
+- **Tabell:** Navn (med ikon), Prefiks, Versjon — sortert alfabetisk
+- **Radvalg:** Enkeltklikk velger (aktiverer Rediger/Slett), dobbeltklikk åpner malbygger
+- **Opprett-modal:** Navn, Prefiks, Beskrivelse
+- **Bunnlinje:** Låsefunksjon for maler
 
 ### Bildehåndtering
 
@@ -165,40 +286,128 @@ Dalux-inspirert tre-kolonne layout:
 ### Ruter
 
 ```
-/dashbord                                  -> Dashbord (prosjektliste)
-/dashbord/[prosjektId]                     -> Prosjektoversikt
-/dashbord/[prosjektId]/sjekklister         -> Sjekkliste-tabell
-/dashbord/[prosjektId]/sjekklister/[id]    -> Sjekkliste-detalj
-/dashbord/[prosjektId]/oppgaver            -> Oppgave-tabell
-/dashbord/[prosjektId]/maler               -> Mal-liste
-/dashbord/[prosjektId]/maler/[id]          -> Mal-detalj / malbygger
-/dashbord/[prosjektId]/entrepriser         -> Entreprise-liste
-/dashbord/[prosjektId]/tegninger           -> Tegninger
-/dashbord/oppsett                          -> Innstillinger (redirect til brukere)
-/dashbord/oppsett/brukere                  -> Brukergrupper og roller
-/dashbord/oppsett/lokasjoner              -> Lokasjonsoversikt
-/dashbord/oppsett/lokasjoner/bygninger    -> Bygningsliste
-/dashbord/oppsett/field                    -> Field-oversikt (kategorikort)
-/dashbord/oppsett/field/entrepriser        -> Entrepriser med arbeidsforløp
-/dashbord/oppsett/field/box                -> Box (filstruktur/mappestruktur)
-/dashbord/oppsett/field/oppgavemaler       -> Oppgavens arbeidsflyt
-/dashbord/oppsett/field/kontrollplaner     -> Kontrollplaner
-/dashbord/oppsett/prosjektoppsett          -> Prosjektoppsett
+/                                             -> Landingsside med OAuth-innlogging
+/logg-inn                                     -> Google + Microsoft Entra ID innlogging
+/dashbord                                     -> Dashbord (prosjektliste)
+/dashbord/[prosjektId]                        -> Prosjektoversikt
+/dashbord/[prosjektId]/sjekklister            -> Sjekkliste-tabell
+/dashbord/[prosjektId]/sjekklister/[id]       -> Sjekkliste-detalj
+/dashbord/[prosjektId]/oppgaver               -> Oppgave-tabell
+/dashbord/[prosjektId]/maler                  -> Mal-liste
+/dashbord/[prosjektId]/maler/[id]             -> Mal-detalj / malbygger
+/dashbord/[prosjektId]/entrepriser            -> Entreprise-liste
+/dashbord/[prosjektId]/tegninger              -> Tegninger
+/dashbord/oppsett                             -> Innstillinger (redirect til brukere)
+/dashbord/oppsett/brukere                     -> Brukergrupper, roller, medlemmer
+/dashbord/oppsett/lokasjoner                  -> Lokasjonsoversikt
+/dashbord/oppsett/lokasjoner/bygninger        -> Bygningsliste med redigering
+/dashbord/oppsett/field                       -> Field-oversikt (kategorikort)
+/dashbord/oppsett/field/entrepriser           -> Entrepriser med arbeidsforløp
+/dashbord/oppsett/field/oppgavemaler          -> Oppgavemaler (filtrert malliste)
+/dashbord/oppsett/field/sjekklistemaler       -> Sjekklistemaler (filtrert malliste)
+/dashbord/oppsett/field/box                   -> Box (filstruktur/mappestruktur)
+/dashbord/oppsett/field/kontrollplaner        -> Kontrollplaner (kommer)
+/dashbord/oppsett/prosjektoppsett             -> Prosjektoppsett (navn, status, adresse)
+```
+
+**Legacy-ruter** (gamle flat-navigasjonsruter, fases ut):
+```
+/dashbord/prosjekter                          -> Prosjektliste
+/dashbord/prosjekter/nytt                     -> Opprett prosjekt
+/dashbord/prosjekter/[id]                     -> Prosjektdetalj med tabs
+/dashbord/prosjekter/[id]/entrepriser         -> Entrepriser
+/dashbord/prosjekter/[id]/maler               -> Maler
+/dashbord/prosjekter/[id]/maler/[malId]       -> Malbygger
+/dashbord/prosjekter/[id]/sjekklister         -> Sjekklister
+/dashbord/prosjekter/[id]/sjekklister/[id]    -> Sjekkliste-detalj
+/dashbord/prosjekter/[id]/oppgaver            -> Oppgaver
 ```
 
 ### Kontekster og hooks
 
-- `ProsjektKontekst` — Valgt prosjekt synkronisert med URL-parameter `[prosjektId]`
+- `ProsjektKontekst` — Valgt prosjekt synkronisert med URL-parameter `[prosjektId]`, alle prosjekter, loading-state
 - `NavigasjonKontekst` — Aktiv seksjon + kontekstuelle verktøylinje-handlinger
-- `useAktivSeksjon()` — Utleder aktiv seksjon fra pathname
-- `useVerktoylinje(handlinger)` — Registrerer kontekstuelle handlinger per side
+- `useAktivSeksjon()` — Utleder aktiv seksjon fra pathname, oppdaterer NavigasjonKontekst
+- `useVerktoylinje(handlinger)` — Registrerer kontekstuelle handlinger per side med auto-cleanup
 
 ### Layout-komponenter
 
-- `Toppbar` — Mørk blå bar med logo, prosjektvelger (dropdown med søk), brukermeny
+- `Toppbar` — Mørk blå bar med logo, prosjektvelger (dropdown med søk), brukermeny med utlogging
 - `HovedSidebar` — 60px ikonbar med Tooltip, deaktiverte ikoner uten valgt prosjekt
 - `SekundaertPanel` — 280px panel med seksjonsspesifikt innhold (filtre, lister, søk)
 - `Verktoylinje` — Kontekstuell handlingsbar, registreres via `useVerktoylinje`
+- `ProsjektVelger` — Dropdown med søk på prosjektnavn og prosjektnummer
+
+### Paneler (SekundaertPanel-innhold)
+
+- `DashbordPanel` — Prosjektliste med hurtignavigasjon og søk
+- `SjekklisterPanel` — Sjekklister med statusgruppe-filtrering
+- `OppgaverPanel` — Oppgaver med status- og prioritetsgrupper
+- `MalerPanel` — Malliste med søk
+- `EntrepriserPanel` — Entrepriseliste med søk
+- `TegningerPanel` — Tegninger (placeholder med søk)
+
+## Pakker
+
+### @siteflow/ui — UI-komponentbibliotek
+
+14 delte React-komponenter i `packages/ui/src/`:
+
+| Komponent | Beskrivelse |
+|-----------|-------------|
+| `Button` | Knapp med varianter (primary, secondary, danger, ghost), størrelser (sm, md, lg), loading-state |
+| `Input` | Tekstinput med label og feilmelding |
+| `Textarea` | Flerlinjet tekstfelt med label og feilmelding |
+| `Select` | Dropdown med options-array, label og placeholder |
+| `Card` | Kort-wrapper med valgfri padding |
+| `Badge` | Merkelapp med varianter (default, primary, success, warning, danger) |
+| `StatusBadge` | Statusmerkelapp som mapper dokumentstatus til norsk tekst og farge |
+| `Spinner` | Animert lastespinner (sm, md, lg) |
+| `Modal` | Dialog med HTML `<dialog>`, tittel, lukk-knapp |
+| `EmptyState` | Tom tilstand med tittel, beskrivelse og valgfri handling |
+| `Tooltip` | CSS tooltip med side-plassering (right/bottom) |
+| `SidebarIkon` | Ikonknapp med aktiv-markering og tooltip |
+| `Table<T>` | Generisk tabell med kolonnedefinisjoner, radklikk, tom-melding |
+| `SearchInput` | Søkefelt med innebygd søkeikon |
+
+### @siteflow/shared — Delte typer, validering og utils
+
+Tre eksportpunkter: `types`, `validation`, `utils`
+
+**Typer** (`packages/shared/src/types/`):
+- `DocumentStatus` — 8 statusverdier for sjekklister/oppgaver
+- `ReportObjectType` — 21 rapportobjekttyper
+- `ReportObjectCategory` — 7 kategorier (tekst, valg, tall, dato, person, fil, spesial)
+- `REPORT_OBJECT_TYPE_META` — Komplett metadata for alle 21 typer med label, ikon, kategori, standardkonfig
+- `TemplateZone` — Malsoner: `topptekst` | `datafelter`
+- `EnterpriseRole` — `creator` | `responder`
+- `BaseEntity`, `GpsData`, `SyncableEntity` — Grunnleggende interfaces
+
+**Valideringsschemaer** (`packages/shared/src/validation/`):
+- `documentStatusSchema` — Enum for dokumentstatus
+- `reportObjectTypeSchema` — Enum for rapportobjekttyper
+- `enterpriseRoleSchema` — Enum for entrepriserolle
+- `templateZoneSchema` — Enum for malsoner
+- `templateCategorySchema` — Enum for `oppgave` | `sjekkliste`
+- `gpsDataSchema` — GPS med lat/lng-grenser
+- `createProjectSchema` — Prosjektopprettelse (navn, beskrivelse, adresse)
+- `createEnterpriseSchema` — Entrepriseopprettelse (navn, prosjektId, org.nr)
+- `createBuildingSchema` — Bygningsopprettelse (navn, prosjektId, beskrivelse, adresse)
+- `createWorkflowSchema` — Arbeidsforløp (enterpriseId, navn, malIder)
+- `updateWorkflowSchema` — Arbeidsforløp-oppdatering (id, navn, malIder)
+- `addMemberSchema` — Legg til medlem (prosjektId, e-post, rolle, entrepriseId)
+- `drawingDisciplineSchema` — Fagdisiplin-enum (ARK, LARK, RIB, RIV, RIE, RIG, RIBr, RIAku)
+- `drawingTypeSchema` — Tegningstype-enum (plan, snitt, fasade, detalj, oversikt, skjema, montering)
+- `drawingStatusSchema` — Tegningstatus-enum (utkast, delt, under_behandling, godkjent, for_bygging, som_bygget)
+- `createDrawingSchema` — Tegningsopprettelse (alle metadatafelter)
+
+**Konstanter og typer:**
+- `DRAWING_DISCIPLINES`, `DRAWING_TYPES`, `DRAWING_STATUSES` — Konstantarrayer
+- `DrawingDiscipline`, `DrawingType`, `DrawingStatus` — TypeScript-typer
+
+**Utilities** (`packages/shared/src/utils/`):
+- `generateProjectNumber(sekvens)` — Format: `SF-YYYYMMDD-XXXX`
+- `isValidStatusTransition(current, next)` — Validerer lovlige statusoverganger
 
 ## Kodestil
 
@@ -206,7 +415,7 @@ Dalux-inspirert tre-kolonne layout:
 - Named exports, ikke default exports (unntak: Next.js pages/layouts)
 - Zod-validering på alle API-endepunkter og skjemadata
 - Prisma for server-side DB, Drizzle for lokal SQLite
-- Alle API-ruter i `apps/api/src/routes/` (prosjekt, entreprise, sjekkliste, oppgave, mal, bygning, tegning, arbeidsforlop, mappe, medlem)
+- Alle API-ruter i `apps/api/src/routes/`
 - Alle Expo-skjermer i `apps/mobile/src/screens/`
 - Layout-komponenter i `apps/web/src/components/layout/`
 - Seksjonspaneler i `apps/web/src/components/paneler/`
@@ -214,6 +423,12 @@ Dalux-inspirert tre-kolonne layout:
 - Hooks i `apps/web/src/hooks/`
 - Delte UI-komponenter i `packages/ui/src/`
 - Delte typer i `packages/shared/src/types/`
+
+### TypeScript-mønstre
+
+- **tRPC mutation-callbacks:** Bruk `_data: unknown, variabler: { id: string }` for å unngå TS2589 (excessively deep type instantiation)
+- **Prisma-migreringer:** Bruk prosjektets lokale Prisma (`pnpm --filter @siteflow/db exec prisma migrate dev`), IKKE global `npx prisma` (versjonskonflikter med Prisma 7)
+- **MalRad-type:** Cast `alleMaler as MalRad[]` ved filtrering siden tRPC-inferens kan bli for dyp
 
 ## Terminologi
 
@@ -224,11 +439,13 @@ Dalux-inspirert tre-kolonne layout:
 - **Sjekkliste:** Strukturert dokument med objekter som fylles ut
 - **Oppgave:** Enkeltstående arbeidsoppgave med ansvarlig og frist
 - **Tegning:** Prosjekttegning (PDF/DWG) med versjonering
-- **Rapportobjekt:** Byggeblokk i en sjekklistemal (15 typer)
-- **Mal (template):** Gjenbrukbar oppskrift for sjekklister/rapporter bygget med drag-and-drop
+- **Rapportobjekt:** Byggeblokk i en mal (21 typer)
+- **Mal (template):** Gjenbrukbar oppskrift for sjekklister/rapporter bygget med drag-and-drop, med prefiks og versjon
 - **Arbeidsforløp (workflow):** Navngitt kobling mellom en entreprise og et sett maler (oppgave-/sjekklistetyper)
 - **Box:** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur
-- **Bygning:** Fysisk bygning i et prosjekt, med tilknyttede tegninger
+- **Bygning:** Fysisk bygning i et prosjekt, med tilknyttede tegninger og publiseringsstatus
+- **Prosjektnummer:** Unikt, autogenerert nummer på format `SF-YYYYMMDD-XXXX`
+- **Prefiks:** Kort kode for en mal (f.eks. BHO, S-BET, KBO)
 
 ## Språk
 
@@ -246,3 +463,5 @@ Dalux-inspirert tre-kolonne layout:
 - Prosjektnummer må være unike og genereres automatisk
 - Alle API-endepunkter må ha Zod-validering og auth-middleware
 - Mobil-appen må fungere fullt offline — test alltid med flymodus
+- Alle delte typer, schemaer og utils skal ligge i `@siteflow/shared` (viktig for mobilapp-gjenbruk)
+- Statusoverganger valideres via `isValidStatusTransition()` — bruk samme logikk på server og klient
