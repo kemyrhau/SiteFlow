@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { Button, Input, Modal, Spinner, SearchInput, Card } from "@siteflow/ui";
@@ -24,6 +24,8 @@ import {
   MoreHorizontal,
   Lock,
   Info,
+  Mail,
+  RefreshCw,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -36,6 +38,7 @@ interface BrukerGruppeMedlem {
   epost?: string;
   firma?: string;
   rolle?: string;
+  ventendeInvitasjon?: { id: string };
 }
 
 interface BrukerGruppe {
@@ -47,48 +50,33 @@ interface BrukerGruppe {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Statiske grupper (erstattes med tRPC-data senere)                  */
+/*  DB-gruppetype (for å unngå TS2589 med tRPC-inferens)              */
 /* ------------------------------------------------------------------ */
 
-const standardGrupper: BrukerGruppe[] = [
-  // Generelt
-  {
-    id: "prosjektadmin",
-    navn: "Prosjektadministratorer",
-    kategori: "generelt",
-    medlemmer: [],
-    ikon: <Shield className="h-4 w-4" />,
-  },
-  // Field
-  {
-    id: "field-admin",
-    navn: "Field-administratorer",
-    kategori: "field",
-    medlemmer: [],
-    ikon: <Key className="h-4 w-4" />,
-  },
-  {
-    id: "oppgave-sjekkliste-koord",
-    navn: "Oppgave- og sjekklistekoordinatorer",
-    kategori: "field",
-    medlemmer: [],
-    ikon: <Settings className="h-4 w-4" />,
-  },
-  {
-    id: "field-observatorer",
-    navn: "Field-observatorer",
-    kategori: "field",
-    medlemmer: [],
-    ikon: <Eye className="h-4 w-4" />,
-  },
-  {
-    id: "hms-ledere",
-    navn: "HMS-ledere",
-    kategori: "field",
-    medlemmer: [],
-    ikon: <AlertTriangle className="h-4 w-4" />,
-  },
-];
+interface DbGruppe {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  members: {
+    id: string;
+    projectMember: {
+      user: { name: string | null; email: string };
+      enterprise: { name: string } | null;
+    };
+  }[];
+}
+
+/* ------------------------------------------------------------------ */
+/*  Ikon-mapping for DB-grupper (slug → ikon)                         */
+/* ------------------------------------------------------------------ */
+
+const SLUG_IKON: Record<string, React.ReactNode> = {
+  "field-admin": <Key className="h-4 w-4" />,
+  "oppgave-sjekkliste-koord": <Settings className="h-4 w-4" />,
+  "field-observatorer": <Eye className="h-4 w-4" />,
+  "hms-ledere": <AlertTriangle className="h-4 w-4" />,
+};
 
 /* ------------------------------------------------------------------ */
 /*  RedigerGruppeModal                                                 */
@@ -118,20 +106,31 @@ function RedigerGruppeModal({
   const [redigererNavn, setRedigererNavn] = useState(false);
   const [nyttGruppeNavn, setNyttGruppeNavn] = useState(gruppe.navn);
 
+  // Er dette en DB-gruppe (UUID)?
+  const erDbGruppe =
+    !gruppe.id.startsWith("ent-") && gruppe.id !== "prosjektadmin";
+
   const utils = trpc.useUtils();
+
   const leggTilMedlem = trpc.medlem.leggTil.useMutation({
     onSuccess: () => {
-      setNyEpost("");
-      setNyFornavn("");
-      setNyEtternavn("");
-      setNyTelefon("");
-      setLeggTilSteg(1);
-      setVisLeggTil(false);
-      setFeilmelding("");
-      // Oppdater data
+      resetLeggTilSkjema();
       utils.prosjekt.hentMedId.invalidate({ id: prosjektId });
       utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId });
       utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+    onError: (error) => {
+      setFeilmelding(error.message);
+    },
+    onSettled: () => {
+      setLeggerTil(false);
+    },
+  });
+
+  const leggTilGruppeMedlem = trpc.gruppe.leggTilMedlem.useMutation({
+    onSuccess: () => {
+      resetLeggTilSkjema();
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
     },
     onError: (error) => {
       setFeilmelding(error.message);
@@ -150,6 +149,35 @@ function RedigerGruppeModal({
     },
   });
 
+  const fjernGruppeMedlem = trpc.gruppe.fjernMedlem.useMutation({
+    onSuccess: () => {
+      setValgtMedlemId(null);
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  const oppdaterGruppe = trpc.gruppe.oppdater.useMutation({
+    onSuccess: () => {
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  const sendPaNytt = trpc.invitasjon.sendPaNytt.useMutation({
+    onSuccess: () => {
+      utils.invitasjon.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  function resetLeggTilSkjema() {
+    setNyEpost("");
+    setNyFornavn("");
+    setNyEtternavn("");
+    setNyTelefon("");
+    setLeggTilSteg(1);
+    setVisLeggTil(false);
+    setFeilmelding("");
+  }
+
   // Filtrer medlemmer basert på søk
   const filtrerteMedlemmer = sok
     ? gruppe.medlemmer.filter(
@@ -163,7 +191,6 @@ function RedigerGruppeModal({
   function handleEpostNeste(e: React.FormEvent) {
     e.preventDefault();
     if (!nyEpost.trim()) return;
-    // Enkel e-postvalidering
     const epostRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!epostRegex.test(nyEpost.trim())) {
       setFeilmelding("Ugyldig e-postadresse");
@@ -182,25 +209,54 @@ function RedigerGruppeModal({
     setLeggerTil(true);
     setFeilmelding("");
 
-    // Bruk entreprise-ID for brukergrupper (entrepriser)
-    const enterpriseId = gruppe.id.startsWith("ent-")
-      ? gruppe.id.replace("ent-", "")
-      : undefined;
-
-    leggTilMedlem.mutate({
-      projectId: prosjektId,
-      email: nyEpost.trim(),
-      firstName: nyFornavn.trim(),
-      lastName: nyEtternavn.trim(),
-      phone: nyTelefon.trim() || undefined,
-      role: gruppe.kategori === "generelt" ? "admin" : "member",
-      enterpriseId,
-    });
+    if (gruppe.id.startsWith("ent-")) {
+      // Entreprise-gruppe
+      leggTilMedlem.mutate({
+        projectId: prosjektId,
+        email: nyEpost.trim(),
+        firstName: nyFornavn.trim(),
+        lastName: nyEtternavn.trim(),
+        phone: nyTelefon.trim() || undefined,
+        role: "member",
+        enterpriseId: gruppe.id.replace("ent-", ""),
+      });
+    } else if (gruppe.id === "prosjektadmin") {
+      // Prosjektadministrator-gruppe
+      leggTilMedlem.mutate({
+        projectId: prosjektId,
+        email: nyEpost.trim(),
+        firstName: nyFornavn.trim(),
+        lastName: nyEtternavn.trim(),
+        phone: nyTelefon.trim() || undefined,
+        role: "admin",
+      });
+    } else {
+      // DB-gruppe (UUID)
+      leggTilGruppeMedlem.mutate({
+        groupId: gruppe.id,
+        projectId: prosjektId,
+        email: nyEpost.trim(),
+        firstName: nyFornavn.trim(),
+        lastName: nyEtternavn.trim(),
+        phone: nyTelefon.trim() || undefined,
+      });
+    }
   }
 
   function handleFjern() {
     if (!valgtMedlemId) return;
-    fjernMedlem.mutate({ id: valgtMedlemId });
+    if (erDbGruppe) {
+      fjernGruppeMedlem.mutate({ id: valgtMedlemId });
+    } else {
+      fjernMedlem.mutate({ id: valgtMedlemId });
+    }
+  }
+
+  function handleNavnLagre() {
+    setRedigererNavn(false);
+    if (erDbGruppe && nyttGruppeNavn !== gruppe.navn && nyttGruppeNavn.trim()) {
+      oppdaterGruppe.mutate({ id: gruppe.id, name: nyttGruppeNavn.trim() });
+    }
   }
 
   return (
@@ -217,9 +273,9 @@ function RedigerGruppeModal({
             <input
               value={nyttGruppeNavn}
               onChange={(e) => setNyttGruppeNavn(e.target.value)}
-              onBlur={() => setRedigererNavn(false)}
+              onBlur={handleNavnLagre}
               onKeyDown={(e) => {
-                if (e.key === "Enter") setRedigererNavn(false);
+                if (e.key === "Enter") handleNavnLagre();
                 if (e.key === "Escape") {
                   setNyttGruppeNavn(gruppe.navn);
                   setRedigererNavn(false);
@@ -231,10 +287,12 @@ function RedigerGruppeModal({
           ) : (
             <span
               onDoubleClick={() => {
-                setRedigererNavn(true);
-                setNyttGruppeNavn(nyttGruppeNavn || gruppe.navn);
+                if (erDbGruppe) {
+                  setRedigererNavn(true);
+                  setNyttGruppeNavn(nyttGruppeNavn || gruppe.navn);
+                }
               }}
-              className="flex-1 cursor-text text-sm font-medium text-gray-900"
+              className={`flex-1 text-sm font-medium text-gray-900 ${erDbGruppe ? "cursor-text" : ""}`}
             >
               {nyttGruppeNavn || gruppe.navn}
             </span>
@@ -264,7 +322,11 @@ function RedigerGruppeModal({
             </button>
             <button
               onClick={handleFjern}
-              disabled={!valgtMedlemId || fjernMedlem.isPending}
+              disabled={
+                !valgtMedlemId ||
+                fjernMedlem.isPending ||
+                fjernGruppeMedlem.isPending
+              }
               className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm ${
                 valgtMedlemId
                   ? "text-red-600 hover:bg-red-50"
@@ -324,7 +386,6 @@ function RedigerGruppeModal({
                 >
                   <td className="py-2.5">
                     <div className="flex items-center gap-2.5">
-                      {/* Avatar-initialer */}
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-600 text-xs font-medium text-white">
                         {medlem.navn
                           .split(" ")
@@ -341,10 +402,32 @@ function RedigerGruppeModal({
                           {medlem.rolle}
                         </span>
                       )}
+                      {medlem.ventendeInvitasjon && (
+                        <span className="flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">
+                          <Mail className="h-3 w-3" />
+                          Ventende
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="py-2.5 text-sm text-gray-600">
-                    {medlem.firma ?? "—"}
+                    <div className="flex items-center gap-2">
+                      <span>{medlem.firma ?? "—"}</span>
+                      {medlem.ventendeInvitasjon && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sendPaNytt.mutate({ id: medlem.ventendeInvitasjon!.id });
+                          }}
+                          disabled={sendPaNytt.isPending}
+                          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-siteflow-primary hover:bg-blue-50"
+                          title="Send invitasjon på nytt"
+                        >
+                          <RefreshCw className={`h-3 w-3 ${sendPaNytt.isPending ? "animate-spin" : ""}`} />
+                          Send på nytt
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -364,7 +447,6 @@ function RedigerGruppeModal({
           {/* Inline legg til — flersteg */}
           {visLeggTil && (
             <div className="mt-2 rounded border border-gray-200 bg-gray-50 p-3">
-              {/* Steg 1: E-post */}
               <form
                 onSubmit={leggTilSteg === 1 ? handleEpostNeste : handleLeggTil}
                 className="flex flex-col gap-3"
@@ -400,13 +482,7 @@ function RedigerGruppeModal({
                   <button
                     type="button"
                     onClick={() => {
-                      setVisLeggTil(false);
-                      setNyEpost("");
-                      setNyFornavn("");
-                      setNyEtternavn("");
-                      setNyTelefon("");
-                      setLeggTilSteg(1);
-                      setFeilmelding("");
+                      resetLeggTilSkjema();
                     }}
                     className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                   >
@@ -414,7 +490,6 @@ function RedigerGruppeModal({
                   </button>
                 </div>
 
-                {/* Steg 2: Navn og telefon */}
                 {leggTilSteg === 2 && (
                   <div className="flex flex-col gap-2">
                     <div className="grid grid-cols-2 gap-2">
@@ -450,7 +525,6 @@ function RedigerGruppeModal({
                   </div>
                 )}
 
-                {/* Handlingsknapper */}
                 <div className="flex items-center gap-2">
                   {leggTilSteg === 1 ? (
                     <Button
@@ -647,6 +721,8 @@ export default function BrukereSide() {
   const [visningsModus, setVisningsModus] = useState<"grid" | "liste">("grid");
   const [redigerGruppe, setRedigerGruppe] = useState<BrukerGruppe | null>(null);
 
+  const utils = trpc.useUtils();
+
   // Hent prosjektmedlemmer og entrepriser for å populere grupper
   const { data: prosjekt } = trpc.prosjekt.hentMedId.useQuery(
     { id: prosjektId! },
@@ -658,15 +734,75 @@ export default function BrukereSide() {
     { enabled: !!prosjektId },
   );
 
+  // Hent DB-grupper
+  const { data: dbGrupper } = trpc.gruppe.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
+  // Hent ventende invitasjoner
+  const { data: invitasjoner } = trpc.invitasjon.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
+  // Bygg et map fra e-post til ventende invitasjon
+  const ventendeInvitasjonerMap = new Map<string, { id: string }>();
+  if (invitasjoner) {
+    for (const inv of invitasjoner) {
+      if (inv.status === "pending") {
+        ventendeInvitasjonerMap.set(inv.email.toLowerCase(), { id: inv.id });
+      }
+    }
+  }
+
+  // Lazy opprettelse av standardgrupper
+  const opprettStandardgrupper = trpc.gruppe.opprettStandardgrupper.useMutation({
+    onSuccess: () => {
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId! });
+    },
+  });
+
+  useEffect(() => {
+    if (prosjektId && dbGrupper && dbGrupper.length === 0 && !opprettStandardgrupper.isPending) {
+      opprettStandardgrupper.mutate({ projectId: prosjektId });
+    }
+  }, [prosjektId, dbGrupper]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Opprett ny gruppe
+  const opprettGruppe = trpc.gruppe.opprett.useMutation({
+    onSuccess: () => {
+      setVisNyGruppeModal(false);
+      setNyGruppeNavn("");
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId! });
+    },
+  });
+
+  // Bygg Field-grupper fra DB-data
+  const fieldGrupper: BrukerGruppe[] = ((dbGrupper ?? []) as DbGruppe[]).map((g) => ({
+    id: g.id,
+    navn: g.name,
+    kategori: g.category as "generelt" | "field" | "brukergrupper",
+    ikon: SLUG_IKON[g.slug] ?? <Users className="h-4 w-4" />,
+    medlemmer: g.members.map((m) => ({
+      id: m.id,
+      navn: m.projectMember.user.name ?? m.projectMember.user.email ?? "Ukjent",
+      epost: m.projectMember.user.email ?? undefined,
+      firma: m.projectMember.enterprise?.name ?? undefined,
+      ventendeInvitasjon: ventendeInvitasjonerMap.get(
+        (m.projectMember.user.email ?? "").toLowerCase(),
+      ),
+    })),
+  }));
+
   // Bygg grupper fra data
-  const adminGruppe = standardGrupper[0]!;
   const grupper: BrukerGruppe[] = [
-    // Generelt — populer prosjektadmin med prosjekteier
+    // Generelt — prosjektadministratorer fra ProjectMember.role
     {
-      id: adminGruppe.id,
-      navn: adminGruppe.navn,
-      kategori: adminGruppe.kategori,
-      ikon: adminGruppe.ikon,
+      id: "prosjektadmin",
+      navn: "Prosjektadministratorer",
+      kategori: "generelt",
+      ikon: <Shield className="h-4 w-4" />,
       medlemmer: prosjekt?.members
         ?.filter((m) => m.role === "admin" || m.role === "owner")
         .map((m) => ({
@@ -674,10 +810,13 @@ export default function BrukereSide() {
           navn: m.user.name ?? m.user.email ?? "Ukjent",
           epost: m.user.email ?? undefined,
           rolle: m.role === "owner" ? "Kontaktperson" : undefined,
+          ventendeInvitasjon: ventendeInvitasjonerMap.get(
+            (m.user.email ?? "").toLowerCase(),
+          ),
         })) ?? [],
     },
-    // Field-grupper (foreløpig tomme — fylles ut når rollesystemet er på plass)
-    ...standardGrupper.slice(1),
+    // Field-grupper fra DB
+    ...fieldGrupper,
     // Brukergrupper fra entrepriser
     ...(entrepriser?.map((ent) => ({
       id: `ent-${ent.id}`,
@@ -688,6 +827,9 @@ export default function BrukereSide() {
         navn: m.user?.name ?? m.user?.email ?? "Ukjent",
         epost: m.user?.email ?? undefined,
         firma: ent.name,
+        ventendeInvitasjon: ventendeInvitasjonerMap.get(
+          (m.user?.email ?? "").toLowerCase(),
+        ),
       })),
       ikon: <Building2 className="h-4 w-4" />,
     })) ?? []),
@@ -711,6 +853,16 @@ export default function BrukereSide() {
   function handleLeggTilMedlem(gruppeId: string) {
     const gruppe = grupper.find((g) => g.id === gruppeId);
     if (gruppe) setRedigerGruppe(gruppe);
+  }
+
+  function handleOpprettGruppe(e: React.FormEvent) {
+    e.preventDefault();
+    if (!prosjektId || !nyGruppeNavn.trim()) return;
+    opprettGruppe.mutate({
+      projectId: prosjektId,
+      name: nyGruppeNavn.trim(),
+      category: nyGruppeKategori,
+    });
   }
 
   return (
@@ -815,12 +967,7 @@ export default function BrukereSide() {
         title="Legg til gruppe"
       >
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            // Fremtidig: lagre gruppe via tRPC
-            setVisNyGruppeModal(false);
-            setNyGruppeNavn("");
-          }}
+          onSubmit={handleOpprettGruppe}
           className="flex flex-col gap-4"
         >
           <Input
@@ -849,7 +996,9 @@ export default function BrukereSide() {
             </select>
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="submit">Opprett</Button>
+            <Button type="submit" disabled={opprettGruppe.isPending}>
+              {opprettGruppe.isPending ? "Oppretter..." : "Opprett"}
+            </Button>
             <Button
               type="button"
               variant="secondary"

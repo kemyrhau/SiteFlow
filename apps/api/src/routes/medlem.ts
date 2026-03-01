@@ -1,6 +1,8 @@
 import { z } from "zod";
+import crypto from "crypto";
 import { router, publicProcedure } from "../trpc/trpc";
 import { addMemberSchema } from "@siteflow/shared";
+import { sendInvitasjonsEpost } from "../services/epost";
 
 export const medlemRouter = router({
   // Hent alle medlemmer for et prosjekt
@@ -69,7 +71,7 @@ export const medlemRouter = router({
         });
       }
 
-      return ctx.prisma.projectMember.create({
+      const nyMedlem = await ctx.prisma.projectMember.create({
         data: {
           userId: user.id,
           projectId: input.projectId,
@@ -78,6 +80,52 @@ export const medlemRouter = router({
         },
         include: { user: true, enterprise: true },
       });
+
+      // Send invitasjons-e-post hvis brukeren ikke har logget inn (ingen Account)
+      const harKonto = await ctx.prisma.account.findFirst({
+        where: { userId: user.id },
+      });
+
+      if (!harKonto && ctx.userId) {
+        try {
+          const token = crypto.randomBytes(32).toString("base64url");
+          const utloper = new Date();
+          utloper.setDate(utloper.getDate() + 7);
+
+          const prosjekt = await ctx.prisma.project.findUniqueOrThrow({
+            where: { id: input.projectId },
+            select: { name: true },
+          });
+
+          const inviterer = await ctx.prisma.user.findUniqueOrThrow({
+            where: { id: ctx.userId },
+            select: { name: true },
+          });
+
+          await ctx.prisma.projectInvitation.create({
+            data: {
+              email: user.email,
+              token,
+              projectId: input.projectId,
+              role: input.role,
+              enterpriseId: input.enterpriseId,
+              invitedByUserId: ctx.userId,
+              expiresAt: utloper,
+            },
+          });
+
+          await sendInvitasjonsEpost({
+            til: user.email,
+            invitasjonstoken: token,
+            prosjektNavn: prosjekt.name,
+            invitertAvNavn: inviterer.name ?? "En kollega",
+          });
+        } catch (error) {
+          console.error("Kunne ikke sende invitasjons-e-post:", error);
+        }
+      }
+
+      return nyMedlem;
     }),
 
   // Fjern medlem fra prosjekt

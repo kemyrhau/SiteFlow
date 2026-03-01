@@ -10,6 +10,8 @@ import { arbeidsforlopRouter } from "../routes/arbeidsforlop";
 import { mappeRouter } from "../routes/mappe";
 import { medlemRouter } from "../routes/medlem";
 import { mobilAuthRouter } from "../routes/mobilAuth";
+import { gruppeRouter } from "../routes/gruppe";
+import { invitasjonRouter } from "../routes/invitasjon";
 
 export const appRouter = router({
   prosjekt: prosjektRouter,
@@ -23,6 +25,8 @@ export const appRouter = router({
   mappe: mappeRouter,
   medlem: medlemRouter,
   mobilAuth: mobilAuthRouter,
+  gruppe: gruppeRouter,
+  invitasjon: invitasjonRouter,
 });
 
 export type AppRouter = typeof appRouter;
