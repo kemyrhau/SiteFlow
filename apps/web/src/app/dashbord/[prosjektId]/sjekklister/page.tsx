@@ -71,7 +71,7 @@ export default function SjekklisteSide() {
 
   const filtrerte = sjekklister
     ? statusFilter
-      ? sjekklister.filter((s) => s.status === statusFilter)
+      ? sjekklister.filter((s: { status: string }) => s.status === statusFilter)
       : sjekklister
     : [];
 
