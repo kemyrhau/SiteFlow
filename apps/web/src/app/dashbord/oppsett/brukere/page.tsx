@@ -105,6 +105,8 @@ function RedigerGruppeModal({
   const [feilmelding, setFeilmelding] = useState("");
   const [redigererNavn, setRedigererNavn] = useState(false);
   const [nyttGruppeNavn, setNyttGruppeNavn] = useState(gruppe.navn);
+  const [redigererMedlem, setRedigererMedlem] = useState(false);
+  const [redigerRolle, setRedigerRolle] = useState<"member" | "admin">("member");
 
   // Er dette en DB-gruppe (UUID)?
   const erDbGruppe =
@@ -161,6 +163,15 @@ function RedigerGruppeModal({
   const oppdaterGruppe = trpc.gruppe.oppdater.useMutation({
     onSuccess: () => {
       utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  const oppdaterRolle = trpc.medlem.oppdaterRolle.useMutation({
+    onSuccess: () => {
+      setRedigererMedlem(false);
+      setValgtMedlemId(null);
+      utils.prosjekt.hentMedId.invalidate({ id: prosjektId });
+      utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
     },
   });
 
@@ -323,8 +334,25 @@ function RedigerGruppeModal({
               Tilføy
             </button>
             <button
-              className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm text-gray-400"
-              disabled
+              onClick={() => {
+                if (valgtMedlemId) {
+                  const medlem = gruppe.medlemmer.find((m) => m.id === valgtMedlemId);
+                  if (medlem) {
+                    setRedigerRolle(
+                      medlem.rolle === "Kontaktperson" || gruppe.id === "prosjektadmin"
+                        ? "admin"
+                        : "member",
+                    );
+                    setRedigererMedlem(true);
+                  }
+                }
+              }}
+              disabled={!valgtMedlemId}
+              className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm ${
+                valgtMedlemId
+                  ? "text-gray-600 hover:bg-gray-100"
+                  : "text-gray-400"
+              }`}
             >
               <Pencil className="h-4 w-4" />
               Rediger
@@ -480,6 +508,47 @@ function RedigerGruppeModal({
               )}
             </tbody>
           </table>
+
+          {/* Inline rediger medlem */}
+          {redigererMedlem && valgtMedlemId && (() => {
+            const valgtMedlem = gruppe.medlemmer.find((m) => m.id === valgtMedlemId);
+            if (!valgtMedlem) return null;
+            return (
+              <div className="mt-2 rounded border border-blue-200 bg-blue-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900">
+                    Rediger {valgtMedlem.navn}
+                  </span>
+                  <button
+                    onClick={() => setRedigererMedlem(false)}
+                    className="rounded p-1 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-gray-600">Rolle:</label>
+                  <select
+                    value={redigerRolle}
+                    onChange={(e) => setRedigerRolle(e.target.value as "member" | "admin")}
+                    className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                  >
+                    <option value="member">Medlem</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      oppdaterRolle.mutate({ id: valgtMedlemId, role: redigerRolle });
+                    }}
+                    disabled={oppdaterRolle.isPending}
+                  >
+                    {oppdaterRolle.isPending ? "Lagrer..." : "Lagre"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Inline legg til — flersteg */}
           {visLeggTil && (
