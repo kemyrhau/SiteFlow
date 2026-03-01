@@ -107,7 +107,7 @@ export function MalBygger({ mal }: MalByggerProps) {
   });
 
   const slettMutation = trpc.mal.slettObjekt.useMutation({
-    onSuccess: (_data, variabler) => {
+    onSuccess: (_data: unknown, variabler: { id: string }) => {
       setObjekter((prev) => prev.filter((o) => o.id !== variabler.id));
       if (valgtId === variabler.id) setValgtId(null);
     },

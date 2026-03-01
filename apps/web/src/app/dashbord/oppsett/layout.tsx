@@ -32,6 +32,9 @@ const navigasjon: NavElement[] = [
     label: "Lokasjoner",
     href: "/dashbord/oppsett/lokasjoner",
     ikon: <MapPin className="h-4 w-4" />,
+    barn: [
+      { label: "Bygninger", href: "/dashbord/oppsett/lokasjoner/bygninger" },
+    ],
   },
   {
     label: "Field",
@@ -39,6 +42,8 @@ const navigasjon: NavElement[] = [
     ikon: <Wrench className="h-4 w-4" />,
     barn: [
       { label: "Entrepriser", href: "/dashbord/oppsett/field/entrepriser" },
+      { label: "Oppgavens arbeidsflyt", href: "/dashbord/oppsett/field/oppgavemaler" },
+      { label: "Kontrollplan", href: "/dashbord/oppsett/field/kontrollplaner" },
       { label: "Box", href: "/dashbord/oppsett/field/box" },
     ],
   },
@@ -60,6 +65,7 @@ export default function OppsettLayout({
   const { prosjektId } = useProsjekt();
   const pathname = usePathname();
   const [ekspandert, setEkspandert] = useState<Record<string, boolean>>({
+    Lokasjoner: true,
     Field: true,
     "Owners Portal": false,
   });
