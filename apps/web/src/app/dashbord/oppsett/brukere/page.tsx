@@ -19,6 +19,11 @@ import {
   Building2,
   UserPlus,
   X,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
+  Lock,
+  Info,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -28,6 +33,8 @@ import {
 interface BrukerGruppeMedlem {
   id: string;
   navn: string;
+  epost?: string;
+  firma?: string;
   rolle?: string;
 }
 
@@ -69,7 +76,7 @@ const standardGrupper: BrukerGruppe[] = [
   },
   {
     id: "field-observatorer",
-    navn: "Field-observatører",
+    navn: "Field-observatorer",
     kategori: "field",
     medlemmer: [],
     ikon: <Eye className="h-4 w-4" />,
@@ -84,6 +91,287 @@ const standardGrupper: BrukerGruppe[] = [
 ];
 
 /* ------------------------------------------------------------------ */
+/*  RedigerGruppeModal                                                 */
+/* ------------------------------------------------------------------ */
+
+function RedigerGruppeModal({
+  open,
+  onClose,
+  gruppe,
+  prosjektId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  gruppe: BrukerGruppe;
+  prosjektId: string;
+}) {
+  const [sok, setSok] = useState("");
+  const [valgtMedlemId, setValgtMedlemId] = useState<string | null>(null);
+  const [visLeggTil, setVisLeggTil] = useState(false);
+  const [nyEpost, setNyEpost] = useState("");
+  const [leggerTil, setLeggerTil] = useState(false);
+  const [feilmelding, setFeilmelding] = useState("");
+
+  const utils = trpc.useUtils();
+  const leggTilMedlem = trpc.medlem.leggTil.useMutation({
+    onSuccess: () => {
+      setNyEpost("");
+      setVisLeggTil(false);
+      setFeilmelding("");
+      // Oppdater data
+      utils.prosjekt.hentMedId.invalidate({ id: prosjektId });
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+    onError: (error) => {
+      setFeilmelding(error.message);
+    },
+    onSettled: () => {
+      setLeggerTil(false);
+    },
+  });
+
+  const fjernMedlem = trpc.medlem.fjern.useMutation({
+    onSuccess: () => {
+      setValgtMedlemId(null);
+      utils.prosjekt.hentMedId.invalidate({ id: prosjektId });
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  // Filtrer medlemmer basert på søk
+  const filtrerteMedlemmer = sok
+    ? gruppe.medlemmer.filter(
+        (m) =>
+          m.navn.toLowerCase().includes(sok.toLowerCase()) ||
+          m.firma?.toLowerCase().includes(sok.toLowerCase()) ||
+          m.epost?.toLowerCase().includes(sok.toLowerCase()),
+      )
+    : gruppe.medlemmer;
+
+  function handleLeggTil(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nyEpost.trim()) return;
+    setLeggerTil(true);
+    setFeilmelding("");
+
+    // Bruk entreprise-ID for brukergrupper (entrepriser)
+    const enterpriseId = gruppe.id.startsWith("ent-")
+      ? gruppe.id.replace("ent-", "")
+      : undefined;
+
+    leggTilMedlem.mutate({
+      projectId: prosjektId,
+      email: nyEpost.trim(),
+      role: gruppe.kategori === "generelt" ? "admin" : "member",
+      enterpriseId,
+    });
+  }
+
+  function handleFjern() {
+    if (!valgtMedlemId) return;
+    fjernMedlem.mutate({ id: valgtMedlemId });
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Rediger brukergrupper"
+      className="max-w-2xl"
+    >
+      <div className="flex flex-col gap-4">
+        {/* Gruppenavn */}
+        <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5">
+          <span className="flex-1 text-sm font-medium text-gray-900">
+            {gruppe.navn}
+          </span>
+          <Info className="h-4 w-4 text-gray-400" />
+        </div>
+
+        {/* Verktøylinje */}
+        <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                setVisLeggTil(true);
+                setFeilmelding("");
+              }}
+              className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              <Plus className="h-4 w-4" />
+              Tilføy
+            </button>
+            <button
+              className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm text-gray-400"
+              disabled
+            >
+              <Pencil className="h-4 w-4" />
+              Rediger
+            </button>
+            <button
+              onClick={handleFjern}
+              disabled={!valgtMedlemId || fjernMedlem.isPending}
+              className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm ${
+                valgtMedlemId
+                  ? "text-red-600 hover:bg-red-50"
+                  : "text-gray-400"
+              }`}
+            >
+              <Trash2 className="h-4 w-4" />
+              Fjern
+            </button>
+            <button
+              className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm text-gray-400"
+              disabled
+            >
+              <MoreHorizontal className="h-4 w-4" />
+              Mer
+            </button>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Søk"
+              value={sok}
+              onChange={(e) => setSok(e.target.value)}
+              className="rounded border border-gray-200 py-1.5 pl-8 pr-3 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+            />
+          </div>
+        </div>
+
+        {/* Medlemstabell */}
+        <div className="min-h-[200px] overflow-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200 text-left">
+                <th className="pb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Navn
+                </th>
+                <th className="pb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Firma
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrerteMedlemmer.map((medlem) => (
+                <tr
+                  key={medlem.id}
+                  onClick={() =>
+                    setValgtMedlemId(
+                      valgtMedlemId === medlem.id ? null : medlem.id,
+                    )
+                  }
+                  className={`cursor-pointer border-b border-gray-100 transition-colors ${
+                    valgtMedlemId === medlem.id
+                      ? "bg-blue-50"
+                      : "hover:bg-gray-50"
+                  }`}
+                >
+                  <td className="py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      {/* Avatar-initialer */}
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-600 text-xs font-medium text-white">
+                        {medlem.navn
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </div>
+                      <span className="text-sm text-gray-900">
+                        {medlem.navn}
+                      </span>
+                      {medlem.rolle && (
+                        <span className="rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600">
+                          {medlem.rolle}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2.5 text-sm text-gray-600">
+                    {medlem.firma ?? "—"}
+                  </td>
+                </tr>
+              ))}
+              {filtrerteMedlemmer.length === 0 && !visLeggTil && (
+                <tr>
+                  <td
+                    colSpan={2}
+                    className="py-8 text-center text-sm text-gray-400"
+                  >
+                    Ingen medlemmer i denne gruppen
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* Inline legg til */}
+          {visLeggTil && (
+            <form onSubmit={handleLeggTil} className="mt-2 flex items-center gap-2">
+              <input
+                type="email"
+                placeholder="E-postadresse..."
+                value={nyEpost}
+                onChange={(e) => {
+                  setNyEpost(e.target.value);
+                  setFeilmelding("");
+                }}
+                autoFocus
+                className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={leggerTil || !nyEpost.trim()}
+              >
+                {leggerTil ? "Legger til..." : "Legg til"}
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVisLeggTil(false);
+                  setNyEpost("");
+                  setFeilmelding("");
+                }}
+                className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </form>
+          )}
+          {feilmelding && (
+            <p className="mt-1 text-sm text-red-600">{feilmelding}</p>
+          )}
+        </div>
+
+        {/* Rettigheter-seksjon */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <h4 className="mb-3 text-sm font-semibold text-gray-900">
+            Rettigheter
+          </h4>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+            Posisjon
+          </p>
+          <div className="flex items-center justify-between rounded bg-white px-3 py-2.5 border border-gray-200">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-700">
+                Vis og rediger bygninger og plasseringer
+              </span>
+            </div>
+            <Lock className="h-4 w-4 text-gray-400" />
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  GruppeKort-komponent                                               */
 /* ------------------------------------------------------------------ */
 
@@ -92,9 +380,11 @@ const MAKS_SYNLIGE = 4;
 function GruppeKort({
   gruppe,
   onLeggTilMedlem,
+  onDoubleClick,
 }: {
   gruppe: BrukerGruppe;
   onLeggTilMedlem?: (gruppeId: string) => void;
+  onDoubleClick?: () => void;
 }) {
   const [visAlle, setVisAlle] = useState(false);
   const harMedlemmer = gruppe.medlemmer.length > 0;
@@ -104,7 +394,10 @@ function GruppeKort({
   const skjulte = gruppe.medlemmer.length - MAKS_SYNLIGE;
 
   return (
-    <div className="group flex min-h-[160px] flex-col rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md">
+    <div
+      onDoubleClick={onDoubleClick}
+      className="group flex min-h-[160px] cursor-pointer flex-col rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md"
+    >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <h4 className="truncate text-sm font-semibold text-gray-900">
@@ -140,7 +433,10 @@ function GruppeKort({
             ))}
             {!visAlle && skjulte > 0 && (
               <button
-                onClick={() => setVisAlle(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setVisAlle(true);
+                }}
                 className="mt-1 self-start text-xs text-gray-400 hover:text-gray-600"
               >
                 + {skjulte} mer
@@ -158,7 +454,10 @@ function GruppeKort({
       {onLeggTilMedlem && (
         <div className="border-t border-gray-100 px-4 py-2 opacity-0 transition-opacity group-hover:opacity-100">
           <button
-            onClick={() => onLeggTilMedlem(gruppe.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onLeggTilMedlem(gruppe.id);
+            }}
             className="flex items-center gap-1.5 text-xs text-siteflow-primary hover:underline"
           >
             <UserPlus className="h-3.5 w-3.5" />
@@ -178,10 +477,12 @@ function GruppeSeksjon({
   tittel,
   grupper,
   onLeggTilMedlem,
+  onDoubleClickGruppe,
 }: {
   tittel: string;
   grupper: BrukerGruppe[];
   onLeggTilMedlem?: (gruppeId: string) => void;
+  onDoubleClickGruppe?: (gruppe: BrukerGruppe) => void;
 }) {
   if (grupper.length === 0) return null;
   return (
@@ -193,6 +494,7 @@ function GruppeSeksjon({
             key={gruppe.id}
             gruppe={gruppe}
             onLeggTilMedlem={onLeggTilMedlem}
+            onDoubleClick={() => onDoubleClickGruppe?.(gruppe)}
           />
         ))}
       </div>
@@ -213,6 +515,7 @@ export default function BrukereSide() {
     "generelt" | "field" | "brukergrupper"
   >("brukergrupper");
   const [visningsModus, setVisningsModus] = useState<"grid" | "liste">("grid");
+  const [redigerGruppe, setRedigerGruppe] = useState<BrukerGruppe | null>(null);
 
   // Hent prosjektmedlemmer og entrepriser for å populere grupper
   const { data: prosjekt } = trpc.prosjekt.hentMedId.useQuery(
@@ -239,6 +542,7 @@ export default function BrukereSide() {
         .map((m) => ({
           id: m.id,
           navn: m.user.name ?? m.user.email ?? "Ukjent",
+          epost: m.user.email ?? undefined,
           rolle: m.role === "owner" ? "Kontaktperson" : undefined,
         })) ?? [],
     },
@@ -252,6 +556,8 @@ export default function BrukereSide() {
       medlemmer: ent.members.map((m: { id: string; user?: { name?: string | null; email?: string | null } }) => ({
         id: m.id,
         navn: m.user?.name ?? m.user?.email ?? "Ukjent",
+        epost: m.user?.email ?? undefined,
+        firma: ent.name,
       })),
       ikon: <Building2 className="h-4 w-4" />,
     })) ?? []),
@@ -273,7 +579,8 @@ export default function BrukereSide() {
   const brukergrupper = filtrert.filter((g) => g.kategori === "brukergrupper");
 
   function handleLeggTilMedlem(gruppeId: string) {
-    // Fremtidig: åpne modal for å legge til medlem i gruppen
+    const gruppe = grupper.find((g) => g.id === gruppeId);
+    if (gruppe) setRedigerGruppe(gruppe);
   }
 
   return (
@@ -340,22 +647,35 @@ export default function BrukereSide() {
         tittel="Generelt"
         grupper={generelt}
         onLeggTilMedlem={handleLeggTilMedlem}
+        onDoubleClickGruppe={setRedigerGruppe}
       />
       <GruppeSeksjon
         tittel="Field"
         grupper={field}
         onLeggTilMedlem={handleLeggTilMedlem}
+        onDoubleClickGruppe={setRedigerGruppe}
       />
       <GruppeSeksjon
         tittel="Brukergrupper"
         grupper={brukergrupper}
         onLeggTilMedlem={handleLeggTilMedlem}
+        onDoubleClickGruppe={setRedigerGruppe}
       />
 
       {filtrert.length === 0 && (
         <div className="py-12 text-center text-sm text-gray-400">
           Ingen grupper matcher søket
         </div>
+      )}
+
+      {/* Rediger gruppe modal */}
+      {redigerGruppe && params.prosjektId && (
+        <RedigerGruppeModal
+          open={!!redigerGruppe}
+          onClose={() => setRedigerGruppe(null)}
+          gruppe={redigerGruppe}
+          prosjektId={params.prosjektId}
+        />
       )}
 
       {/* Ny gruppe modal */}

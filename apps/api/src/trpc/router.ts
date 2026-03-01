@@ -8,6 +8,7 @@ import { bygningRouter } from "../routes/bygning";
 import { tegningRouter } from "../routes/tegning";
 import { arbeidsforlopRouter } from "../routes/arbeidsforlop";
 import { mappeRouter } from "../routes/mappe";
+import { medlemRouter } from "../routes/medlem";
 
 export const appRouter = router({
   prosjekt: prosjektRouter,
@@ -19,6 +20,7 @@ export const appRouter = router({
   tegning: tegningRouter,
   arbeidsforlop: arbeidsforlopRouter,
   mappe: mappeRouter,
+  medlem: medlemRouter,
 });
 
 export type AppRouter = typeof appRouter;

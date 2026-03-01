@@ -57,3 +57,11 @@ export const updateWorkflowSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   templateIds: z.array(z.string().uuid()).optional(),
 });
+
+// Medlemsvalidering
+export const addMemberSchema = z.object({
+  projectId: z.string().uuid(),
+  email: z.string().email("Ugyldig e-postadresse"),
+  role: z.enum(["member", "admin"]).default("member"),
+  enterpriseId: z.string().uuid().optional(),
+});
