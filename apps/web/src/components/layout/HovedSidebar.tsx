@@ -67,7 +67,7 @@ const bunnelementer: SidebarElement[] = [
     id: "oppsett",
     label: "Oppsett",
     ikon: <Settings className="h-5 w-5" />,
-    kreverProsjekt: true,
+    kreverProsjekt: false,
   },
 ];
 

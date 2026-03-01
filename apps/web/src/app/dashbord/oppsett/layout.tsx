@@ -7,11 +7,9 @@ import {
   Users,
   MapPin,
   Wrench,
-  Archive,
   Home,
   ChevronRight,
   ChevronDown,
-  Settings,
 } from "lucide-react";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 
@@ -20,6 +18,7 @@ interface NavElement {
   href: string;
   ikon: React.ReactNode;
   barn?: { label: string; href: string }[];
+  kreverProsjekt?: boolean;
 }
 
 const navigasjon: NavElement[] = [
@@ -27,11 +26,13 @@ const navigasjon: NavElement[] = [
     label: "Brukere",
     href: "/dashbord/oppsett/brukere",
     ikon: <Users className="h-4 w-4" />,
+    kreverProsjekt: true,
   },
   {
     label: "Lokasjoner",
     href: "/dashbord/oppsett/lokasjoner",
     ikon: <MapPin className="h-4 w-4" />,
+    kreverProsjekt: true,
     barn: [
       { label: "Bygninger", href: "/dashbord/oppsett/lokasjoner/bygninger" },
     ],
@@ -40,6 +41,7 @@ const navigasjon: NavElement[] = [
     label: "Field",
     href: "/dashbord/oppsett/field",
     ikon: <Wrench className="h-4 w-4" />,
+    kreverProsjekt: true,
     barn: [
       { label: "Entrepriser", href: "/dashbord/oppsett/field/entrepriser" },
       { label: "Oppgavens arbeidsflyt", href: "/dashbord/oppsett/field/oppgavemaler" },
@@ -71,22 +73,6 @@ export default function OppsettLayout({
     "Owners Portal": false,
   });
 
-  if (!prosjektId) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Settings className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-          <p className="text-lg font-medium text-gray-600">
-            Velg et prosjekt for å se innstillinger
-          </p>
-          <p className="mt-1 text-sm text-gray-400">
-            Innstillinger er prosjektspesifikke
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   function toggleEkspander(label: string) {
     setEkspandert((prev) => ({ ...prev, [label]: !prev[label] }));
   }
@@ -108,15 +94,16 @@ export default function OppsettLayout({
             const harBarn = element.barn && element.barn.length > 0;
             const erEkspandert = ekspandert[element.label] ?? false;
             const aktiv = erAktiv(element.href);
+            const deaktivert = element.kreverProsjekt && !prosjektId;
 
             return (
-              <div key={element.label} className="mb-0.5">
+              <div key={element.label} className={`mb-0.5 ${deaktivert ? "opacity-40" : ""}`}>
                 <div className="flex items-center">
                   {harBarn ? (
                     <>
                       <button
-                        onClick={() => toggleEkspander(element.label)}
-                        className="mr-1 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        onClick={() => !deaktivert && toggleEkspander(element.label)}
+                        className={`mr-1 rounded p-0.5 ${deaktivert ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"}`}
                       >
                         {erEkspandert ? (
                           <ChevronDown className="h-3.5 w-3.5" />
@@ -124,18 +111,30 @@ export default function OppsettLayout({
                           <ChevronRight className="h-3.5 w-3.5" />
                         )}
                       </button>
-                      <Link
-                        href={element.href}
-                        className={`flex flex-1 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors ${
-                          aktiv
-                            ? "bg-siteflow-primary/10 text-siteflow-primary"
-                            : "text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        {element.ikon}
-                        {element.label}
-                      </Link>
+                      {deaktivert ? (
+                        <span className="flex flex-1 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+                          {element.ikon}
+                          {element.label}
+                        </span>
+                      ) : (
+                        <Link
+                          href={element.href}
+                          className={`flex flex-1 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors ${
+                            aktiv
+                              ? "bg-siteflow-primary/10 text-siteflow-primary"
+                              : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {element.ikon}
+                          {element.label}
+                        </Link>
+                      )}
                     </>
+                  ) : deaktivert ? (
+                    <span className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 pl-[30px] text-sm font-medium text-gray-400 cursor-not-allowed">
+                      {element.ikon}
+                      {element.label}
+                    </span>
                   ) : (
                     <Link
                       href={element.href}
@@ -152,7 +151,7 @@ export default function OppsettLayout({
                 </div>
 
                 {/* Barn-elementer */}
-                {harBarn && erEkspandert && (
+                {harBarn && erEkspandert && !deaktivert && (
                   <div className="ml-[30px] mt-0.5">
                     {element.barn!.map((barn) => (
                       <Link
