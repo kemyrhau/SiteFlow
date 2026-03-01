@@ -1,9 +1,21 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
 import { createProjectSchema } from "@siteflow/shared";
 import { generateProjectNumber } from "@siteflow/shared";
 
 export const prosjektRouter = router({
+  // Hent prosjekter der innlogget bruker er medlem
+  hentMine: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.project.findMany({
+      where: { members: { some: { userId: ctx.userId } } },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        enterprises: true,
+        _count: { select: { members: true } },
+      },
+    });
+  }),
+
   // Hent alle prosjekter
   hentAlle: publicProcedure.query(async ({ ctx }) => {
     return ctx.prisma.project.findMany({

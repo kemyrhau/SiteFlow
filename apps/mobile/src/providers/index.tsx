@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, opprettTrpcKlient } from "../lib/trpc";
 import { NettverkProvider } from "./NettverkProvider";
 import { AuthProvider } from "./AuthProvider";
+import { ProsjektProvider } from "../kontekst/ProsjektKontekst";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -28,7 +29,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <NettverkProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <ProsjektProvider>{children}</ProsjektProvider>
+          </AuthProvider>
         </NettverkProvider>
       </QueryClientProvider>
     </trpc.Provider>
