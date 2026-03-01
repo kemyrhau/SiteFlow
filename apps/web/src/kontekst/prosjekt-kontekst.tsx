@@ -31,22 +31,21 @@ interface ProsjektKontekstType {
 
 const ProsjektKontekst = createContext<ProsjektKontekstType | null>(null);
 
-function hentLagretProsjektId(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(STORAGE_KEY);
-}
-
 export function ProsjektProvider({ children }: { children: ReactNode }) {
   const params = useParams<{ prosjektId?: string }>();
   const router = useRouter();
   const urlProsjektId = params.prosjektId ?? null;
 
-  // Bruk URL-param hvis tilgjengelig, ellers bruk lagret verdi
-  const [lagretProsjektId, setLagretProsjektId] = useState<string | null>(
-    () => hentLagretProsjektId(),
-  );
+  // Initialiser som null for å unngå hydration-mismatch (localStorage kun på klient)
+  const [lagretProsjektId, setLagretProsjektId] = useState<string | null>(null);
 
   const prosjektId = urlProsjektId ?? lagretProsjektId;
+
+  // Les fra localStorage etter mount
+  useEffect(() => {
+    const lagret = localStorage.getItem(STORAGE_KEY);
+    if (lagret) setLagretProsjektId(lagret);
+  }, []);
 
   // Synkroniser: når URL har prosjektId → lagre det
   useEffect(() => {

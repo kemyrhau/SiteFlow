@@ -49,8 +49,9 @@ function RedigerBygning({
     if (!e.shiftKey) return;
     e.preventDefault();
     setZoom((prev) => {
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      return Math.min(5, Math.max(0.2, prev + delta));
+      // Proporsjonal zoom — føles naturlig på alle nivåer
+      const faktor = e.deltaY > 0 ? 0.9 : 1.1;
+      return Math.min(5, Math.max(0.1, prev * faktor));
     });
   }, []);
 
