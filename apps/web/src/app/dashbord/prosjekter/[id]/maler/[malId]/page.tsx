@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { Spinner } from "@siteflow/ui";
-import { MalBygger } from "./_components/MalBygger";
+import { MalBygger } from "@/components/malbygger";
 
 export default function MalDetaljerSide() {
   const params = useParams<{ id: string; malId: string }>();
