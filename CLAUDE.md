@@ -24,12 +24,30 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 siteflow/
 ├── apps/
 │   ├── web/            # Next.js PC-applikasjon
+│   │   └── src/
+│   │       ├── app/dashbord/
+│   │       │   ├── layout.tsx              # Tre-kolonne layout (Toppbar + Sidebar + innhold)
+│   │       │   ├── page.tsx                # Dashbord med prosjektliste
+│   │       │   ├── oppsett/               # Innstillinger
+│   │       │   └── [prosjektId]/          # Prosjektspesifikke ruter
+│   │       │       ├── layout.tsx          # Verktøylinje-wrapper
+│   │       │       ├── page.tsx            # Prosjektoversikt
+│   │       │       ├── sjekklister/       # Sjekkliste-tabell + detalj
+│   │       │       ├── oppgaver/          # Oppgave-tabell
+│   │       │       ├── maler/             # Maler med malbygger
+│   │       │       ├── entrepriser/       # Entreprise-liste
+│   │       │       └── tegninger/         # Tegninger (kommer)
+│   │       ├── components/
+│   │       │   ├── layout/                # Toppbar, HovedSidebar, SekundaertPanel, Verktoylinje, ProsjektVelger
+│   │       │   └── paneler/               # Seksjonspaneler (filter/statusgrupper per seksjon)
+│   │       ├── kontekst/                  # ProsjektKontekst, NavigasjonKontekst
+│   │       └── hooks/                     # useAktivSeksjon, useVerktoylinje
 │   ├── mobile/         # Expo React Native app
 │   └── api/            # Fastify backend
 ├── packages/
 │   ├── shared/         # Delte typer, utils, validering (Zod)
 │   ├── db/             # Prisma schema, migreringer, seed
-│   └── ui/             # Delte UI-komponenter
+│   └── ui/             # Delte UI-komponenter (Button, Card, Table, Tooltip, SidebarIkon, SearchInput, m.m.)
 ├── CLAUDE.md
 ├── turbo.json
 └── package.json
@@ -91,6 +109,58 @@ Bilder fra mobil komprimeres ALLTID før lagring:
 
 Mobil-appen bruker SQLite lokalt. All data skrives lokalt først, synkroniseres med server når nett er tilgjengelig. Bruk `is_synced`-flagg på alle tabeller. Konflikthåndtering: last-write-wins med tidsstempel.
 
+## Web UI-arkitektur
+
+Dalux-inspirert tre-kolonne layout:
+
+```
++----------------------------------------------------------+
+| TOPPBAR: [SiteFlow] [Prosjektvelger v]     [Bruker v]    |
++------+------------------+--------------------------------+
+| IKON | SEKUNDÆRT PANEL  | HOVEDINNHOLD                   |
+| 60px | 280px            | Verktøylinje: [Opprett] [...]  |
+|      | - Filtre         |                                |
+| Dash | - Statusgrupper  | Tabell / Detaljvisning         |
+| Sjekk| - Søk            |                                |
+| Oppg |                  |                                |
+| Maler|                  |                                |
+| Tegn |                  |                                |
+| Entr |                  |                                |
+|      |                  |                                |
+| Opps |                  |                                |
+| Hjelp|                  |                                |
++------+------------------+--------------------------------+
+```
+
+### Ruter
+
+```
+/dashbord                                  -> Dashbord (prosjektliste)
+/dashbord/[prosjektId]                     -> Prosjektoversikt
+/dashbord/[prosjektId]/sjekklister         -> Sjekkliste-tabell
+/dashbord/[prosjektId]/sjekklister/[id]    -> Sjekkliste-detalj
+/dashbord/[prosjektId]/oppgaver            -> Oppgave-tabell
+/dashbord/[prosjektId]/maler               -> Mal-liste
+/dashbord/[prosjektId]/maler/[id]          -> Mal-detalj / malbygger
+/dashbord/[prosjektId]/entrepriser         -> Entreprise-liste
+/dashbord/[prosjektId]/tegninger           -> Tegninger
+/dashbord/oppsett                          -> Innstillinger
+```
+
+### Kontekster og hooks
+
+- `ProsjektKontekst` — Valgt prosjekt synkronisert med URL-parameter `[prosjektId]`
+- `NavigasjonKontekst` — Aktiv seksjon + kontekstuelle verktøylinje-handlinger
+- `useAktivSeksjon()` — Utleder aktiv seksjon fra pathname
+- `useVerktoylinje(handlinger)` — Registrerer kontekstuelle handlinger per side
+
+### Layout-komponenter
+
+- `Toppbar` — Mørk blå bar med logo, prosjektvelger (dropdown med søk), brukermeny
+- `HovedSidebar` — 60px ikonbar med Tooltip, deaktiverte ikoner uten valgt prosjekt
+- `SekundaertPanel` — 280px panel med seksjonsspesifikt innhold (filtre, lister, søk)
+- `Verktoylinje` — Kontekstuell handlingsbar, registreres via `useVerktoylinje`
+
 ## Kodestil
 
 - TypeScript strict mode, ingen `any`
@@ -99,7 +169,11 @@ Mobil-appen bruker SQLite lokalt. All data skrives lokalt først, synkroniseres 
 - Prisma for server-side DB, Drizzle for lokal SQLite
 - Alle API-ruter i `apps/api/src/routes/`
 - Alle Expo-skjermer i `apps/mobile/src/screens/`
-- Komponenter i `packages/ui/src/`
+- Layout-komponenter i `apps/web/src/components/layout/`
+- Seksjonspaneler i `apps/web/src/components/paneler/`
+- Kontekster i `apps/web/src/kontekst/`
+- Hooks i `apps/web/src/hooks/`
+- Delte UI-komponenter i `packages/ui/src/`
 - Delte typer i `packages/shared/src/types/`
 
 ## Terminologi
