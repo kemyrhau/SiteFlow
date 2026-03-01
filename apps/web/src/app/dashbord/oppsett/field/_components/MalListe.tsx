@@ -1,0 +1,496 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
+import { trpc } from "@/lib/trpc";
+import { Button, Input, Textarea, Modal, Spinner, EmptyState, SearchInput } from "@siteflow/ui";
+import { Plus, Pencil, Trash2, MoreVertical, ChevronDown, Lock } from "lucide-react";
+
+type MalKategori = "oppgave" | "sjekkliste";
+
+interface MalListeProps {
+  kategori: MalKategori;
+  tittel: string;
+  opprettTekst: string;
+  tomTittel: string;
+  tomBeskrivelse: string;
+}
+
+type MalRad = {
+  id: string;
+  name: string;
+  description: string | null;
+  prefix: string | null;
+  category: string;
+  version: number;
+  _count: { objects: number; checklists: number };
+};
+
+// Dropdown-meny som lukkes ved klikk utenfor
+function Dropdown({
+  trigger,
+  children,
+  align = "left",
+}: {
+  trigger: React.ReactNode;
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <div onClick={() => setOpen(!open)}>{trigger}</div>
+      {open && (
+        <div
+          className={`absolute top-full z-50 mt-1 min-w-[200px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DropdownItem({
+  children,
+  onClick,
+  disabled = false,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+        disabled
+          ? "cursor-not-allowed text-gray-300"
+          : "text-gray-700 hover:bg-gray-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function MalListe({
+  kategori,
+  tittel,
+  opprettTekst,
+  tomTittel,
+  tomBeskrivelse,
+}: MalListeProps) {
+  const { prosjektId } = useProsjekt();
+  const router = useRouter();
+  const utils = trpc.useUtils();
+
+  const [valgtId, setValgtId] = useState<string | null>(null);
+  const [sok, setSok] = useState("");
+  const [visOpprettModal, setVisOpprettModal] = useState(false);
+  const [visRedigerModal, setVisRedigerModal] = useState(false);
+  const [visSlettBekreftelse, setVisSlettBekreftelse] = useState(false);
+
+  // Opprett-felter
+  const [navn, setNavn] = useState("");
+  const [prefiks, setPrefiks] = useState("");
+  const [beskrivelse, setBeskrivelse] = useState("");
+
+  // Rediger-felter
+  const [redigerNavn, setRedigerNavn] = useState("");
+  const [redigerPrefiks, setRedigerPrefiks] = useState("");
+  const [redigerBeskrivelse, setRedigerBeskrivelse] = useState("");
+
+  const { data: alleMaler, isLoading } = trpc.mal.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
+  const opprettMutation = trpc.mal.opprett.useMutation({
+    onSuccess: () => {
+      utils.mal.hentForProsjekt.invalidate({ projectId: prosjektId! });
+      setVisOpprettModal(false);
+      setNavn("");
+      setPrefiks("");
+      setBeskrivelse("");
+    },
+  });
+
+  const oppdaterMutation = trpc.mal.oppdaterMal.useMutation({
+    onSuccess: () => {
+      utils.mal.hentForProsjekt.invalidate({ projectId: prosjektId! });
+      setVisRedigerModal(false);
+    },
+  });
+
+  const slettMutation = trpc.mal.slettMal.useMutation({
+    onSuccess: () => {
+      utils.mal.hentForProsjekt.invalidate({ projectId: prosjektId! });
+      setVisSlettBekreftelse(false);
+      setValgtId(null);
+    },
+  });
+
+  function handleOpprett(e: React.FormEvent) {
+    e.preventDefault();
+    if (!navn.trim() || !prosjektId) return;
+    opprettMutation.mutate({
+      projectId: prosjektId,
+      name: navn.trim(),
+      prefix: prefiks.trim() || undefined,
+      description: beskrivelse.trim() || undefined,
+      category: kategori,
+    });
+  }
+
+  function handleRediger(e: React.FormEvent) {
+    e.preventDefault();
+    if (!valgtId || !redigerNavn.trim()) return;
+    oppdaterMutation.mutate({
+      id: valgtId,
+      name: redigerNavn.trim(),
+      prefix: redigerPrefiks.trim() || undefined,
+      description: redigerBeskrivelse.trim() || undefined,
+    });
+  }
+
+  function handleSlett() {
+    if (!valgtId) return;
+    slettMutation.mutate({ id: valgtId });
+  }
+
+  function apneRediger() {
+    const mal = maler.find((m) => m.id === valgtId);
+    if (!mal) return;
+    setRedigerNavn(mal.name);
+    setRedigerPrefiks(mal.prefix ?? "");
+    setRedigerBeskrivelse(mal.description ?? "");
+    setVisRedigerModal(true);
+  }
+
+  function handleDobbeltklikk(mal: MalRad) {
+    router.push(`/dashbord/oppsett/field/${kategori === "sjekkliste" ? "sjekklistemaler" : "oppgavemaler"}/${mal.id}`);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  // Filtrer på kategori og søk
+  const maler = (alleMaler as MalRad[] | undefined)
+    ?.filter((m) => m.category === kategori)
+    ?.filter((m) => {
+      if (!sok.trim()) return true;
+      const s = sok.toLowerCase();
+      return (
+        m.name.toLowerCase().includes(s) ||
+        (m.prefix?.toLowerCase().includes(s) ?? false) ||
+        (m.description?.toLowerCase().includes(s) ?? false)
+      );
+    })
+    ?.sort((a, b) => a.name.localeCompare(b.name, "nb")) ?? [];
+
+  const valgtMal = maler.find((m) => m.id === valgtId);
+  const harValg = !!valgtId;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Verktøylinje */}
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-0">
+        {/* + Tilføy dropdown */}
+        <Dropdown
+          trigger={
+            <button className="inline-flex items-center gap-1.5 rounded-md bg-[#5a7a2e] px-4 py-2 text-sm font-medium text-white hover:bg-[#4d6926] transition-colors">
+              <Plus className="h-4 w-4" />
+              Tilføy
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          }
+        >
+          <DropdownItem onClick={() => setVisOpprettModal(true)}>
+            Opprett ny
+          </DropdownItem>
+          <DropdownItem disabled>Importer fra annet prosjekt</DropdownItem>
+          <DropdownItem disabled>Importer fra firma</DropdownItem>
+          <DropdownItem disabled>Opprett fra PDF</DropdownItem>
+        </Dropdown>
+
+        {/* Rediger */}
+        <button
+          onClick={apneRediger}
+          disabled={!harValg}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-colors ${
+            harValg
+              ? "text-gray-600 hover:text-gray-900"
+              : "text-gray-300 cursor-not-allowed"
+          }`}
+        >
+          <Pencil className="h-4 w-4" />
+          Rediger
+        </button>
+
+        {/* Slett */}
+        <button
+          onClick={() => setVisSlettBekreftelse(true)}
+          disabled={!harValg}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-colors ${
+            harValg
+              ? "text-gray-600 hover:text-red-600"
+              : "text-gray-300 cursor-not-allowed"
+          }`}
+        >
+          <Trash2 className="h-4 w-4" />
+          Slett
+        </button>
+
+        {/* Mer-meny */}
+        <Dropdown
+          trigger={
+            <button className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+              <MoreVertical className="h-4 w-4" />
+              Mer
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          }
+        >
+          <DropdownItem disabled>Kopier mal</DropdownItem>
+          <DropdownItem disabled>Eksporter</DropdownItem>
+        </Dropdown>
+
+        {/* Søk */}
+        <div className="ml-auto">
+          <SearchInput
+            verdi={sok}
+            onChange={setSok}
+            placeholder="Søk..."
+            className="w-48"
+          />
+        </div>
+      </div>
+
+      {/* Tabell */}
+      {maler.length === 0 && !sok.trim() ? (
+        <EmptyState
+          title={tomTittel}
+          description={tomBeskrivelse}
+          action={
+            <button
+              onClick={() => setVisOpprettModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#5a7a2e] px-4 py-2 text-sm font-medium text-white hover:bg-[#4d6926] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              {opprettTekst}
+            </button>
+          }
+        />
+      ) : maler.length === 0 && sok.trim() ? (
+        <div className="py-12 text-center text-sm text-gray-500">
+          Ingen maler funnet for &laquo;{sok}&raquo;
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 border-b border-gray-200 bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-gray-700">
+                  Navn
+                </th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-gray-700 w-[140px]">
+                  Prefiks
+                </th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-gray-700 w-[100px]">
+                  Versjon
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {maler.map((mal) => (
+                <tr
+                  key={mal.id}
+                  onClick={() => setValgtId(mal.id === valgtId ? null : mal.id)}
+                  onDoubleClick={() => handleDobbeltklikk(mal)}
+                  className={`cursor-pointer transition-colors ${
+                    mal.id === valgtId
+                      ? "bg-blue-50"
+                      : "hover:bg-gray-50"
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="h-5 w-5 flex-shrink-0 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                        />
+                      </svg>
+                      <span className="font-medium text-gray-900">
+                        {mal.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {mal.prefix ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {mal.version.toFixed(1)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Bunnlinje: Lås maler */}
+      {maler.length > 0 && (
+        <div className="border-t border-gray-200 px-4 py-3 mt-auto">
+          <button className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+            <Lock className="h-4 w-4" />
+            Klikk for å låse {kategori === "sjekkliste" ? "sjekklistemaler" : "oppgavemaler"}
+          </button>
+        </div>
+      )}
+
+      {/* Opprett-modal */}
+      <Modal
+        open={visOpprettModal}
+        onClose={() => setVisOpprettModal(false)}
+        title={opprettTekst}
+      >
+        <form onSubmit={handleOpprett} className="flex flex-col gap-4">
+          <Input
+            label="Malnavn"
+            placeholder={
+              kategori === "oppgave"
+                ? "F.eks. Avvik, Befaringsnotat..."
+                : "F.eks. Kontrollsjekkliste - Elektro..."
+            }
+            value={navn}
+            onChange={(e) => setNavn(e.target.value)}
+            required
+          />
+          <Input
+            label="Prefiks"
+            placeholder="F.eks. BHO, S-BET, KBO..."
+            value={prefiks}
+            onChange={(e) => setPrefiks(e.target.value)}
+          />
+          <Textarea
+            label="Beskrivelse"
+            placeholder="Beskriv hva malen skal brukes til..."
+            value={beskrivelse}
+            onChange={(e) => setBeskrivelse(e.target.value)}
+          />
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" loading={opprettMutation.isPending}>
+              Opprett
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setVisOpprettModal(false)}
+            >
+              Avbryt
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Rediger-modal */}
+      <Modal
+        open={visRedigerModal}
+        onClose={() => setVisRedigerModal(false)}
+        title="Rediger mal"
+      >
+        <form onSubmit={handleRediger} className="flex flex-col gap-4">
+          <Input
+            label="Malnavn"
+            value={redigerNavn}
+            onChange={(e) => setRedigerNavn(e.target.value)}
+            required
+          />
+          <Input
+            label="Prefiks"
+            placeholder="F.eks. BHO, S-BET, KBO..."
+            value={redigerPrefiks}
+            onChange={(e) => setRedigerPrefiks(e.target.value)}
+          />
+          <Textarea
+            label="Beskrivelse"
+            value={redigerBeskrivelse}
+            onChange={(e) => setRedigerBeskrivelse(e.target.value)}
+          />
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" loading={oppdaterMutation.isPending}>
+              Lagre
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setVisRedigerModal(false)}
+            >
+              Avbryt
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Slett-bekreftelse */}
+      <Modal
+        open={visSlettBekreftelse}
+        onClose={() => setVisSlettBekreftelse(false)}
+        title="Slett mal"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">
+            Er du sikker på at du vil slette malen{" "}
+            <strong>{valgtMal?.name}</strong>? Denne handlingen kan ikke angres.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="danger"
+              onClick={handleSlett}
+              loading={slettMutation.isPending}
+            >
+              Slett
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setVisSlettBekreftelse(false)}
+            >
+              Avbryt
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}

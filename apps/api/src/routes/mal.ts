@@ -43,10 +43,34 @@ export const malRouter = router({
         projectId: z.string().uuid(),
         name: z.string().min(1).max(255),
         description: z.string().optional(),
+        prefix: z.string().max(20).optional(),
+        category: z.enum(["oppgave", "sjekkliste"]).default("sjekkliste"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.reportTemplate.create({ data: input });
+    }),
+
+  // Oppdater mal (navn, beskrivelse, prefiks)
+  oppdaterMal: publicProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(255).optional(),
+        description: z.string().optional(),
+        prefix: z.string().max(20).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      return ctx.prisma.reportTemplate.update({ where: { id }, data });
+    }),
+
+  // Slett mal
+  slettMal: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.reportTemplate.delete({ where: { id: input.id } });
     }),
 
   // Legg til rapportobjekt i mal

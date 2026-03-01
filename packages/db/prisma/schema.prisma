@@ -161,6 +161,7 @@ model ReportTemplate {
   projectId   String   @map("project_id")
   name        String
   description String?
+  prefix      String?
   category    String   @default("sjekkliste") // "oppgave" | "sjekkliste"
   version     Int      @default(1)
   createdAt   DateTime @default(now()) @map("created_at")
