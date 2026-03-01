@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Prisma } from "@siteflow/db";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
 import { documentStatusSchema } from "@siteflow/shared";
 import { isValidStatusTransition } from "@siteflow/shared";
 import { TRPCError } from "@trpc/server";
@@ -52,11 +52,10 @@ export const sjekklisteRouter = router({
     }),
 
   // Opprett ny sjekkliste
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(
       z.object({
         templateId: z.string().uuid(),
-        creatorUserId: z.string().uuid(),
         creatorEnterpriseId: z.string().uuid(),
         responderEnterpriseId: z.string().uuid(),
         title: z.string().min(1).max(255),
@@ -67,6 +66,7 @@ export const sjekklisteRouter = router({
       return ctx.prisma.checklist.create({
         data: {
           ...input,
+          creatorUserId: ctx.userId,
           dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
           status: "draft",
         },

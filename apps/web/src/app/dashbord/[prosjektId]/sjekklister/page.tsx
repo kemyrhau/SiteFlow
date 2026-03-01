@@ -15,6 +15,7 @@ export default function SjekklisteSide() {
   const utils = trpc.useUtils();
   const [visModal, setVisModal] = useState(false);
   const [valgtMal, setValgtMal] = useState("");
+  const [valgtOppretter, setValgtOppretter] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
   const [tittel, setTittel] = useState("");
 
@@ -30,6 +31,7 @@ export default function SjekklisteSide() {
       utils.sjekkliste.hentForProsjekt.invalidate({ projectId: params.prosjektId });
       setVisModal(false);
       setValgtMal("");
+      setValgtOppretter("");
       setValgtSvarer("");
       setTittel("");
     },
@@ -47,15 +49,11 @@ export default function SjekklisteSide() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!valgtMal || !valgtSvarer || !tittel.trim()) return;
-
-    const oppretterEntreprise = entrepriser?.[0];
-    if (!oppretterEntreprise) return;
+    if (!valgtMal || !valgtOppretter || !valgtSvarer || !tittel.trim()) return;
 
     opprettMutation.mutate({
       templateId: valgtMal,
-      creatorUserId: "",
-      creatorEnterpriseId: oppretterEntreprise.id,
+      creatorEnterpriseId: valgtOppretter,
       responderEnterpriseId: valgtSvarer,
       title: tittel.trim(),
     });
@@ -163,6 +161,13 @@ export default function SjekklisteSide() {
             value={valgtMal}
             onChange={(e) => setValgtMal(e.target.value)}
             placeholder="Velg mal..."
+          />
+          <Select
+            label="Oppretter-entreprise"
+            options={entrepriser?.map((e) => ({ value: e.id, label: e.name })) ?? []}
+            value={valgtOppretter}
+            onChange={(e) => setValgtOppretter(e.target.value)}
+            placeholder="Velg entreprise..."
           />
           <Select
             label="Ansvarlig entreprise (svarer)"

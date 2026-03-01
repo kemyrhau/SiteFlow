@@ -41,7 +41,6 @@ export default function SjekklisteSide() {
 
     opprettMutation.mutate({
       templateId: valgtMal,
-      creatorUserId: "", // Settes via kontekst i fremtiden
       creatorEnterpriseId: oppretterEntreprise.id,
       responderEnterpriseId: valgtSvarer,
       title: tittel.trim(),
