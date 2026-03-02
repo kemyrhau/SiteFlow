@@ -33,6 +33,8 @@ const ikonMap: Record<string, string> = {
   Type: "T",
   AlignLeft: "Aa",
   CircleDot: "●",
+  SquareCheck: "☐",
+  List: "≡",
   ListChecks: "☑",
   Hash: "#",
   Percent: "%",
