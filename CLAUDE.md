@@ -299,6 +299,30 @@ Maler bygges på PC med drag-and-drop. Hver mal inneholder objekter med definert
 
 Hvert objekt har metadata (`REPORT_OBJECT_TYPE_META`) med label, ikon, kategori og standardkonfigurasjon. Objektkonfigurasjon lagres som JSON i `report_objects.config`.
 
+### Malbygger (PC)
+
+Drag-and-drop-editor for å bygge maler. Komponenter i `apps/web/src/components/malbygger/`:
+
+| Komponent | Beskrivelse |
+|-----------|-------------|
+| `MalBygger` | Hovedkomponent: tre-kolonne layout (FeltPalett, DropSoner, FeltKonfigurasjon) |
+| `FeltPalett` | Venstre panel med draggbare felttyper (21 typer) |
+| `DropSone` | Droppbar sone (topptekst/datafelter) med sorterbare objekter |
+| `DraggbartFelt` | Individuelt sorterbart felt i en sone |
+| `FeltKonfigurasjon` | Høyre panel for å redigere valgt felts label, påkrevd-status og type-spesifikk config |
+| `DragOverlay_` | Visuell overlay under drag-operasjoner |
+| `BetingelseBjelke` | Blå betingelsesbar under foreldrefelt: "Vis felter hvis verdien er en av følgende: [chips]" |
+| `TreprikkMeny` | Kontekstmeny per felt: Rediger, Tilføy/Fjern betingelse, Slett |
+
+**Betinget synlighet:**
+- Enkeltvalg- og flervalg-felt (`list_single`, `list_multi`) kan ha betingelse (`conditionActive: true`)
+- Betingelsen definerer trigger-verdier (`conditionValues: string[]`)
+- Etterfølgende felt kan knyttes til betingelsen via `conditionParentId` i config
+- Barnefelt vises med blå venstre-kant og innrykk
+- Dra-og-slipp håndterer automatisk betingelsestilhørighet: felt arver betingelse ved drop i gruppe, mister den ved drag ut
+- Sletting av foreldrefelt kaskaderer: fjerner `conditionParentId` fra alle barn
+- `harBetingelse()` utility fra `@siteflow/shared` sjekker om et objekt har `conditionParentId`
+
 ### Innstillings-sidebar
 
 Sidebaren under `/dashbord/oppsett/` er organisert i seksjoner:

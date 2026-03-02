@@ -299,14 +299,13 @@ export function FeltDokumentasjon({
       )}
 
       {/* Bildeannotering modal */}
-      {annoteringBilde && (
-        <Modal visible animationType="slide" presentationStyle="fullScreen">
+      <Modal visible={!!annoteringBilde} animationType="slide" presentationStyle="fullScreen">
+        {annoteringBilde && (
           <BildeAnnotering
             bildeUri={annoteringBilde}
             onFerdig={async (annotert) => {
               settAnnoteringBilde(null);
               if (valgtVedleggId) {
-                // Annoterer eksisterende bilde — erstatt med annotert versjon
                 onFjernVedlegg(valgtVedleggId);
                 settValgtVedleggId(null);
               }
@@ -317,8 +316,8 @@ export function FeltDokumentasjon({
               settValgtVedleggId(null);
             }}
           />
-        </Modal>
-      )}
+        )}
+      </Modal>
 
       {/* Kamera modal */}
       <KameraModal
@@ -328,15 +327,20 @@ export function FeltDokumentasjon({
       />
 
       {/* Tegnings-skjermbilde modal */}
-      {visTegningsModal && valgtProsjektId && (
-        <Modal visible animationType="slide" presentationStyle="fullScreen">
+      <Modal
+        visible={visTegningsModal && !!valgtProsjektId}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => settVisTegningsModal(false)}
+      >
+        {visTegningsModal && valgtProsjektId ? (
           <TegningsSkjermbilde
             prosjektId={valgtProsjektId}
             onFerdig={håndterTegningsSkjermbilde}
             onAvbryt={() => settVisTegningsModal(false)}
           />
-        </Modal>
-      )}
+        ) : null}
+      </Modal>
     </View>
   );
 }
