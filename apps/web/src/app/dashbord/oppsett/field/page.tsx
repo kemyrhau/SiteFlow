@@ -185,7 +185,7 @@ function FieldKort({ kategori }: { kategori: FieldKategori }) {
 export default function FieldSide() {
   return (
     <div>
-      <h2 className="mb-6 text-xl font-bold text-gray-900">Field</h2>
+      <h2 className="mb-6 text-xl font-bold text-gray-900">Feltarbeid</h2>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {kategorier.map((kategori) => (

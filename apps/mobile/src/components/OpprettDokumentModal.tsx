@@ -213,7 +213,7 @@ export function OpprettDokumentModal({
     if (!matchendeArbeidsforlop || !autoSvarerEntrepriseId) {
       Alert.alert(
         "Mangler arbeidsforløp",
-        "Denne entreprisen har ikke et arbeidsforløp konfigurert for denne malen. Sett opp arbeidsforløp under Innstillinger > Field > Entrepriser.",
+        "Denne entreprisen har ikke et arbeidsforløp konfigurert for denne malen. Sett opp arbeidsforløp under Innstillinger > Feltarbeid > Entrepriser.",
       );
       return;
     }

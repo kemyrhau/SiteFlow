@@ -32,7 +32,7 @@ export default function EntrepriserSide() {
       {!entrepriser?.length ? (
         <EmptyState
           title="Ingen entrepriser"
-          description="Entrepriser administreres under Innstillinger > Field > Entrepriser."
+          description="Entrepriser administreres under Innstillinger > Feltarbeid > Entrepriser."
         />
       ) : (
         <Table<EntrepriseRad>

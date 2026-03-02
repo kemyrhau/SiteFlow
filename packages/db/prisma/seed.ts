@@ -292,7 +292,7 @@ async function seed() {
   const fieldAdminGruppe = await prisma.projectGroup.create({
     data: {
       projectId: prosjekt.id,
-      name: "Field-administratorer",
+      name: "Feltarbeid-administratorer",
       slug: "field-admin",
       category: "field",
       permissions: ["manage_field", "create_tasks", "create_checklists"],
@@ -312,7 +312,7 @@ async function seed() {
       },
       {
         projectId: prosjekt.id,
-        name: "Field-observatorer",
+        name: "Feltarbeid-observatorer",
         slug: "field-observatorer",
         category: "field",
         permissions: ["view_field"],

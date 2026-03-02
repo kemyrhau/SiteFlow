@@ -13,7 +13,7 @@ export const DOCUMENT_STATUSES = [
 
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
-// Rapportobjekttyper (21 typer)
+// Rapportobjekttyper (23 typer)
 export const REPORT_OBJECT_TYPES = [
   "heading",
   "subtitle",
@@ -36,6 +36,8 @@ export const REPORT_OBJECT_TYPES = [
   "weather",
   "signature",
   "repeater",
+  "location",
+  "drawing_position",
 ] as const;
 
 export type ReportObjectType = (typeof REPORT_OBJECT_TYPES)[number];
@@ -193,6 +195,18 @@ export const REPORT_OBJECT_TYPE_META: Record<ReportObjectType, ReportObjectTypeM
     category: "spesial",
     defaultConfig: { children: [] },
   },
+  location: {
+    label: "Lokasjon",
+    icon: "MapPin",
+    category: "spesial",
+    defaultConfig: {},
+  },
+  drawing_position: {
+    label: "Posisjon i tegning",
+    icon: "Target",
+    category: "spesial",
+    defaultConfig: { buildingFilter: null, disciplineFilter: null },
+  },
 };
 
 // Malsonene
@@ -217,7 +231,7 @@ export interface StandardProjectGroup {
 export const STANDARD_PROJECT_GROUPS: StandardProjectGroup[] = [
   {
     slug: "field-admin",
-    name: "Field-administratorer",
+    name: "Feltarbeid-administratorer",
     category: "field",
     permissions: ["manage_field", "create_tasks", "create_checklists"],
   },
@@ -229,7 +243,7 @@ export const STANDARD_PROJECT_GROUPS: StandardProjectGroup[] = [
   },
   {
     slug: "field-observatorer",
-    name: "Field-observatorer",
+    name: "Feltarbeid-observatorer",
     category: "field",
     permissions: ["view_field"],
   },
@@ -324,6 +338,23 @@ export function byggObjektTre<T extends { id: string; parentId?: string | null; 
   sorterRekursivt(rotObjekter);
 
   return rotObjekter as (T & { children: (T & { children: unknown[] })[] })[];
+}
+
+// Tegningsposisjon-verdi (for drawing_position-felter)
+export interface TegningPosisjonVerdi {
+  drawingId: string;
+  positionX: number;
+  positionY: number;
+  drawingName: string;
+}
+
+// Vær-verdi (for weather-felter)
+export interface VaerVerdi {
+  temperatur?: number;
+  forhold?: string;
+  vindstyrke?: number;
+  vaerkode?: number;
+  kilde?: "manuell" | "automatisk";
 }
 
 // Grunnleggende entitetsgrensesnitt

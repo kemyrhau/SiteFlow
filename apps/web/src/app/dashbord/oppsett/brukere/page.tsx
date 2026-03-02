@@ -1054,7 +1054,7 @@ export default function BrukereSide() {
         onDoubleClickGruppe={setRedigerGruppe}
       />
       <GruppeSeksjon
-        tittel="Field"
+        tittel="Feltarbeid"
         grupper={field}
         onLeggTilMedlem={handleLeggTilMedlem}
         onDoubleClickGruppe={setRedigerGruppe}
@@ -1113,7 +1113,7 @@ export default function BrukereSide() {
               }
             >
               <option value="generelt">Generelt</option>
-              <option value="field">Field</option>
+              <option value="field">Feltarbeid</option>
               <option value="brukergrupper">Brukergrupper</option>
             </select>
           </div>

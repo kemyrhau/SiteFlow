@@ -38,7 +38,7 @@ const navigasjon: NavElement[] = [
     ],
   },
   {
-    label: "Field",
+    label: "Feltarbeid",
     href: "/dashbord/oppsett/field",
     ikon: <Wrench className="h-4 w-4" />,
     kreverProsjekt: true,
@@ -69,7 +69,7 @@ export default function OppsettLayout({
   const pathname = usePathname();
   const [ekspandert, setEkspandert] = useState<Record<string, boolean>>({
     Lokasjoner: true,
-    Field: true,
+    Feltarbeid: true,
     "Owners Portal": false,
   });
 
