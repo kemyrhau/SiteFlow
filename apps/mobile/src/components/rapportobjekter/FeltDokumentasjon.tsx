@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { View, Text, TextInput, Pressable, Image, Alert, Modal } from "react-native";
-import { Camera, Paperclip, Map, X, FileText } from "lucide-react-native";
+import { View, Text, TextInput, Pressable, Image, Alert, Modal, ScrollView, InteractionManager } from "react-native";
+import { Camera, Paperclip, Map, FileText, Trash2, Pencil } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { randomUUID } from "expo-crypto";
 import type { Vedlegg } from "../../hooks/useSjekklisteSkjema";
@@ -19,6 +19,7 @@ interface FeltDokumentasjonProps {
   onFjernVedlegg: (vedleggId: string) => void;
   leseModus?: boolean;
   sjekklisteId: string;
+  skjulKommentar?: boolean;
 }
 
 export function FeltDokumentasjon({
@@ -29,10 +30,12 @@ export function FeltDokumentasjon({
   onFjernVedlegg,
   leseModus,
   sjekklisteId,
+  skjulKommentar,
 }: FeltDokumentasjonProps) {
   const [lasterOpp, settLasterOpp] = useState(false);
   const [annoteringBilde, settAnnoteringBilde] = useState<string | null>(null);
   const [visTegningsModal, settVisTegningsModal] = useState(false);
+  const [valgtVedleggId, settValgtVedleggId] = useState<string | null>(null);
   const { valgtProsjektId } = useProsjekt();
 
   const bildeOpprettMutasjon = trpc.bilde.opprettForSjekkliste.useMutation();
@@ -43,7 +46,16 @@ export function FeltDokumentasjon({
       const filnavn = `IMG_${Date.now()}.jpg`;
       const opplastet = await lastOppFil(bildeUri, filnavn, "image/jpeg");
 
-      await bildeOpprettMutasjon.mutateAsync({
+      // Legg til vedlegg i skjema umiddelbart
+      onLeggTilVedlegg({
+        id: randomUUID(),
+        type: "bilde",
+        url: opplastet.fileUrl,
+        filnavn: opplastet.fileName,
+      });
+
+      // Lagre bildemetadata i bakgrunnen (ikke-blokkerende)
+      bildeOpprettMutasjon.mutate({
         checklistId: sjekklisteId,
         fileUrl: opplastet.fileUrl,
         fileName: opplastet.fileName,
@@ -52,15 +64,10 @@ export function FeltDokumentasjon({
         gpsLng,
         gpsEnabled: gpsLat != null,
       });
-
-      onLeggTilVedlegg({
-        id: randomUUID(),
-        type: "bilde",
-        url: opplastet.fileUrl,
-        filnavn: opplastet.fileName,
-      });
-    } catch {
-      Alert.alert("Feil", "Kunne ikke laste opp bildet");
+    } catch (e) {
+      const melding = e instanceof Error ? e.message : "Ukjent feil";
+      console.error("Bildeopplasting feilet:", melding);
+      Alert.alert("Feil", `Kunne ikke laste opp bildet: ${melding}`);
     } finally {
       settLasterOpp(false);
     }
@@ -69,23 +76,19 @@ export function FeltDokumentasjon({
   const håndterTaBilde = useCallback(async () => {
     const resultat = await taBilde();
     if (!resultat) return;
-
-    // Spør om annotering
-    Alert.alert("Annoter bilde?", "Vil du legge til markeringer på bildet?", [
-      {
-        text: "Nei",
-        onPress: () => håndterBilde(resultat.uri, resultat.gpsLat, resultat.gpsLng),
-      },
-      {
-        text: "Ja",
-        onPress: () => settAnnoteringBilde(resultat.uri),
-      },
-    ]);
+    // Vent til React Navigation har gjenopprettet tilstand etter kamera
+    await new Promise<void>((resolve) => {
+      InteractionManager.runAfterInteractions(() => resolve());
+    });
+    await håndterBilde(resultat.uri, resultat.gpsLat, resultat.gpsLng);
   }, [håndterBilde]);
 
   const håndterVelgBilde = useCallback(async () => {
     const resultat = await velgBilde();
     if (!resultat) return;
+    await new Promise<void>((resolve) => {
+      InteractionManager.runAfterInteractions(() => resolve());
+    });
     await håndterBilde(resultat.uri, resultat.gpsLat, resultat.gpsLng);
   }, [håndterBilde]);
 
@@ -97,6 +100,10 @@ export function FeltDokumentasjon({
       });
 
       if (resultat.canceled || !resultat.assets[0]) return;
+
+      await new Promise<void>((resolve) => {
+        InteractionManager.runAfterInteractions(() => resolve());
+      });
 
       const fil = resultat.assets[0];
       settLasterOpp(true);
@@ -117,65 +124,103 @@ export function FeltDokumentasjon({
 
   const håndterTegningsSkjermbilde = useCallback((bildeUri: string) => {
     settVisTegningsModal(false);
-    // Spør om annotering
-    Alert.alert("Annoter skjermbilde?", "Vil du legge til markeringer?", [
-      {
-        text: "Nei",
-        onPress: () => håndterBilde(bildeUri),
-      },
-      {
-        text: "Ja",
-        onPress: () => settAnnoteringBilde(bildeUri),
-      },
-    ]);
+    håndterBilde(bildeUri);
   }, [håndterBilde]);
+
+  const valgtVedlegg = vedlegg.find((v) => v.id === valgtVedleggId);
+
+  const håndterSlett = useCallback(() => {
+    if (!valgtVedleggId) return;
+    onFjernVedlegg(valgtVedleggId);
+    settValgtVedleggId(null);
+  }, [valgtVedleggId, onFjernVedlegg]);
+
+  const håndterAnnoter = useCallback(() => {
+    if (!valgtVedlegg || valgtVedlegg.type !== "bilde") return;
+    settAnnoteringBilde(valgtVedlegg.url);
+  }, [valgtVedlegg]);
 
   return (
     <View className="mt-2 gap-2">
       {/* Kommentarfelt */}
-      <TextInput
-        value={kommentar}
-        onChangeText={onEndreKommentar}
-        placeholder="Kommentar..."
-        multiline
-        numberOfLines={2}
-        textAlignVertical="top"
-        editable={!leseModus}
-        className={`rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 ${
-          leseModus ? "text-gray-500" : ""
-        }`}
-      />
+      {!skjulKommentar && (
+        <TextInput
+          value={kommentar}
+          onChangeText={onEndreKommentar}
+          placeholder="Kommentar..."
+          multiline
+          numberOfLines={2}
+          textAlignVertical="top"
+          editable={!leseModus}
+          className={`rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 ${
+            leseModus ? "text-gray-500" : ""
+          }`}
+        />
+      )}
 
-      {/* Vedlegg-thumbnails */}
-      {vedlegg.length > 0 && (
-        <View className="flex-row flex-wrap gap-2">
-          {vedlegg.map((v) => (
-            <View key={v.id} className="relative">
-              {v.type === "bilde" ? (
-                <Image
-                  source={{ uri: v.url }}
-                  className="h-16 w-16 rounded-lg"
-                  resizeMode="cover"
-                />
-              ) : (
-                <View className="h-16 w-16 items-center justify-center rounded-lg bg-gray-100">
-                  <FileText size={20} color="#6b7280" />
-                  <Text className="mt-0.5 text-center text-[9px] text-gray-500" numberOfLines={1}>
-                    {v.filnavn}
-                  </Text>
-                </View>
-              )}
-              {!leseModus && (
-                <Pressable
-                  onPress={() => onFjernVedlegg(v.id)}
-                  className="absolute -right-1.5 -top-1.5 h-5 w-5 items-center justify-center rounded-full bg-red-500"
-                >
-                  <X size={12} color="#ffffff" />
-                </Pressable>
-              )}
-            </View>
-          ))}
+      {/* Verktøylinje (kun synlig når vedlegg er valgt) */}
+      {!leseModus && valgtVedlegg && (
+        <View className="flex-row gap-2">
+          <Pressable
+            onPress={håndterSlett}
+            className="flex-row items-center gap-1.5 rounded-lg bg-red-50 px-3 py-1.5"
+          >
+            <Trash2 size={14} color="#ef4444" />
+            <Text className="text-xs font-medium text-red-600">Slett</Text>
+          </Pressable>
+          {valgtVedlegg.type === "bilde" && (
+            <Pressable
+              onPress={håndterAnnoter}
+              className="flex-row items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5"
+            >
+              <Pencil size={14} color="#1e40af" />
+              <Text className="text-xs font-medium text-blue-700">Annoter</Text>
+            </Pressable>
+          )}
         </View>
+      )}
+
+      {/* Filmrull — horisontal vedleggliste */}
+      {vedlegg.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8 }}
+        >
+          {vedlegg.map((v) => {
+            const erValgt = v.id === valgtVedleggId;
+            return (
+              <Pressable
+                key={v.id}
+                onPress={() => {
+                  if (leseModus) return;
+                  settValgtVedleggId(erValgt ? null : v.id);
+                }}
+              >
+                {v.type === "bilde" ? (
+                  <Image
+                    source={{ uri: v.url }}
+                    className={`h-[72px] w-[72px] rounded-lg ${
+                      erValgt ? "border-2 border-blue-500" : ""
+                    }`}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    className={`h-[72px] w-[72px] items-center justify-center rounded-lg bg-gray-100 ${
+                      erValgt ? "border-2 border-blue-500" : ""
+                    }`}
+                  >
+                    <FileText size={22} color="#6b7280" />
+                    <Text className="mt-1 text-center text-[9px] text-gray-500" numberOfLines={1}>
+                      {v.filnavn}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       )}
 
       {/* Handlingsknapper */}
@@ -219,14 +264,18 @@ export function FeltDokumentasjon({
         <Modal visible animationType="slide" presentationStyle="fullScreen">
           <BildeAnnotering
             bildeUri={annoteringBilde}
-            onFerdig={(annotert) => {
+            onFerdig={async (annotert) => {
               settAnnoteringBilde(null);
-              håndterBilde(annotert);
+              if (valgtVedleggId) {
+                // Annoterer eksisterende bilde — erstatt med annotert versjon
+                onFjernVedlegg(valgtVedleggId);
+                settValgtVedleggId(null);
+              }
+              await håndterBilde(annotert);
             }}
             onAvbryt={() => {
               settAnnoteringBilde(null);
-              // Last opp originalt bilde uten annotering
-              håndterBilde(annoteringBilde);
+              settValgtVedleggId(null);
             }}
           />
         </Modal>

@@ -69,6 +69,7 @@ export function FeltWrapper({
         onFjernVedlegg={onFjernVedlegg}
         leseModus={leseModus}
         sjekklisteId={sjekklisteId}
+        skjulKommentar={objekt.type === "text_field"}
       />
     </View>
   );
