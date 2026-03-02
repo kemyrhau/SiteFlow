@@ -360,8 +360,15 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 
 **Filmrull (vedlegg-visning):**
 - Horisontal `ScrollView` med 72×72px thumbnails (IKKE `FlatList` — unngår VirtualizedList-nesting i ScrollView)
-- Vedlegg-URL-er fra server er relative (`/uploads/...`) — må prefikses med `AUTH_CONFIG.apiUrl` for visning i React Native Image
-- Lokale bilder bruker `file://`-URI direkte
+- Vedlegg-URL-er lagres alltid som server-relative URL-er (`/uploads/...`) — ALDRI lokale `file://`-URI-er (forsvinner ved app-restart)
+- Filmrullen prefikser relative URL-er med `AUTH_CONFIG.apiUrl` for visning i React Native Image
+
+**Auto-lagring og datapersistering:**
+- `useSjekklisteSkjema` har auto-lagring med 2s debounce for ALLE endringer: `oppdaterFelt`, `leggTilVedlegg`, `fjernVedlegg`
+- `feltVerdierRef` brukes for å unngå stale closure i `lagreIntern` — sender alltid nyeste data
+- `lagreStatus`: `"idle"` → `"lagrer"` → `"lagret"` (2s) → `"idle"` (eller `"feil"` → 3s → `"idle"`)
+- Visuell statusindikator i sjekkliste-header: spinner (lagrer), grønn hake (lagret), advarsel (feil)
+- Tilbakeknapp lagrer automatisk uten bekreftelsesdialog
 
 **Komprimering:**
 1. Maks 1920px bredde
