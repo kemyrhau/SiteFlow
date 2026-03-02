@@ -9,16 +9,44 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Save } from "lucide-react-native";
+import { ArrowLeft, Save, Check, AlertTriangle, Clock } from "lucide-react-native";
 import { harBetingelse } from "@siteflow/shared";
 import { useSjekklisteSkjema } from "../../src/hooks/useSjekklisteSkjema";
 import { StatusMerkelapp } from "../../src/components/StatusMerkelapp";
 import { RapportObjektRenderer, DISPLAY_TYPER } from "../../src/components/rapportobjekter";
 import { FeltWrapper } from "../../src/components/rapportobjekter/FeltWrapper";
+import { trpc } from "../../src/lib/trpc";
+
+interface Transfer {
+  id: string;
+  fromStatus: string;
+  toStatus: string;
+  comment: string | null;
+  createdAt: Date | string;
+  sender?: { name: string | null } | null;
+}
+
+function formaterHistorikkDato(dato: Date | string): string {
+  const d = new Date(dato);
+  return d.toLocaleDateString("nb-NO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function SjekklisteUtfylling() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+
+  // Hent overføringer for historikk
+  const detaljQuery = trpc.sjekkliste.hentMedId.useQuery(
+    { id: id! },
+    { enabled: !!id },
+  );
+  const overforinger = (detaljQuery.data as { transfers?: Transfer[] } | undefined)?.transfers;
 
   const {
     sjekkliste,
@@ -35,28 +63,14 @@ export default function SjekklisteUtfylling() {
     erLagrer,
     harEndringer,
     erRedigerbar,
+    lagreStatus,
   } = useSjekklisteSkjema(id!);
 
-  const håndterTilbake = useCallback(() => {
+  const håndterTilbake = useCallback(async () => {
     if (harEndringer) {
-      Alert.alert(
-        "Ulagrede endringer",
-        "Du har endringer som ikke er lagret. Vil du lagre før du går tilbake?",
-        [
-          { text: "Forkast", style: "destructive", onPress: () => router.back() },
-          {
-            text: "Lagre og gå tilbake",
-            onPress: async () => {
-              await lagre();
-              router.back();
-            },
-          },
-          { text: "Avbryt", style: "cancel" },
-        ],
-      );
-    } else {
-      router.back();
+      await lagre();
     }
+    router.back();
   }, [harEndringer, lagre, router]);
 
   const håndterLagre = useCallback(async () => {
@@ -106,9 +120,20 @@ export default function SjekklisteUtfylling() {
           {sjekkliste.title}
         </Text>
         {erRedigerbar && (
-          <Pressable onPress={håndterLagre} hitSlop={12} disabled={erLagrer}>
-            <Save size={22} color={erLagrer ? "#93c5fd" : "#ffffff"} />
-          </Pressable>
+          <View className="flex-row items-center gap-2">
+            {lagreStatus === "lagrer" && (
+              <ActivityIndicator size="small" color="#93c5fd" />
+            )}
+            {lagreStatus === "lagret" && (
+              <Check size={18} color="#86efac" />
+            )}
+            {lagreStatus === "feil" && (
+              <AlertTriangle size={18} color="#fca5a5" />
+            )}
+            <Pressable onPress={håndterLagre} hitSlop={12} disabled={erLagrer}>
+              <Save size={22} color={erLagrer ? "#93c5fd" : "#ffffff"} />
+            </Pressable>
+          </View>
         )}
         {!erRedigerbar && <View style={{ width: 22 }} />}
       </View>
@@ -195,6 +220,41 @@ export default function SjekklisteUtfylling() {
             </FeltWrapper>
           );
         })}
+
+        {/* Historikk */}
+        {overforinger && overforinger.length > 0 && (
+          <View className="mt-4">
+            <View className="flex-row items-center gap-2 px-1 pb-2">
+              <Clock size={16} color="#6b7280" />
+              <Text className="text-sm font-semibold text-gray-700">Historikk</Text>
+            </View>
+            <View className="rounded-lg bg-white">
+              {overforinger.map((t, i) => (
+                <View
+                  key={t.id}
+                  className={`flex-row items-center gap-2 px-3 py-2.5 ${i > 0 ? "border-t border-gray-100" : ""}`}
+                >
+                  <View className="flex-1">
+                    <View className="flex-row items-center gap-1.5">
+                      <StatusMerkelapp status={t.fromStatus} />
+                      <Text className="text-xs text-gray-400">→</Text>
+                      <StatusMerkelapp status={t.toStatus} />
+                    </View>
+                    {t.sender?.name && (
+                      <Text className="mt-0.5 text-xs text-gray-500">{t.sender.name}</Text>
+                    )}
+                    {t.comment && (
+                      <Text className="mt-0.5 text-xs text-gray-600">{t.comment}</Text>
+                    )}
+                  </View>
+                  <Text className="text-xs text-gray-400">
+                    {formaterHistorikkDato(t.createdAt)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Lagre-knapp i bunn */}

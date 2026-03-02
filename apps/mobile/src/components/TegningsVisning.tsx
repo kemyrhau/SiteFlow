@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,18 @@ import {
   ActivityIndicator,
   Platform,
   useWindowDimensions,
+  StyleSheet,
 } from "react-native";
-import type { GestureResponderEvent, LayoutChangeEvent } from "react-native";
+import type {
+  GestureResponderEvent,
+  LayoutChangeEvent,
+  NativeTouchEvent,
+} from "react-native";
 import { WebView } from "react-native-webview";
 import type { WebViewMessageEvent } from "react-native-webview";
-import { X, MapPin } from "lucide-react-native";
+import { X, MapPin, AlertTriangle, RefreshCw } from "lucide-react-native";
+
+const LASTING_TIMEOUT_MS = 15_000;
 
 export interface Markør {
   x: number;
@@ -40,12 +47,51 @@ export function TegningsVisning({
   markører = [],
 }: TegningsVisningProps) {
   const [laster, setLaster] = useState(true);
+  const [feil, setFeil] = useState(false);
   const { width, height } = useWindowDimensions();
   const erPdfFil = erPdf(tegningUrl);
   const [bildeDimensjoner, setBildeDimensjoner] = useState({ width: 0, height: 0 });
-
-  // For bildevisning: beregn faktisk bildeposisjon innenfor "contain"-boks
   const bildeRef = useRef<View>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset tilstand ved endring av URL
+  useEffect(() => {
+    setLaster(true);
+    setFeil(false);
+  }, [tegningUrl]);
+
+  // Timeout: vis feil dersom lasting tar over 15 sekunder
+  useEffect(() => {
+    if (laster && !feil) {
+      timeoutRef.current = setTimeout(() => {
+        if (laster) {
+          setLaster(false);
+          setFeil(true);
+        }
+      }, LASTING_TIMEOUT_MS);
+    }
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [laster, feil]);
+
+  const håndterLastetFerdig = useCallback(() => {
+    setLaster(false);
+    setFeil(false);
+  }, []);
+
+  const håndterFeil = useCallback(() => {
+    setLaster(false);
+    setFeil(true);
+  }, []);
+
+  const prøvIgjen = useCallback(() => {
+    setLaster(true);
+    setFeil(false);
+  }, []);
 
   const håndterBildeLayout = useCallback((e: LayoutChangeEvent) => {
     setBildeDimensjoner({
@@ -54,7 +100,7 @@ export function TegningsVisning({
     });
   }, []);
 
-  // Håndter trykk på bildeområdet
+  // Håndter trykk på bildeområdet — kun enkelt-fingertrykk
   const håndterBildeTrykk = useCallback(
     (e: GestureResponderEvent) => {
       if (!onTrykk) return;
@@ -63,11 +109,9 @@ export function TegningsVisning({
       const containerW = bildeDimensjoner.width || width;
       const containerH = bildeDimensjoner.height || height * 0.8;
 
-      // Beregn prosent av synlig bildeflate
       const posX = (locationX / containerW) * 100;
       const posY = (locationY / containerH) * 100;
 
-      // Begrens til 0-100
       const klampX = Math.max(0, Math.min(100, posX));
       const klampY = Math.max(0, Math.min(100, posY));
 
@@ -75,6 +119,16 @@ export function TegningsVisning({
     },
     [onTrykk, bildeDimensjoner, width, height],
   );
+
+  // Sjekk om touch-event er en enkelt-finger tap (ikke pinch/drag)
+  const erEnkeltTap = useCallback((e: GestureResponderEvent): boolean => {
+    const nativeEvent = e.nativeEvent as NativeTouchEvent;
+    // Avvis multi-touch (pinch-zoom)
+    if (nativeEvent.touches && nativeEvent.touches.length > 1) {
+      return false;
+    }
+    return true;
+  }, []);
 
   // Håndter trykk fra PDF WebView via postMessage
   const håndterWebViewMelding = useCallback(
@@ -109,18 +163,43 @@ export function TegningsVisning({
     return markører.map((m) => (
       <View
         key={m.id}
-        pointerEvents="none"
         style={{
           position: "absolute",
           left: (m.x / 100) * containerW - 12,
           top: (m.y / 100) * containerH - 24,
-          zIndex: 20,
         }}
       >
         <MapPin size={24} color="#ef4444" fill="#ef4444" />
       </View>
     ));
   };
+
+  // Feilvisning med "Prøv igjen"-knapp
+  const renderFeilVisning = () => (
+    <View style={stiler.feilContainer}>
+      <AlertTriangle size={48} color="#f59e0b" />
+      <Text style={stiler.feilTekst}>
+        Kunne ikke laste tegningen
+      </Text>
+      <Text style={stiler.feilBeskrivelse}>
+        Sjekk nettverkstilkoblingen og prøv igjen
+      </Text>
+      <Pressable onPress={prøvIgjen} style={stiler.prøvIgjenKnapp}>
+        <RefreshCw size={16} color="#ffffff" />
+        <Text style={stiler.prøvIgjenTekst}>Prøv igjen</Text>
+      </Pressable>
+    </View>
+  );
+
+  // Lasting-indikator
+  const renderLasting = () => (
+    <View style={stiler.lastingContainer}>
+      <ActivityIndicator size="large" color="#ffffff" />
+      <Text style={stiler.lastingTekst}>
+        Laster tegning…
+      </Text>
+    </View>
+  );
 
   return (
     <View className="flex-1 bg-black">
@@ -142,34 +221,25 @@ export function TegningsVisning({
         <View style={{ width: 36 }} />
       </View>
 
-      {/* Innhold: PDF via WebView eller bilde med zoom/pan */}
-      {erPdfFil ? (
-        <View className="flex-1 pt-12">
-          {laster && (
-            <View className="absolute inset-0 z-0 items-center justify-center">
-              <ActivityIndicator size="large" color="#ffffff" />
-              <Text className="mt-3 text-sm text-gray-300">
-                Laster tegning…
-              </Text>
-            </View>
-          )}
+      {/* Feilvisning */}
+      {feil ? (
+        <View style={{ flex: 1, paddingTop: 48 }}>
+          {renderFeilVisning()}
+        </View>
+      ) : erPdfFil ? (
+        /* PDF-visning */
+        <View style={{ flex: 1, paddingTop: 48 }}>
+          {laster && renderLasting()}
           {Platform.OS === "web" ? (
             <View style={{ flex: 1, position: "relative" }}>
               <iframe
                 src={tegningUrl}
                 style={{ flex: 1, width: "100%", height: "100%", border: "none" }}
-                onLoad={() => setLaster(false)}
+                onLoad={håndterLastetFerdig}
               />
-              {/* Transparent overlegg for å fange klikk på web */}
               {onTrykk && (
                 <Pressable
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                  }}
+                  style={StyleSheet.absoluteFill}
                   onPress={(e) => {
                     const { locationX, locationY } = e.nativeEvent;
                     const posX = (locationX / width) * 100;
@@ -189,21 +259,30 @@ export function TegningsVisning({
               <WebView
                 source={{ uri: tegningUrl }}
                 style={{ flex: 1 }}
-                onLoadEnd={() => setLaster(false)}
-                scalesPageToFit
+                startInLoadingState
+                renderLoading={() => <View />}
+                onLoadEnd={håndterLastetFerdig}
+                onError={håndterFeil}
                 injectedJavaScript={onTrykk ? injisertJs : undefined}
                 onMessage={håndterWebViewMelding}
+                allowsInlineMediaPlayback
               />
-              {renderMarkører(width, height * 0.8)}
+              <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                {renderMarkører(width, height * 0.8)}
+              </View>
             </View>
           )}
         </View>
       ) : (
+        /* Bildevisning — gesture-systemene er separert */
         <View
           ref={bildeRef}
           onLayout={håndterBildeLayout}
           style={{ flex: 1, position: "relative" }}
         >
+          {laster && renderLasting()}
+
+          {/* ScrollView med zoom — uten Pressable inni */}
           <ScrollView
             contentContainerStyle={{
               flexGrow: 1,
@@ -216,27 +295,85 @@ export function TegningsVisning({
             showsHorizontalScrollIndicator={false}
             showsVerticalScrollIndicator={false}
           >
-            {laster && (
-              <View className="absolute inset-0 items-center justify-center">
-                <ActivityIndicator size="large" color="#ffffff" />
-                <Text className="mt-3 text-sm text-gray-300">
-                  Laster tegning…
-                </Text>
-              </View>
-            )}
-            <Pressable onPress={håndterBildeTrykk}>
-              <Image
-                source={{ uri: tegningUrl }}
-                style={{ width, height: height * 0.8 }}
-                resizeMode="contain"
-                onLoadEnd={() => setLaster(false)}
-              />
-              {/* Markører over bildet */}
-              {renderMarkører(width, height * 0.8)}
-            </Pressable>
+            <Image
+              source={{ uri: tegningUrl }}
+              style={{ width, height: height * 0.8 }}
+              resizeMode="contain"
+              onLoadEnd={håndterLastetFerdig}
+              onError={håndterFeil}
+            />
           </ScrollView>
+
+          {/* Markører som eget overlegg — blokkerer ikke gestures */}
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {renderMarkører(
+              bildeDimensjoner.width || width,
+              bildeDimensjoner.height || height * 0.8,
+            )}
+          </View>
+
+          {/* Trykk-overlegg — kun enkelt-fingertrykk plasserer markør */}
+          {onTrykk && (
+            <View
+              style={StyleSheet.absoluteFill}
+              onStartShouldSetResponder={erEnkeltTap}
+              onResponderRelease={håndterBildeTrykk}
+            />
+          )}
         </View>
       )}
     </View>
   );
 }
+
+const stiler = StyleSheet.create({
+  feilContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  feilTekst: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  feilBeskrivelse: {
+    color: "#9ca3af",
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  prøvIgjenKnapp: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1e40af",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 24,
+    gap: 8,
+  },
+  prøvIgjenTekst: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  lastingContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 5,
+  },
+  lastingTekst: {
+    color: "#d1d5db",
+    fontSize: 14,
+    marginTop: 12,
+  },
+});

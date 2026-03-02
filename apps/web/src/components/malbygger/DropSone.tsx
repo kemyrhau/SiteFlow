@@ -6,7 +6,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { TemplateZone } from "@siteflow/shared";
+import { harBetingelse } from "@siteflow/shared";
 import { DraggbartFelt, type MalObjekt } from "./DraggbartFelt";
+import { BetingelseBjelke } from "./BetingelseBjelke";
 
 interface DropSoneProps {
   zone: TemplateZone;
@@ -15,6 +17,10 @@ interface DropSoneProps {
   valgtId: string | null;
   onVelg: (id: string) => void;
   onSlett: (id: string) => void;
+  onTilfoyjBetingelse: (parentId: string) => void;
+  onOppdaterBetingelseVerdier: (parentId: string, verdier: string[]) => void;
+  onFjernBetingelse: (parentId: string) => void;
+  onFjernBarnBetingelse: (barnId: string) => void;
 }
 
 export function DropSone({
@@ -24,6 +30,10 @@ export function DropSone({
   valgtId,
   onVelg,
   onSlett,
+  onTilfoyjBetingelse,
+  onOppdaterBetingelseVerdier,
+  onFjernBetingelse,
+  onFjernBarnBetingelse,
 }: DropSoneProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `sone-${zone}`,
@@ -52,15 +62,39 @@ export function DropSone({
             </p>
           ) : (
             <div className="flex flex-col gap-1.5">
-              {objekter.map((objekt) => (
-                <DraggbartFelt
-                  key={objekt.id}
-                  objekt={objekt}
-                  erValgt={valgtId === objekt.id}
-                  onClick={() => onVelg(objekt.id)}
-                  onSlett={() => onSlett(objekt.id)}
-                />
-              ))}
+              {objekter.map((objekt) => {
+                const erBarn = harBetingelse(objekt.config);
+                const harAktiv = objekt.config.conditionActive === true;
+
+                return (
+                  <div key={objekt.id}>
+                    <DraggbartFelt
+                      objekt={objekt}
+                      erValgt={valgtId === objekt.id}
+                      erBarnFelt={erBarn}
+                      harAktivBetingelse={harAktiv}
+                      onClick={() => onVelg(objekt.id)}
+                      onSlett={() => onSlett(objekt.id)}
+                      onTilfoyjBetingelse={() => onTilfoyjBetingelse(objekt.id)}
+                      onFjernBetingelse={() => onFjernBarnBetingelse(objekt.id)}
+                    />
+
+                    {/* Betingelsebjelke etter foreldrefelt med aktiv betingelse */}
+                    {harAktiv && (
+                      <div className="mt-1.5">
+                        <BetingelseBjelke
+                          parentObjekt={objekt}
+                          aktiveVerdier={(objekt.config.conditionValues as string[]) ?? []}
+                          onEndreVerdier={(verdier) =>
+                            onOppdaterBetingelseVerdier(objekt.id, verdier)
+                          }
+                          onFjern={() => onFjernBetingelse(objekt.id)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

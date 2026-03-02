@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { trpc } from "../lib/trpc";
 
+type LagreStatus = "idle" | "lagrer" | "lagret" | "feil";
+
 export interface Vedlegg {
   id: string;
   type: "bilde" | "fil";
@@ -55,6 +57,7 @@ export interface UseSjekklisteSkjemaResultat {
   erLagrer: boolean;
   harEndringer: boolean;
   erRedigerbar: boolean;
+  lagreStatus: LagreStatus;
 }
 
 const REDIGERBARE_STATUSER = new Set(["draft", "received", "in_progress"]);
@@ -64,7 +67,13 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
   const [valideringsfeil, settValideringsfeil] = useState<Record<string, string>>({});
   const [harEndringer, settHarEndringer] = useState(false);
   const [erInitialisert, settErInitialisert] = useState(false);
+  const [lagreStatus, settLagreStatus] = useState<LagreStatus>("idle");
   const lagreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Ref for å unngå stale closure i lagreIntern
+  const feltVerdierRef = useRef(feltVerdier);
+  feltVerdierRef.current = feltVerdier;
 
   // Hent sjekklistedata
   const sjekklisteQuery = trpc.sjekkliste.hentMedId.useQuery(
@@ -113,6 +122,43 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     [feltVerdier],
   );
 
+  // Lagre til server
+  const oppdaterDataMutasjon = trpc.sjekkliste.oppdaterData.useMutation();
+
+  const lagreIntern = useCallback(async () => {
+    if (!sjekklisteId) return;
+    settLagreStatus("lagrer");
+    try {
+      await oppdaterDataMutasjon.mutateAsync({
+        id: sjekklisteId,
+        data: feltVerdierRef.current,
+      });
+      settHarEndringer(false);
+      settLagreStatus("lagret");
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = setTimeout(() => settLagreStatus("idle"), 2000);
+    } catch {
+      settLagreStatus("feil");
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = setTimeout(() => settLagreStatus("idle"), 3000);
+    }
+  }, [sjekklisteId, oppdaterDataMutasjon]);
+
+  const planleggLagring = useCallback(() => {
+    if (lagreTimerRef.current) clearTimeout(lagreTimerRef.current);
+    lagreTimerRef.current = setTimeout(() => {
+      lagreIntern();
+    }, 2000);
+  }, [lagreIntern]);
+
+  const lagre = useCallback(async () => {
+    if (lagreTimerRef.current) {
+      clearTimeout(lagreTimerRef.current);
+      lagreTimerRef.current = null;
+    }
+    await lagreIntern();
+  }, [lagreIntern]);
+
   // Oppdater én nøkkel i et felt og planlegg auto-lagring
   const oppdaterFelt = useCallback(
     (objektId: string, oppdatering: Partial<FeltVerdi>) => {
@@ -124,15 +170,9 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
         },
       }));
       settHarEndringer(true);
-
-      // Auto-lagring med 2s debounce
-      if (lagreTimerRef.current) clearTimeout(lagreTimerRef.current);
-      lagreTimerRef.current = setTimeout(() => {
-        lagreIntern();
-      }, 2000);
+      planleggLagring();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sjekklisteId],
+    [planleggLagring],
   );
 
   const settVerdi = useCallback(
@@ -158,8 +198,9 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
         };
       });
       settHarEndringer(true);
+      planleggLagring();
     },
-    [],
+    [planleggLagring],
   );
 
   const fjernVedlegg = useCallback(
@@ -175,8 +216,9 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
         };
       });
       settHarEndringer(true);
+      planleggLagring();
     },
-    [],
+    [planleggLagring],
   );
 
   // Betinget synlighet (Fase 9)
@@ -221,30 +263,6 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     return Object.keys(feil).length === 0;
   }, [alleObjekter, erSynlig, hentFeltVerdi]);
 
-  // Lagre til server
-  const oppdaterDataMutasjon = trpc.sjekkliste.oppdaterData.useMutation();
-
-  const lagreIntern = useCallback(async () => {
-    if (!sjekklisteId) return;
-    try {
-      await oppdaterDataMutasjon.mutateAsync({
-        id: sjekklisteId,
-        data: feltVerdier,
-      });
-      settHarEndringer(false);
-    } catch {
-      // Feil ved lagring — bruker beholder lokale endringer
-    }
-  }, [sjekklisteId, feltVerdier, oppdaterDataMutasjon]);
-
-  const lagre = useCallback(async () => {
-    if (lagreTimerRef.current) {
-      clearTimeout(lagreTimerRef.current);
-      lagreTimerRef.current = null;
-    }
-    await lagreIntern();
-  }, [lagreIntern]);
-
   const erRedigerbar = sjekkliste ? REDIGERBARE_STATUSER.has(sjekkliste.status) : false;
 
   return {
@@ -271,5 +289,6 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     erLagrer: oppdaterDataMutasjon.isPending,
     harEndringer,
     erRedigerbar,
+    lagreStatus,
   };
 }

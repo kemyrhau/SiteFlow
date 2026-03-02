@@ -12,11 +12,11 @@ export function EnkeltvalgObjekt({ objekt, verdi, onEndreVerdi, leseModus }: Rap
 
   return (
     <View className="gap-2">
-      {alternativer.map((alt) => {
+      {alternativer.map((alt, index) => {
         const erValgt = valgtVerdi === alt.value;
         return (
           <Pressable
-            key={alt.value}
+            key={`${alt.value}-${index}`}
             onPress={() => {
               if (leseModus) return;
               onEndreVerdi(erValgt ? null : alt.value);

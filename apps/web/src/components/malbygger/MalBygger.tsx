@@ -17,6 +17,7 @@ import {
   REPORT_OBJECT_TYPE_META,
   type ReportObjectType,
   type TemplateZone,
+  harBetingelse,
 } from "@siteflow/shared";
 import { trpc } from "@/lib/trpc";
 import { FeltPalett } from "./FeltPalett";
@@ -147,6 +148,155 @@ export function MalBygger({ mal }: MalByggerProps) {
     return finnSone(overId as string);
   }
 
+  // --- BETINGELSE-HANDLERS ---
+
+  function handleTilfoyjBetingelse(parentId: string) {
+    setObjekter((prev) => {
+      const neste = [...prev];
+      const idx = neste.findIndex((o) => o.id === parentId);
+      if (idx === -1) return prev;
+
+      const forelder = neste[idx];
+      if (!forelder) return prev;
+
+      const opsjoner = (forelder.config.options as string[]) ?? [];
+      const førsteOpsjon = opsjoner[0];
+      if (!førsteOpsjon) return prev;
+
+      neste[idx] = {
+        ...forelder,
+        config: {
+          ...forelder.config,
+          conditionActive: true,
+          conditionValues: [førsteOpsjon],
+        },
+      };
+
+      return neste;
+    });
+
+    // Lagre til server
+    const forelder = objekter.find((o) => o.id === parentId);
+    if (forelder) {
+      const opsjoner = (forelder.config.options as string[]) ?? [];
+      const førsteOpsjon = opsjoner[0];
+      if (førsteOpsjon) {
+        oppdaterObjektMutation.mutate({
+          id: parentId,
+          label: forelder.label,
+          required: forelder.required,
+          config: {
+            ...forelder.config,
+            conditionActive: true,
+            conditionValues: [førsteOpsjon],
+          },
+        });
+      }
+    }
+  }
+
+  function handleOppdaterBetingelseVerdier(parentId: string, verdier: string[]) {
+    setObjekter((prev) => {
+      const neste = [...prev];
+      const idx = neste.findIndex((o) => o.id === parentId);
+      if (idx === -1) return prev;
+
+      const forelder = neste[idx];
+      if (!forelder) return prev;
+
+      neste[idx] = {
+        ...forelder,
+        config: {
+          ...forelder.config,
+          conditionValues: verdier,
+        },
+      };
+
+      return neste;
+    });
+
+    const forelder = objekter.find((o) => o.id === parentId);
+    if (forelder) {
+      oppdaterObjektMutation.mutate({
+        id: parentId,
+        label: forelder.label,
+        required: forelder.required,
+        config: {
+          ...forelder.config,
+          conditionValues: verdier,
+        },
+      });
+    }
+  }
+
+  function handleFjernBetingelse(parentId: string) {
+    setObjekter((prev) => {
+      const neste = prev.map((o) => {
+        // Fjern conditionActive/conditionValues fra forelder
+        if (o.id === parentId) {
+          const { conditionActive: _, conditionValues: __, ...restConfig } = o.config;
+          return { ...o, config: restConfig };
+        }
+        // Fjern conditionParentId fra alle barn
+        if (o.config.conditionParentId === parentId) {
+          const { conditionParentId: _, ...restConfig } = o.config;
+          return { ...o, config: restConfig };
+        }
+        return o;
+      });
+      return neste;
+    });
+
+    // Lagre forelder til server
+    const forelder = objekter.find((o) => o.id === parentId);
+    if (forelder) {
+      const { conditionActive: _, conditionValues: __, ...restConfig } = forelder.config;
+      oppdaterObjektMutation.mutate({
+        id: parentId,
+        label: forelder.label,
+        required: forelder.required,
+        config: restConfig,
+      });
+    }
+
+    // Lagre barn til server
+    const barn = objekter.filter((o) => o.config.conditionParentId === parentId);
+    for (const b of barn) {
+      const { conditionParentId: _, ...restConfig } = b.config;
+      oppdaterObjektMutation.mutate({
+        id: b.id,
+        label: b.label,
+        required: b.required,
+        config: restConfig,
+      });
+    }
+  }
+
+  function handleFjernBarnBetingelse(barnId: string) {
+    setObjekter((prev) => {
+      return prev.map((o) => {
+        if (o.id === barnId) {
+          const { conditionParentId: _, ...restConfig } = o.config;
+          return { ...o, config: restConfig };
+        }
+        return o;
+      });
+    });
+
+    const barn = objekter.find((o) => o.id === barnId);
+    if (barn) {
+      const { conditionParentId: _, ...restConfig } = barn.config;
+      oppdaterObjektMutation.mutate({
+        id: barnId,
+        label: barn.label,
+        required: barn.required,
+        config: restConfig,
+      });
+    }
+  }
+
+  // --- DRAG-AND-DROP ---
+
   function handleDragStart(event: DragStartEvent) {
     setAktivtDrag(event.active);
   }
@@ -178,11 +328,28 @@ export function MalBygger({ mal }: MalByggerProps) {
         sortOrder = siste ? siste.sortOrder + 1 : 0;
       }
 
+      // Sjekk om feltet droppes inn i en betingelsesgruppe
+      let conditionParentId: string | undefined;
+      if (overObjekt) {
+        if (overObjekt.config.conditionActive === true) {
+          // Droppet rett etter et foreldrefelt med betingelse
+          conditionParentId = overObjekt.id;
+        } else if (harBetingelse(overObjekt.config)) {
+          // Droppet etter et barnefelt — arv betingelse
+          conditionParentId = overObjekt.config.conditionParentId as string;
+        }
+      }
+
+      const nyConfig: Record<string, unknown> = { ...meta.defaultConfig, zone: målSone };
+      if (conditionParentId) {
+        nyConfig.conditionParentId = conditionParentId;
+      }
+
       leggTilMutation.mutate({
         templateId: mal.id,
         type,
         label: meta.label,
-        config: { ...meta.defaultConfig, zone: målSone },
+        config: nyConfig,
         sortOrder,
         required: false,
       });
@@ -223,21 +390,91 @@ export function MalBygger({ mal }: MalByggerProps) {
               neste[idx] = { id: eksisterende.id, type: eksisterende.type, label: eksisterende.label, required: eksisterende.required, config: eksisterende.config, sortOrder: i };
             }
           }
+
+          // Oppdater betingelse-tilhørighet basert på ny posisjon
+          const aktivObjekt = neste.find((o) => o.id === aktivId);
+          if (aktivObjekt) {
+            const overObjekt = neste.find((o) => o.id === overId);
+            const aktivHarBetingelse = harBetingelse(aktivObjekt.config);
+
+            if (overObjekt) {
+              if (overObjekt.config.conditionActive === true && !aktivHarBetingelse) {
+                // Droppet rett etter foreldrefelt → bli barn
+                const aktivIdx = neste.findIndex((o) => o.id === aktivId);
+                if (aktivIdx !== -1) {
+                  neste[aktivIdx] = {
+                    ...aktivObjekt,
+                    config: { ...aktivObjekt.config, conditionParentId: overObjekt.id },
+                  };
+                  // Lagre barnebetingelse til server
+                  oppdaterObjektMutation.mutate({
+                    id: aktivId,
+                    label: aktivObjekt.label,
+                    required: aktivObjekt.required,
+                    config: { ...aktivObjekt.config, conditionParentId: overObjekt.id },
+                  });
+                }
+              } else if (harBetingelse(overObjekt.config) && !aktivHarBetingelse) {
+                // Droppet etter et barnefelt → arv betingelse
+                const parentId = overObjekt.config.conditionParentId as string;
+                const aktivIdx = neste.findIndex((o) => o.id === aktivId);
+                if (aktivIdx !== -1) {
+                  neste[aktivIdx] = {
+                    ...aktivObjekt,
+                    config: { ...aktivObjekt.config, conditionParentId: parentId },
+                  };
+                  oppdaterObjektMutation.mutate({
+                    id: aktivId,
+                    label: aktivObjekt.label,
+                    required: aktivObjekt.required,
+                    config: { ...aktivObjekt.config, conditionParentId: parentId },
+                  });
+                }
+              } else if (aktivHarBetingelse) {
+                // Sjekk om feltet er dratt utenfor betingelsesgruppen
+                const parentId = aktivObjekt.config.conditionParentId as string;
+                const overErSammeGruppe =
+                  overObjekt.id === parentId ||
+                  overObjekt.config.conditionParentId === parentId;
+
+                if (!overErSammeGruppe) {
+                  // Dratt utenfor gruppen → fjern betingelse
+                  const aktivIdx = neste.findIndex((o) => o.id === aktivId);
+                  if (aktivIdx !== -1) {
+                    const { conditionParentId: _, ...restConfig } = aktivObjekt.config;
+                    neste[aktivIdx] = {
+                      ...aktivObjekt,
+                      config: restConfig,
+                    };
+                    oppdaterObjektMutation.mutate({
+                      id: aktivId,
+                      label: aktivObjekt.label,
+                      required: aktivObjekt.required,
+                      config: restConfig,
+                    });
+                  }
+                }
+              }
+            }
+          }
         } else {
           // Flytt mellom soner
           const idx = neste.findIndex((o) => o.id === aktivId);
           if (idx === -1) return prev;
 
-          // Oppdater sone i config
           const gammel = neste[idx];
           if (!gammel) return prev;
+
+          // Fjern betingelse ved soneflytt
+          const { conditionParentId: _, ...configUtenBetingelse } = gammel.config;
+
           neste[idx] = {
             id: gammel.id,
             type: gammel.type,
             label: gammel.label,
             required: gammel.required,
             sortOrder: gammel.sortOrder,
-            config: { ...gammel.config, zone: målSone },
+            config: { ...configUtenBetingelse, zone: målSone },
           };
 
           // Renummerer begge soner
@@ -274,6 +511,30 @@ export function MalBygger({ mal }: MalByggerProps) {
   }
 
   function handleSlett(id: string) {
+    // Kaskade: fjern betingelse fra alle barn først
+    const forelder = objekter.find((o) => o.id === id);
+    if (forelder?.config.conditionActive) {
+      const barn = objekter.filter((o) => o.config.conditionParentId === id);
+      for (const b of barn) {
+        const { conditionParentId: _, ...restConfig } = b.config;
+        oppdaterObjektMutation.mutate({
+          id: b.id,
+          label: b.label,
+          required: b.required,
+          config: restConfig,
+        });
+      }
+      // Optimistisk oppdatering av barn
+      setObjekter((prev) =>
+        prev.map((o) => {
+          if (o.config.conditionParentId === id) {
+            const { conditionParentId: _, ...restConfig } = o.config;
+            return { ...o, config: restConfig };
+          }
+          return o;
+        }),
+      );
+    }
     slettMutation.mutate({ id });
   }
 
@@ -318,6 +579,10 @@ export function MalBygger({ mal }: MalByggerProps) {
             valgtId={valgtId}
             onVelg={setValgtId}
             onSlett={handleSlett}
+            onTilfoyjBetingelse={handleTilfoyjBetingelse}
+            onOppdaterBetingelseVerdier={handleOppdaterBetingelseVerdier}
+            onFjernBetingelse={handleFjernBetingelse}
+            onFjernBarnBetingelse={handleFjernBarnBetingelse}
           />
 
           <DropSone
@@ -327,6 +592,10 @@ export function MalBygger({ mal }: MalByggerProps) {
             valgtId={valgtId}
             onVelg={setValgtId}
             onSlett={handleSlett}
+            onTilfoyjBetingelse={handleTilfoyjBetingelse}
+            onOppdaterBetingelseVerdier={handleOppdaterBetingelseVerdier}
+            onFjernBetingelse={handleFjernBetingelse}
+            onFjernBarnBetingelse={handleFjernBarnBetingelse}
           />
         </div>
 
@@ -338,8 +607,11 @@ export function MalBygger({ mal }: MalByggerProps) {
       {valgtObjekt ? (
         <FeltKonfigurasjon
           objekt={valgtObjekt}
+          alleObjekter={objekter}
           onLagre={handleLagreKonfig}
           erLagrer={oppdaterObjektMutation.isPending}
+          onFjernBetingelse={handleFjernBetingelse}
+          onFjernBarnBetingelse={handleFjernBarnBetingelse}
         />
       ) : (
         <aside className="flex w-72 shrink-0 items-center justify-center border-l border-gray-200 bg-gray-50 p-4">

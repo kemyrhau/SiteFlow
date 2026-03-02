@@ -253,6 +253,17 @@ export const ENTERPRISE_COLORS = [
 ] as const;
 export type EnterpriseColor = (typeof ENTERPRISE_COLORS)[number];
 
+// Betingelser i malbygger
+export const CONDITION_ELIGIBLE_TYPES = ["list_single", "list_multi"] as const;
+
+export function harBetingelse(config: Record<string, unknown>): boolean {
+  return typeof config.conditionParentId === "string" && config.conditionParentId.length > 0;
+}
+
+export function erBetingelseKvalifisert(type: string): boolean {
+  return (CONDITION_ELIGIBLE_TYPES as readonly string[]).includes(type);
+}
+
 // Grunnleggende entitetsgrensesnitt
 export interface BaseEntity {
   id: string;

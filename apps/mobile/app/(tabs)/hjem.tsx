@@ -267,7 +267,10 @@ export default function HjemSkjerm() {
 
             {/* Seksjonslenker */}
             <View className="mt-4">
-              <Pressable className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+              <Pressable
+                onPress={() => router.push("/sjekkliste")}
+                className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3"
+              >
                 <View className="flex-row items-center gap-2">
                   <Text className="text-base font-semibold text-gray-900">
                     Sjekklister

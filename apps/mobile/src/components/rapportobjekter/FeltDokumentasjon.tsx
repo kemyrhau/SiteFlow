@@ -51,11 +51,11 @@ export function FeltDokumentasjon({
       const filnavn = `IMG_${Date.now()}.jpg`;
       const opplastet = await lastOppFil(bildeUri, filnavn, "image/jpeg");
 
-      // Legg til vedlegg med lokal URI for umiddelbar visning i filmrullen
+      // Legg til vedlegg med server-URL (persisterbar på tvers av app-restart)
       onLeggTilVedlegg({
         id: randomUUID(),
         type: "bilde",
-        url: bildeUri,
+        url: opplastet.fileUrl,
         filnavn: opplastet.fileName,
       });
 

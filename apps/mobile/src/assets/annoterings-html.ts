@@ -55,17 +55,33 @@ export const ANNOTERINGS_HTML = `<!DOCTYPE html>
 
       if (avstand < 5) {
         if (aktivtVerktoy === 'text') {
-          leggTilTekst(startPunkt);
+          var aktiv = canvas.getActiveObject();
+          if (aktiv && aktiv.type === 'text') {
+            // Trykk på eksisterende tekst → rediger
+            var idx = objekter.indexOf(aktiv);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'redigerTekst',
+              tekst: aktiv.text,
+              indeks: idx,
+            }));
+          } else if (!aktiv) {
+            // Trykk på tom flate → ny tekst
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'tekstInput',
+              x: startPunkt.x,
+              y: startPunkt.y,
+            }));
+          }
         }
         startPunkt = null;
         return;
       }
 
+      // Drag-operasjon — tekst skal IKKE trigges her
       switch (aktivtVerktoy) {
         case 'arrow': leggTilPil(startPunkt, endPunkt); break;
         case 'circle': leggTilSirkel(startPunkt, endPunkt); break;
         case 'rect': leggTilFirkant(startPunkt, endPunkt); break;
-        case 'text': leggTilTekst(startPunkt); break;
       }
 
       startPunkt = null;
@@ -153,10 +169,11 @@ export const ANNOTERINGS_HTML = `<!DOCTYPE html>
     objekter.push(firkant);
   }
 
-  function leggTilTekst(pos) {
-    var tekst = new fabric.IText('Tekst', {
-      left: pos.x,
-      top: pos.y,
+  // Plasser tekst på canvas etter bruker har skrevet teksten i modal
+  window.plasserTekst = function(tekst, x, y) {
+    var tekstObj = new fabric.Text(tekst, {
+      left: x,
+      top: y,
       fontSize: 20,
       fill: STREK_FARGE,
       fontFamily: 'Arial',
@@ -164,14 +181,34 @@ export const ANNOTERINGS_HTML = `<!DOCTYPE html>
       strokeWidth: 1,
       paintFirst: 'stroke',
       selectable: true,
-      editable: true,
+      evented: true,
+      hasControls: false,
+      hasBorders: true,
+      borderColor: '#3b82f6',
+      lockRotation: true,
+      lockScalingX: true,
+      lockScalingY: true,
     });
 
-    canvas.add(tekst);
-    objekter.push(tekst);
-    canvas.setActiveObject(tekst);
-    tekst.enterEditing();
-  }
+    canvas.add(tekstObj);
+    objekter.push(tekstObj);
+    canvas.setActiveObject(tekstObj);
+    canvas.renderAll();
+  };
+
+  window.oppdaterTekst = function(indeks, tekst) {
+    if (indeks >= 0 && indeks < objekter.length && objekter[indeks].type === 'text') {
+      if (!tekst) {
+        // Tom tekst → slett objektet
+        canvas.remove(objekter[indeks]);
+        objekter.splice(indeks, 1);
+      } else {
+        objekter[indeks].set('text', tekst);
+      }
+      canvas.discardActiveObject();
+      canvas.renderAll();
+    }
+  };
 
   window.settBilde = function(bildeUrl) {
     fabric.Image.fromURL(bildeUrl, function(img) {
@@ -223,6 +260,8 @@ export const ANNOTERINGS_HTML = `<!DOCTYPE html>
         case 'velgVerktoy': velgVerktoy(data.verktoy); break;
         case 'angre': angre(); break;
         case 'lagre': lagre(); break;
+        case 'plasserTekst': plasserTekst(data.tekst, data.x, data.y); break;
+        case 'oppdaterTekst': oppdaterTekst(data.indeks, data.tekst); break;
       }
     } catch(err) {}
   });
@@ -235,6 +274,8 @@ export const ANNOTERINGS_HTML = `<!DOCTYPE html>
         case 'velgVerktoy': velgVerktoy(data.verktoy); break;
         case 'angre': angre(); break;
         case 'lagre': lagre(); break;
+        case 'plasserTekst': plasserTekst(data.tekst, data.x, data.y); break;
+        case 'oppdaterTekst': oppdaterTekst(data.indeks, data.tekst); break;
       }
     } catch(err) {}
   });

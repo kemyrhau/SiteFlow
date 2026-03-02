@@ -2,8 +2,9 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { REPORT_OBJECT_TYPE_META, type ReportObjectType } from "@siteflow/shared";
+import { REPORT_OBJECT_TYPE_META, type ReportObjectType, erBetingelseKvalifisert } from "@siteflow/shared";
 import { Badge } from "@siteflow/ui";
+import { TreprikkMeny } from "./TreprikkMeny";
 
 export interface MalObjekt {
   id: string;
@@ -17,8 +18,12 @@ export interface MalObjekt {
 interface DraggbartFeltProps {
   objekt: MalObjekt;
   erValgt: boolean;
+  erBarnFelt?: boolean;
+  harAktivBetingelse?: boolean;
   onClick: () => void;
   onSlett: () => void;
+  onTilfoyjBetingelse?: () => void;
+  onFjernBetingelse?: () => void;
 }
 
 const ikonMap: Record<string, string> = {
@@ -44,7 +49,16 @@ const ikonMap: Record<string, string> = {
   Repeat: "↻",
 };
 
-export function DraggbartFelt({ objekt, erValgt, onClick, onSlett }: DraggbartFeltProps) {
+export function DraggbartFelt({
+  objekt,
+  erValgt,
+  erBarnFelt = false,
+  harAktivBetingelse = false,
+  onClick,
+  onSlett,
+  onTilfoyjBetingelse,
+  onFjernBetingelse,
+}: DraggbartFeltProps) {
   const {
     attributes,
     listeners,
@@ -64,13 +78,19 @@ export function DraggbartFelt({ objekt, erValgt, onClick, onSlett }: DraggbartFe
 
   const meta = REPORT_OBJECT_TYPE_META[objekt.type as ReportObjectType];
 
+  // Kan ha betingelse: er kvalifisert type, har minst én opsjon, og har ikke allerede aktiv betingelse
+  const harOpsjoner = Array.isArray(objekt.config.options) && (objekt.config.options as string[]).length > 0;
+  const kanHaBetingelse = erBetingelseKvalifisert(objekt.type) && harOpsjoner && !harAktivBetingelse;
+
   return (
     <div
       ref={setNodeRef}
       style={stil}
       className={`flex items-center gap-3 rounded-lg border bg-white px-3 py-2.5 transition-all ${
-        isDragging ? "z-50 opacity-50 shadow-lg" : ""
-      } ${erValgt ? "border-blue-500 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"}`}
+        erBarnFelt ? "ml-8 border-l-2 border-l-blue-300" : ""
+      } ${isDragging ? "z-50 opacity-50 shadow-lg" : ""} ${
+        erValgt ? "border-blue-500 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"
+      }`}
     >
       {/* Drag-håndtak */}
       <button
@@ -106,27 +126,18 @@ export function DraggbartFelt({ objekt, erValgt, onClick, onSlett }: DraggbartFe
         </span>
       </button>
 
-      {/* Badges og slett */}
+      {/* Badges og meny */}
       <div className="flex items-center gap-2">
+        {erBarnFelt && <Badge variant="default">Betinget</Badge>}
         {objekt.required && <Badge variant="warning">Påkrevd</Badge>}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSlett();
-          }}
-          className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
-          title="Slett objekt"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-        </button>
+        <TreprikkMeny
+          onRediger={onClick}
+          onSlett={onSlett}
+          onTilfoyjBetingelse={kanHaBetingelse ? onTilfoyjBetingelse : undefined}
+          onFjernBetingelse={erBarnFelt ? onFjernBetingelse : undefined}
+          kanHaBetingelse={kanHaBetingelse}
+          erBarnFelt={erBarnFelt}
+        />
       </div>
     </div>
   );

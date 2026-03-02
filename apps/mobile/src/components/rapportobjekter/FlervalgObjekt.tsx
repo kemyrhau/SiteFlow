@@ -23,11 +23,11 @@ export function FlervalgObjekt({ objekt, verdi, onEndreVerdi, leseModus }: Rappo
 
   return (
     <View className="gap-2">
-      {alternativer.map((alt) => {
+      {alternativer.map((alt, index) => {
         const erValgt = valgteVerdier.includes(alt.value);
         return (
           <Pressable
-            key={alt.value}
+            key={`${alt.value}-${index}`}
             onPress={() => håndterToggle(alt.value)}
             className="flex-row items-center gap-3 py-1"
           >

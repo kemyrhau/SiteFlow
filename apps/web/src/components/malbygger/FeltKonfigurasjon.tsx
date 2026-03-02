@@ -1,17 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { REPORT_OBJECT_TYPE_META, type ReportObjectType } from "@siteflow/shared";
-import { Input, Button } from "@siteflow/ui";
+import { REPORT_OBJECT_TYPE_META, type ReportObjectType, harBetingelse } from "@siteflow/shared";
+import { Input, Button, Badge } from "@siteflow/ui";
 import type { MalObjekt } from "./DraggbartFelt";
 
 interface FeltKonfigurasjonProps {
   objekt: MalObjekt;
+  alleObjekter: MalObjekt[];
   onLagre: (data: { label: string; required: boolean; config: Record<string, unknown> }) => void;
   erLagrer: boolean;
+  onFjernBetingelse?: (parentId: string) => void;
+  onFjernBarnBetingelse?: (barnId: string) => void;
 }
 
-export function FeltKonfigurasjon({ objekt, onLagre, erLagrer }: FeltKonfigurasjonProps) {
+export function FeltKonfigurasjon({
+  objekt,
+  alleObjekter,
+  onLagre,
+  erLagrer,
+  onFjernBetingelse,
+  onFjernBarnBetingelse,
+}: FeltKonfigurasjonProps) {
   const [label, setLabel] = useState(objekt.label);
   const [påkrevd, setPåkrevd] = useState(objekt.required);
   const [config, setConfig] = useState(objekt.config);
@@ -33,6 +43,19 @@ export function FeltKonfigurasjon({ objekt, onLagre, erLagrer }: FeltKonfigurasj
     label !== objekt.label ||
     påkrevd !== objekt.required ||
     JSON.stringify(config) !== JSON.stringify(objekt.config);
+
+  const erBarn = harBetingelse(objekt.config);
+  const harAktivBetingelse = objekt.config.conditionActive === true;
+
+  // Finn foreldrefeltets label for barnefelt
+  const forelderLabel = erBarn
+    ? alleObjekter.find((o) => o.id === objekt.config.conditionParentId)?.label ?? "Ukjent"
+    : null;
+
+  // Tell barnefelt for foreldrefelt
+  const antallBarn = harAktivBetingelse
+    ? alleObjekter.filter((o) => o.config.conditionParentId === objekt.id).length
+    : 0;
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col overflow-y-auto border-l border-gray-200 bg-gray-50 p-4">
@@ -110,6 +133,60 @@ export function FeltKonfigurasjon({ objekt, onLagre, erLagrer }: FeltKonfigurasj
               setConfig({ ...config, maxFiles: parseInt(e.target.value, 10) || 10 })
             }
           />
+        )}
+
+        {/* Betingelse-seksjon */}
+        {(erBarn || harAktivBetingelse) && (
+          <div className="mt-2 border-t border-gray-200 pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Betingelse
+            </p>
+
+            {erBarn && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>Tilhører:</span>
+                  <Badge variant="default">{forelderLabel}</Badge>
+                </div>
+                {onFjernBarnBetingelse && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => onFjernBarnBetingelse(objekt.id)}
+                    className="w-full"
+                  >
+                    Fjern fra betingelse
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {harAktivBetingelse && (
+              <div className="flex flex-col gap-2">
+                <div className="text-sm text-gray-600">
+                  <span>Utløserverdier: </span>
+                  <span className="flex flex-wrap gap-1 mt-1">
+                    {((objekt.config.conditionValues as string[]) ?? []).map((v) => (
+                      <Badge key={v} variant="primary">{v}</Badge>
+                    ))}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Betingede felter: {antallBarn}
+                </p>
+                {onFjernBetingelse && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => onFjernBetingelse(objekt.id)}
+                    className="w-full"
+                  >
+                    Fjern betingelse
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

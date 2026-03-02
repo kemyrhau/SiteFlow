@@ -10,10 +10,7 @@ export default function RotLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="logg-inn" />
-        <Stack.Screen
-          name="sjekkliste/[id]"
-          options={{ presentation: "fullScreenModal" }}
-        />
+        <Stack.Screen name="sjekkliste" />
       </Stack>
     </Providers>
   );

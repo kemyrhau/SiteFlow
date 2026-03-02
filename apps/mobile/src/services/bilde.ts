@@ -14,7 +14,7 @@ const MAKS_BREDDE = 1920;
 const MAL_MAKS_KB = 400;
 const MAL_MIN_KB = 300;
 
-async function komprimer(uri: string): Promise<{ uri: string; filstorrelse: number }> {
+export async function komprimer(uri: string): Promise<{ uri: string; filstorrelse: number }> {
   // Steg 1: Skaler til maks 1920px bredde
   let resultat = await ImageManipulator.manipulateAsync(
     uri,
@@ -57,7 +57,7 @@ async function komprimer(uri: string): Promise<{ uri: string; filstorrelse: numb
   return { uri: resultat.uri, filstorrelse: storrelseKB * 1024 };
 }
 
-async function hentGps(): Promise<{ lat: number; lng: number } | null> {
+export async function hentGps(): Promise<{ lat: number; lng: number } | null> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") return null;
