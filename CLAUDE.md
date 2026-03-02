@@ -73,6 +73,18 @@ siteflow/
 │   │       │   └── trpc.ts                   # tRPC-klient med React-Query (httpBatchLink → /api/trpc)
 │   │       └── auth.ts                       # Auth.js konfigurasjon
 │   ├── mobile/           # Expo React Native app
+│   │   └── src/
+│   │       ├── db/                           # SQLite lokal database (Drizzle ORM)
+│   │       │   ├── schema.ts                 # Drizzle-skjema (sjekkliste_feltdata, opplastings_ko)
+│   │       │   ├── database.ts               # Singleton database-instans
+│   │       │   ├── migreringer.ts            # Idempotent CREATE TABLE + indekser
+│   │       │   └── opprydding.ts             # Rydd fullførte opplastinger og foreldreløse bilder
+│   │       ├── providers/
+│   │       │   ├── DatabaseProvider.tsx       # Kjører migreringer ved oppstart
+│   │       │   ├── OpplastingsKoProvider.tsx  # Bakgrunnskø for filopplasting
+│   │       │   └── NettverkProvider.tsx       # Nettverkstilstand (erPaaNettet)
+│   │       └── services/
+│   │           └── lokalBilde.ts             # Persistent lokal bildelagring
 │   └── api/              # Fastify backend
 │       └── src/
 │           ├── routes/                       # tRPC-routere (se API-seksjonen)
@@ -128,7 +140,7 @@ siteflow/
 | `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon |
 | `report_objects` | Rapportobjekter i maler (21 typer, JSON-konfig) |
 | `checklists` | Sjekklister med oppretter/svarer-entreprise, status, data (JSON) |
-| `tasks` | Oppgaver med prioritet, frist, oppretter/svarer, valgfri tegningsposisjon |
+| `tasks` | Oppgaver med mal-tilknytning (`template_id`), prefiks+løpenummer (`number`), prioritet, frist, oppretter/svarer, utfylt data (JSON), valgfri tegningsposisjon og sjekkliste-kobling (`checklist_id`, `checklist_field_id`) |
 | `document_transfers` | Sporbarhet: all sending mellom entrepriser |
 | `images` | Bilder med valgfri GPS-data |
 | `folders` | Rekursiv mappestruktur (Box-modul) med parent_id |
@@ -243,6 +255,10 @@ Komponenter:
 ### TODO
 - Nedtrekksmeny for å velge eksisterende prosjektmedlemmer i brukergrupper (erstatt e-postfelt)
 - Oppgave-fra-tegning: Android-tilpasning for tegningstrykk (iOS/web implementert)
+- Kvalitetssikring av alle 21 rapportobjekttyper (mobil-renderere)
+- Oppgave-fra-felt i sjekkliste-utfylling (knapp per rapportobjekt + visning av oppgavenummer)
+- Oppgave-utfylling med maler (tilsvarende sjekkliste-utfylling, med samme 21 rapportobjekttyper)
+- Databasemigrering: nye felter på Task-modellen (`number`, `templateId`, `data`, `checklistId`, `checklistFieldId`)
 
 ### Oppgave fra tegning (mobil)
 
@@ -251,6 +267,35 @@ Brukeren kan opprette oppgaver direkte fra tegningsvisningen i Lokasjoner-taben:
 - Oppgaven lagres med `drawingId`, `positionX` og `positionY` (prosent 0-100)
 - Task-modellen har valgfrie felter: `drawingId`, `positionX`, `positionY`
 - Implementert for iOS/web. Android-tilpasning gjøres ved behov.
+
+### Oppgavesystem
+
+Oppgaver bruker samme malsystem som sjekklister. Oppgavemaler bygges i malbyggeren på PC med `report_templates` der `category: "oppgave"` — alle 21 rapportobjekttyper er tilgjengelige.
+
+**Oppgavenummerering:**
+- Format: `mal.prefix + "-" + løpenummer` (f.eks. `BHO-001`, `S-BET-042`)
+- Løpenummer auto-genereres per prosjekt (inkrementelt)
+- Oppgavenummeret vises i oppgavelisten og i sjekklistefeltet der oppgaven ble opprettet
+
+**Oppgave fra sjekklistefelt:**
+- Hvert rapportobjekt (utfyllbart felt) i sjekkliste-utfyllingen kan opprette en oppgave
+- Oppgavenummeret (med prefiks) vises nederst i feltet etter opprettelse
+- Koblingen lagres via `checklistId` og `checklistFieldId` på Task-modellen
+
+**Opprettelsespunkter:**
+- Fra sjekklistefelt (med sporbarhet til sjekkliste og felt)
+- Fra tegninger (med markørposisjon)
+- Fra oppgavelisten (frittstående)
+
+**Planlagte databaseendringer på Task-modellen:**
+
+| Felt | Type | Beskrivelse |
+|------|------|-------------|
+| `number` | Int | Løpenummer per prosjekt (auto-generert) |
+| `templateId` | String (valgfri) | Kobling til oppgavemal (`report_templates`) |
+| `data` | Json | Utfylte rapportobjekter (likt `checklists.data`) |
+| `checklistId` | String (valgfri) | Sporbarhet til sjekkliste oppgaven ble opprettet fra |
+| `checklistFieldId` | String (valgfri) | Sporbarhet til spesifikt felt i sjekklisten |
 
 ### Tegninger (drawings)
 
@@ -342,14 +387,16 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 
 ### Bildehåndtering
 
-**Kameraflyt (mobil):** Kontinuerlig kameraflyt uten avbrytende dialoger:
+**Kameraflyt (mobil):** Kontinuerlig kameraflyt med lokal-first lagring:
 - Kamera bruker `expo-camera` (`CameraView` + `takePictureAsync()`) — IKKE `expo-image-picker` — for å unngå iOS "Use Photo/Retake"-bekreftelsen
-- Bilde tas → komprimeres → lastes opp → vises i horisontal filmrull med én gang (ingen Alert-dialoger)
-- Bruker kan ta flere bilder raskt etter hverandre
+- Bilde tas → komprimeres → lagres lokalt → vises i filmrull med én gang → lastes opp i bakgrunnskø
+- Opplasting blokkerer ALDRI UI — bilder vises fra lokal fil (`file://`) umiddelbart
+- Bakgrunnskøen (`OpplastingsKoProvider`) laster opp til server og erstatter lokal URL med server-URL
+- Bruker kan ta flere bilder raskt etter hverandre uten ventetid
 - Annotering og sletting skjer via verktøylinje som vises når et bilde i filmrullen er valgt (trykk = blå ramme)
 - Verktøylinje: [Slett] [Annoter] — Annoter kun for bilder, ikke filer
 - `FeltDokumentasjon` er delt komponent brukt av `FeltWrapper` for ALLE utfyllbare rapportobjekter
-- `FeltDokumentasjon` har `skjulKommentar`-prop — satt til `true` for `text_field`-typen (som har eget modal tekstfelt)
+- `FeltDokumentasjon` har `objektId`-prop (for bakgrunnskø) og `skjulKommentar`-prop (satt til `true` for `text_field`)
 
 **Modal tekstredigering (mobil):**
 - Alle tekstfelt i sjekkliste-utfylling bruker tappbar visning → fullskjerm modal med "Ferdig"-knapp
@@ -360,27 +407,68 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 
 **Filmrull (vedlegg-visning):**
 - Horisontal `ScrollView` med 72×72px thumbnails (IKKE `FlatList` — unngår VirtualizedList-nesting i ScrollView)
-- Vedlegg-URL-er lagres alltid som server-relative URL-er (`/uploads/...`) — ALDRI lokale `file://`-URI-er (forsvinner ved app-restart)
-- Filmrullen prefikser relative URL-er med `AUTH_CONFIG.apiUrl` for visning i React Native Image
+- Vedlegg-URL-er kan være lokale (`file://`, `/var/`) eller server-relative (`/uploads/...`)
+- Lokale filer vises direkte, server-relative prefikses med `AUTH_CONFIG.apiUrl`
+- Bakgrunnskøen erstatter automatisk lokal URL med server-URL etter vellykket opplasting
+- URL-logikk: `file://` / `/var/` → lokal | `/uploads/...` → `apiUrl + url` | annet → direkte
 
-**Auto-lagring og datapersistering:**
-- `useSjekklisteSkjema` har auto-lagring med 2s debounce for ALLE endringer: `oppdaterFelt`, `leggTilVedlegg`, `fjernVedlegg`
+**Auto-lagring og datapersistering (SQLite-first):**
+- `useSjekklisteSkjema` bruker SQLite som primær lagring — data skrives lokalt først, deretter synkroniseres til server
+- Auto-lagring med 2s debounce for ALLE endringer: `oppdaterFelt`, `leggTilVedlegg`, `fjernVedlegg`
 - `feltVerdierRef` brukes for å unngå stale closure i `lagreIntern` — sender alltid nyeste data
-- `lagreStatus`: `"idle"` → `"lagrer"` → `"lagret"` (2s) → `"idle"` (eller `"feil"` → 3s → `"idle"`)
-- Visuell statusindikator i sjekkliste-header: spinner (lagrer), grønn hake (lagret), advarsel (feil)
+- `lagreStatus`: `"idle"` → `"lagret"` (lokal SQLite OK) → `"idle"` (2s) — aldri "lagrer" for lokal lagring
+- `synkStatus`: `"synkronisert"` | `"lokalt_lagret"` | `"synkroniserer"` — sporer server-synk separat
+- Initialisering: SQLite leses først (<10ms), usynkronisert lokal data prioriteres over server-data
+- Nettverksovergang: når nett kommer tilbake, synkes usynkronisert data automatisk til server
+- Header-ikoner: opplastingskø (gul spinner + antall), synkstatus (sky/offline-sky), lagrestatus (hake/advarsel)
 - Tilbakeknapp lagrer automatisk uten bekreftelsesdialog
+- Data bevares ved krasj/restart — SQLite er persistent
 
 **Komprimering:**
 1. Maks 1920px bredde
 2. Iterativ kvalitetsjustering til 300–400 KB
 3. GPS-tag legges til hvis aktivert
-4. Lagres lokalt i SQLite, synkroniseres til S3
+4. Lagres lokalt via `lokalBilde.ts` (persistent `documentDirectory`), synkroniseres til S3 via bakgrunnskø
 
 **Viktig:** `InteractionManager.runAfterInteractions` MÅ brukes etter at kamera/picker lukkes, før state-oppdateringer, for å unngå React Navigation "Cannot read property 'stale' of undefined"-krasj.
 
-### Offline-first
+### Offline-first (SQLite lokal database)
 
-Mobil-appen bruker SQLite lokalt. All data skrives lokalt først, synkroniseres med server når nett er tilgjengelig. Bruk `is_synced`-flagg på alle tabeller. Konflikthåndtering: last-write-wins med tidsstempel.
+Mobil-appen bruker SQLite (expo-sqlite + Drizzle ORM) for lokal-first lagring. Filer i `apps/mobile/src/db/`:
+
+**SQLite-tabeller:**
+
+| Tabell | Kolonner | Formål |
+|--------|----------|--------|
+| `sjekkliste_feltdata` | `id`, `sjekklisteId`, `feltVerdier` (JSON), `erSynkronisert`, `sistEndretLokalt`, `sistSynkronisert` | Lokal kopi av sjekkliste-utfylling |
+| `opplastings_ko` | `id`, `sjekklisteId`, `objektId`, `vedleggId`, `lokalSti`, `filnavn`, `mimeType`, `filstorrelse`, GPS-felter, `status`, `forsok`, `serverUrl`, `feilmelding`, `opprettet` | Bakgrunnskø for filopplasting |
+
+**Lagringsstrategi:**
+- All data skrives til SQLite først (instant, <10ms), deretter synkroniseres til server
+- `erSynkronisert`-flagg sporer om lokal data er synkronisert med server
+- Ved initialisering: SQLite leses først — usynkronisert lokal data prioriteres over server-data
+- Konflikthåndtering: last-write-wins med `sistEndretLokalt`-tidsstempel
+
+**Bakgrunnskø (OpplastingsKoProvider):**
+- Bilder lagres lokalt (`documentDirectory/siteflow-bilder/`) og legges i opplastingskø
+- Køen prosesserer én fil av gangen med eksponentiell backoff (maks 5 forsøk, maks 30s ventetid)
+- Ved suksess: server-URL erstatter lokal URL i feltdata, lokal fil slettes
+- Ved nettverksovergang: køen starter automatisk når nett kommer tilbake
+- Ved krasj: `status = "laster_opp"` resettes til `"venter"` ved app-oppstart
+- Callback-system: `registrerCallback()` lar `useSjekklisteSkjema` lytte på URL-oppdateringer i sanntid
+
+**Provider-hierarki:**
+```
+DatabaseProvider → trpc.Provider → QueryClientProvider → NettverkProvider → OpplastingsKoProvider → AuthProvider → ProsjektProvider
+```
+`DatabaseProvider` kjører migreringer og opprydding ved oppstart, blokkerer rendering til databasen er klar.
+
+**Opprydding:**
+- Fullførte køoppføringer slettes ved app-oppstart
+- Foreldreløse lokale bilder (uten køoppføring) slettes i bakgrunnen
+- `ryddOppForProsjekt(sjekklisteIder)` sletter feltdata og køoppføringer for avsluttede prosjekter
+
+**expo-file-system:** Bruk `expo-file-system/legacy`-importen (IKKE `expo-file-system`) for å få tilgang til `documentDirectory`, `cacheDirectory` osv.
 
 ## Web UI-arkitektur
 
