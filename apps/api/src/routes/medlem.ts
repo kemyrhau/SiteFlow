@@ -1,6 +1,6 @@
 import { z } from "zod";
 import crypto from "crypto";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
 import { addMemberSchema } from "@siteflow/shared";
 import { sendInvitasjonsEpost } from "../services/epost";
 
@@ -13,10 +13,44 @@ export const medlemRouter = router({
         where: { projectId: input.projectId },
         include: {
           user: true,
-          enterprise: true,
+          enterprises: {
+            include: { enterprise: true },
+          },
         },
         orderBy: { createdAt: "asc" },
       });
+    }),
+
+  // Hent mine entrepriser i et prosjekt (for innlogget bruker)
+  hentMineEntrepriser: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const medlem = await ctx.prisma.projectMember.findUnique({
+        where: {
+          userId_projectId: {
+            userId: ctx.userId,
+            projectId: input.projectId,
+          },
+        },
+        include: {
+          enterprises: {
+            include: { enterprise: true },
+          },
+        },
+      });
+
+      if (!medlem) return [];
+
+      // Admin uten entreprise-tilknytning ser alle entrepriser
+      if (medlem.role === "admin" && medlem.enterprises.length === 0) {
+        const alle = await ctx.prisma.enterprise.findMany({
+          where: { projectId: input.projectId },
+          orderBy: { name: "asc" },
+        });
+        return alle;
+      }
+
+      return medlem.enterprises.map((me) => me.enterprise);
     }),
 
   // Legg til medlem i prosjekt
@@ -57,17 +91,30 @@ export const medlemRouter = router({
       });
 
       if (eksisterende) {
-        // Oppdater entreprisetilknytning hvis oppgitt
-        if (input.enterpriseId) {
-          return ctx.prisma.projectMember.update({
-            where: { id: eksisterende.id },
-            data: { enterpriseId: input.enterpriseId },
-            include: { user: true, enterprise: true },
-          });
+        // Legg til nye entreprise-tilknytninger
+        if (input.enterpriseIds.length > 0) {
+          for (const entId of input.enterpriseIds) {
+            await ctx.prisma.memberEnterprise.upsert({
+              where: {
+                projectMemberId_enterpriseId: {
+                  projectMemberId: eksisterende.id,
+                  enterpriseId: entId,
+                },
+              },
+              create: {
+                projectMemberId: eksisterende.id,
+                enterpriseId: entId,
+              },
+              update: {},
+            });
+          }
         }
         return ctx.prisma.projectMember.findUnique({
           where: { id: eksisterende.id },
-          include: { user: true, enterprise: true },
+          include: {
+            user: true,
+            enterprises: { include: { enterprise: true } },
+          },
         });
       }
 
@@ -76,9 +123,16 @@ export const medlemRouter = router({
           userId: user.id,
           projectId: input.projectId,
           role: input.role,
-          enterpriseId: input.enterpriseId,
+          enterprises: {
+            create: input.enterpriseIds.map((entId) => ({
+              enterpriseId: entId,
+            })),
+          },
         },
-        include: { user: true, enterprise: true },
+        include: {
+          user: true,
+          enterprises: { include: { enterprise: true } },
+        },
       });
 
       // Send invitasjons-e-post hvis brukeren ikke har logget inn (ingen Account)
@@ -108,7 +162,7 @@ export const medlemRouter = router({
               token,
               projectId: input.projectId,
               role: input.role,
-              enterpriseId: input.enterpriseId,
+              enterpriseId: input.enterpriseIds[0] ?? undefined,
               invitedByUserId: ctx.userId,
               expiresAt: utloper,
             },
@@ -149,7 +203,10 @@ export const medlemRouter = router({
       return ctx.prisma.projectMember.update({
         where: { id: input.id },
         data: { role: input.role },
-        include: { user: true, enterprise: true },
+        include: {
+          user: true,
+          enterprises: { include: { enterprise: true } },
+        },
       });
     }),
 

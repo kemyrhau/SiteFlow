@@ -10,7 +10,13 @@ export const entrepriseRouter = router({
       return ctx.prisma.enterprise.findMany({
         where: { projectId: input.projectId },
         include: {
-          members: { include: { user: true } },
+          memberEnterprises: {
+            include: {
+              projectMember: {
+                include: { user: true },
+              },
+            },
+          },
           _count: {
             select: {
               createdChecklists: true,
@@ -32,7 +38,13 @@ export const entrepriseRouter = router({
         where: { id: input.id },
         include: {
           project: true,
-          members: { include: { user: true } },
+          memberEnterprises: {
+            include: {
+              projectMember: {
+                include: { user: true },
+              },
+            },
+          },
         },
       });
     }),
@@ -51,12 +63,12 @@ export const entrepriseRouter = router({
           },
         });
         if (memberIds.length > 0) {
-          await tx.projectMember.updateMany({
-            where: {
-              id: { in: memberIds },
-              projectId: input.projectId,
-            },
-            data: { enterpriseId: entreprise.id },
+          await tx.memberEnterprise.createMany({
+            data: memberIds.map((memberId) => ({
+              projectMemberId: memberId,
+              enterpriseId: entreprise.id,
+            })),
+            skipDuplicates: true,
           });
         }
         return entreprise;
@@ -124,12 +136,12 @@ export const entrepriseRouter = router({
         }
 
         if (input.memberIds.length > 0) {
-          await tx.projectMember.updateMany({
-            where: {
-              id: { in: input.memberIds },
-              projectId: input.targetProjectId,
-            },
-            data: { enterpriseId: nyEntreprise.id },
+          await tx.memberEnterprise.createMany({
+            data: input.memberIds.map((memberId) => ({
+              projectMemberId: memberId,
+              enterpriseId: nyEntreprise.id,
+            })),
+            skipDuplicates: true,
           });
         }
 

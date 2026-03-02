@@ -23,7 +23,7 @@ export default function EntrepriserSide() {
     id: string;
     name: string;
     organizationNumber: string | null;
-    members: Array<{ id: string }>;
+    memberEnterprises: Array<{ id: string }>;
     _count: { createdChecklists: number; createdTasks: number };
   };
 
@@ -55,7 +55,7 @@ export default function EntrepriserSide() {
               id: "members",
               header: "Medlemmer",
               celle: (rad) => (
-                <Badge variant="default">{rad.members.length}</Badge>
+                <Badge variant="default">{rad.memberEnterprises.length}</Badge>
               ),
               bredde: "100px",
             },

@@ -50,7 +50,7 @@ export function EntrepriserPanel() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{ent.name}</p>
                 <p className="text-xs text-gray-400">
-                  {ent.members.length} medlemmer
+                  {ent.memberEnterprises.length} medlemmer
                 </p>
               </div>
             </div>

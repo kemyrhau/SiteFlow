@@ -61,7 +61,7 @@ interface DbGruppe {
     id: string;
     projectMember: {
       user: { name: string | null; email: string };
-      enterprise: { name: string } | null;
+      enterprises: { enterprise: { name: string } }[];
     };
   }[];
 }
@@ -236,7 +236,7 @@ function RedigerGruppeModal({
         lastName: nyEtternavn.trim(),
         phone: nyTelefon.trim() || undefined,
         role: "member",
-        enterpriseId: gruppe.id.replace("ent-", ""),
+        enterpriseIds: [gruppe.id.replace("ent-", "")],
       });
     } else if (gruppe.id === "prosjektadmin") {
       // Prosjektadministrator-gruppe
@@ -916,7 +916,7 @@ export default function BrukereSide() {
       id: m.id,
       navn: m.projectMember.user.name ?? m.projectMember.user.email ?? "Ukjent",
       epost: m.projectMember.user.email ?? undefined,
-      firma: m.projectMember.enterprise?.name ?? undefined,
+      firma: m.projectMember.enterprises?.[0]?.enterprise?.name ?? undefined,
       ventendeInvitasjon: finnInvitasjon(g.id, m.projectMember.user.email),
     })),
   }));
@@ -946,12 +946,12 @@ export default function BrukereSide() {
       id: `ent-${ent.id}`,
       navn: ent.name,
       kategori: "brukergrupper" as const,
-      medlemmer: ent.members.map((m: { id: string; user?: { name?: string | null; email?: string | null } }) => ({
-        id: m.id,
-        navn: m.user?.name ?? m.user?.email ?? "Ukjent",
-        epost: m.user?.email ?? undefined,
+      medlemmer: ent.memberEnterprises.map((me: { projectMember: { id: string; user: { name?: string | null; email?: string | null } } }) => ({
+        id: me.projectMember.id,
+        navn: me.projectMember.user?.name ?? me.projectMember.user?.email ?? "Ukjent",
+        epost: me.projectMember.user?.email ?? undefined,
         firma: ent.name,
-        ventendeInvitasjon: finnInvitasjon(`ent-${ent.id}`, m.user?.email ?? undefined),
+        ventendeInvitasjon: finnInvitasjon(`ent-${ent.id}`, me.projectMember.user?.email ?? undefined),
       })),
       ikon: <Building2 className="h-4 w-4" />,
     })) ?? []),

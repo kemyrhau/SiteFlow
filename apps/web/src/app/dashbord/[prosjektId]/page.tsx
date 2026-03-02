@@ -87,7 +87,7 @@ export default function ProsjektOversikt() {
                 <div key={m.id} className="flex items-center justify-between py-2">
                   <div>
                     <p className="text-sm font-medium">{m.user.name ?? m.user.email}</p>
-                    <p className="text-xs text-gray-400">{m.enterprise?.name}</p>
+                    <p className="text-xs text-gray-400">{m.enterprises?.map((me: { enterprise: { name: string } }) => me.enterprise.name).join(", ")}</p>
                   </div>
                   <span className="text-xs text-gray-500">{m.role}</span>
                 </div>

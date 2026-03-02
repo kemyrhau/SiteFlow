@@ -97,17 +97,29 @@ model ProjectMember {
   id           String   @id @default(uuid())
   userId       String   @map("user_id")
   projectId    String   @map("project_id")
-  enterpriseId String?  @map("enterprise_id")
   role         String   @default("member")
   createdAt    DateTime @default(now()) @map("created_at")
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  enterprise Enterprise? @relation(fields: [enterpriseId], references: [id])
+  enterprises MemberEnterprise[]
   groupMemberships ProjectGroupMember[]
 
   @@unique([userId, projectId])
   @@map("project_members")
+}
+
+model MemberEnterprise {
+  id              String   @id @default(uuid())
+  projectMemberId String   @map("project_member_id")
+  enterpriseId    String   @map("enterprise_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
+  enterprise    Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([projectMemberId, enterpriseId])
+  @@map("member_enterprises")
 }
 
 model ProjectGroup {
@@ -178,7 +190,7 @@ model Enterprise {
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  members            ProjectMember[]
+  memberEnterprises  MemberEnterprise[]
   createdChecklists  Checklist[]      @relation("ChecklistCreatorEnterprise")
   respondChecklists  Checklist[]      @relation("ChecklistResponderEnterprise")
   createdTasks       Task[]           @relation("TaskCreatorEnterprise")

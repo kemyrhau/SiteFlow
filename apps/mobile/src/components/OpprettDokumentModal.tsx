@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -99,11 +99,26 @@ export function OpprettDokumentModal({
   const valgtProsjekt = prosjekter.find((p: { id: string }) => p.id === valgtProsjektId);
   const prosjektNavn = valgtProsjekt?.name ?? "";
 
+  // Hent brukerens entrepriser (filtrert til mine)
+  const mineEntrepriserQuery = trpc.medlem.hentMineEntrepriser.useQuery(
+    { projectId: valgtProsjektId! },
+    { enabled: !!valgtProsjektId && synlig },
+  );
+  const mineEntrepriser = (mineEntrepriserQuery.data ?? []) as EntrepriseData[];
+
+  // Fallback: hent alle entrepriser for svarer-visning
   const entrepriseQuery = trpc.entreprise.hentForProsjekt.useQuery(
     { projectId: valgtProsjektId! },
     { enabled: !!valgtProsjektId && synlig },
   );
   const entrepriser = (entrepriseQuery.data ?? []) as EntrepriseData[];
+
+  // Auto-velg hvis brukeren har kun én entreprise
+  useEffect(() => {
+    if (mineEntrepriser.length === 1 && !oppretterEntrepriseId) {
+      setOppretterEntrepriseId(mineEntrepriser[0].id);
+    }
+  }, [mineEntrepriser, oppretterEntrepriseId]);
 
   // Hent arbeidsforløp for prosjektet
   const arbeidsforlopQuery = trpc.arbeidsforlop.hentForProsjekt.useQuery(
@@ -247,7 +262,7 @@ export function OpprettDokumentModal({
     setVisTegningListe(false);
   };
 
-  const valgtOppretter = entrepriser.find((e) => e.id === oppretterEntrepriseId);
+  const valgtOppretter = mineEntrepriser.find((e) => e.id === oppretterEntrepriseId);
   const valgtBygning = bygninger.find((b) => b.id === valgtBygningId);
   const valgtTegning = tegninger.find((t) => t.id === valgtTegningId);
 
@@ -334,44 +349,53 @@ export function OpprettDokumentModal({
             </View>
           )}
 
-          {/* 5. Oppretter-entreprise */}
+          {/* 5. Oppretter-entreprise (kun brukerens entrepriser) */}
           <View className="border-b border-gray-100 px-4 py-3">
             <Text className="mb-1 text-xs font-medium text-gray-500">
               Oppretter-entreprise *
             </Text>
-            <Pressable
-              onPress={() => {
-                lukkAlleDropdowns();
-                setVisOppretterListe(!visOppretterListe);
-              }}
-              className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
-            >
-              <Text
-                className={`text-sm ${valgtOppretter ? "text-gray-800" : "text-gray-400"}`}
-              >
-                {valgtOppretter?.name ?? "Velg entreprise…"}
-              </Text>
-              <ChevronDown size={16} color="#9ca3af" />
-            </Pressable>
-            {visOppretterListe && (
-              <View className="mt-1 rounded-lg border border-gray-200 bg-white">
-                {entrepriser.map((e) => (
-                  <Pressable
-                    key={e.id}
-                    onPress={() => {
-                      setOppretterEntrepriseId(e.id);
-                      setVisOppretterListe(false);
-                    }}
-                    className={`border-b border-gray-50 px-3 py-2.5 ${oppretterEntrepriseId === e.id ? "bg-blue-50" : ""}`}
-                  >
-                    <Text
-                      className={`text-sm ${oppretterEntrepriseId === e.id ? "font-medium text-blue-700" : "text-gray-700"}`}
-                    >
-                      {e.name}
-                    </Text>
-                  </Pressable>
-                ))}
+            {mineEntrepriser.length === 1 ? (
+              /* Auto-valgt — vises som read-only */
+              <View className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                <Text className="text-sm text-gray-800">{mineEntrepriser[0].name}</Text>
               </View>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => {
+                    lukkAlleDropdowns();
+                    setVisOppretterListe(!visOppretterListe);
+                  }}
+                  className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
+                >
+                  <Text
+                    className={`text-sm ${valgtOppretter ? "text-gray-800" : "text-gray-400"}`}
+                  >
+                    {valgtOppretter?.name ?? "Velg entreprise…"}
+                  </Text>
+                  <ChevronDown size={16} color="#9ca3af" />
+                </Pressable>
+                {visOppretterListe && (
+                  <View className="mt-1 rounded-lg border border-gray-200 bg-white">
+                    {mineEntrepriser.map((e) => (
+                      <Pressable
+                        key={e.id}
+                        onPress={() => {
+                          setOppretterEntrepriseId(e.id);
+                          setVisOppretterListe(false);
+                        }}
+                        className={`border-b border-gray-50 px-3 py-2.5 ${oppretterEntrepriseId === e.id ? "bg-blue-50" : ""}`}
+                      >
+                        <Text
+                          className={`text-sm ${oppretterEntrepriseId === e.id ? "font-medium text-blue-700" : "text-gray-700"}`}
+                        >
+                          {e.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </>
             )}
           </View>
 

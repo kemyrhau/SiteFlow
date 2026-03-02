@@ -97,7 +97,7 @@ export const addMemberSchema = z.object({
   lastName: z.string().min(1, "Etternavn er påkrevd"),
   phone: z.string().optional(),
   role: z.enum(["member", "admin"]).default("member"),
-  enterpriseId: z.string().uuid().optional(),
+  enterpriseIds: z.array(z.string().uuid()).default([]),
 });
 
 // Tegningsvalidering

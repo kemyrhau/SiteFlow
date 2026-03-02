@@ -1077,9 +1077,9 @@ function EntrepriseVeiviser({
                         </span>
                       )}
                     </div>
-                    {m.enterprise && (
+                    {m.enterprises?.length > 0 && (
                       <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                        {m.enterprise.name}
+                        {m.enterprises.map((me: { enterprise: { name: string } }) => me.enterprise.name).join(", ")}
                       </span>
                     )}
                   </label>

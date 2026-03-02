@@ -30,6 +30,7 @@ export default function OppgaverSide() {
   const [tittel, setTittel] = useState("");
   const [beskrivelse, setBeskrivelse] = useState("");
   const [prioritet, setPrioritet] = useState<"low" | "medium" | "high" | "critical">("medium");
+  const [valgtOppretter, setValgtOppretter] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
 
   const { data: oppgaver, isLoading } = trpc.oppgave.hentForProsjekt.useQuery(
@@ -37,6 +38,9 @@ export default function OppgaverSide() {
   );
 
   const { data: entrepriser } = trpc.entreprise.hentForProsjekt.useQuery({ projectId: params.prosjektId });
+  const { data: mineEntrepriser } = trpc.medlem.hentMineEntrepriser.useQuery(
+    { projectId: params.prosjektId },
+  );
 
   const opprettMutation = trpc.oppgave.opprett.useMutation({
     onSuccess: () => {
@@ -45,6 +49,7 @@ export default function OppgaverSide() {
       setTittel("");
       setBeskrivelse("");
       setPrioritet("medium");
+      setValgtOppretter("");
       setValgtSvarer("");
     },
   });
@@ -61,13 +66,10 @@ export default function OppgaverSide() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!tittel.trim() || !valgtSvarer) return;
-
-    const oppretterEntreprise = entrepriser?.[0];
-    if (!oppretterEntreprise) return;
+    if (!tittel.trim() || !valgtOppretter || !valgtSvarer) return;
 
     opprettMutation.mutate({
-      creatorEnterpriseId: oppretterEntreprise.id,
+      creatorEnterpriseId: valgtOppretter,
       responderEnterpriseId: valgtSvarer,
       title: tittel.trim(),
       description: beskrivelse.trim() || undefined,
@@ -98,6 +100,18 @@ export default function OppgaverSide() {
     description: string | null;
     responderEnterprise: { name: string };
   };
+
+  // Oppretter-dropdown: brukerens entrepriser (eller alle for admin)
+  const oppretterAlternativer = (mineEntrepriser ?? []).map((e) => ({
+    value: e.id,
+    label: e.name,
+  }));
+
+  // Svarer-dropdown: alle entrepriser i prosjektet
+  const svarerAlternativer = (entrepriser ?? []).map((e) => ({
+    value: e.id,
+    label: e.name,
+  }));
 
   return (
     <div>
@@ -177,8 +191,15 @@ export default function OppgaverSide() {
             onChange={(e) => setPrioritet(e.target.value as "low" | "medium" | "high" | "critical")}
           />
           <Select
-            label="Ansvarlig entreprise"
-            options={entrepriser?.map((ent) => ({ value: ent.id, label: ent.name })) ?? []}
+            label="Oppretter-entreprise"
+            options={oppretterAlternativer}
+            value={valgtOppretter}
+            onChange={(e) => setValgtOppretter(e.target.value)}
+            placeholder="Velg entreprise..."
+          />
+          <Select
+            label="Ansvarlig entreprise (svarer)"
+            options={svarerAlternativer}
             value={valgtSvarer}
             onChange={(e) => setValgtSvarer(e.target.value)}
             placeholder="Velg entreprise..."

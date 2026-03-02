@@ -22,7 +22,7 @@ export const gruppeRouter = router({
               projectMember: {
                 include: {
                   user: true,
-                  enterprise: true,
+                  enterprises: { include: { enterprise: true } },
                 },
               },
             },
@@ -90,7 +90,10 @@ export const gruppeRouter = router({
           members: {
             include: {
               projectMember: {
-                include: { user: true, enterprise: true },
+                include: {
+                  user: true,
+                  enterprises: { include: { enterprise: true } },
+                },
               },
             },
           },
@@ -187,7 +190,10 @@ export const gruppeRouter = router({
         },
         include: {
           projectMember: {
-            include: { user: true, enterprise: true },
+            include: {
+              user: true,
+              enterprises: { include: { enterprise: true } },
+            },
           },
         },
       });

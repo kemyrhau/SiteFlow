@@ -35,7 +35,12 @@ export const prosjektRouter = router({
         where: { id: input.id },
         include: {
           enterprises: true,
-          members: { include: { user: true, enterprise: true } },
+          members: {
+            include: {
+              user: true,
+              enterprises: { include: { enterprise: true } },
+            },
+          },
           templates: true,
           drawings: true,
           folders: { where: { parentId: null }, include: { children: true } },

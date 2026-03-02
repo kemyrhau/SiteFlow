@@ -25,6 +25,9 @@ export default function SjekklisteSide() {
 
   const { data: maler } = trpc.mal.hentForProsjekt.useQuery({ projectId: params.prosjektId });
   const { data: entrepriser } = trpc.entreprise.hentForProsjekt.useQuery({ projectId: params.prosjektId });
+  const { data: mineEntrepriser } = trpc.medlem.hentMineEntrepriser.useQuery(
+    { projectId: params.prosjektId },
+  );
 
   const opprettMutation = trpc.sjekkliste.opprett.useMutation({
     onSuccess: () => {
@@ -81,6 +84,18 @@ export default function SjekklisteSide() {
     template: { name: string };
     responderEnterprise: { name: string };
   };
+
+  // Oppretter-dropdown: brukerens entrepriser (eller alle for admin)
+  const oppretterAlternativer = (mineEntrepriser ?? []).map((e) => ({
+    value: e.id,
+    label: e.name,
+  }));
+
+  // Svarer-dropdown: alle entrepriser i prosjektet
+  const svarerAlternativer = (entrepriser ?? []).map((e) => ({
+    value: e.id,
+    label: e.name,
+  }));
 
   return (
     <div>
@@ -164,14 +179,14 @@ export default function SjekklisteSide() {
           />
           <Select
             label="Oppretter-entreprise"
-            options={entrepriser?.map((e) => ({ value: e.id, label: e.name })) ?? []}
+            options={oppretterAlternativer}
             value={valgtOppretter}
             onChange={(e) => setValgtOppretter(e.target.value)}
             placeholder="Velg entreprise..."
           />
           <Select
             label="Ansvarlig entreprise (svarer)"
-            options={entrepriser?.map((e) => ({ value: e.id, label: e.name })) ?? []}
+            options={svarerAlternativer}
             value={valgtSvarer}
             onChange={(e) => setValgtSvarer(e.target.value)}
             placeholder="Velg entreprise..."

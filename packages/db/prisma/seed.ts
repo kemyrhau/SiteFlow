@@ -83,26 +83,36 @@ async function seed() {
   console.log("  Entrepriser opprettet");
 
   // Koble brukere til prosjektet
-  await prisma.projectMember.createMany({
+  const medlem1 = await prisma.projectMember.create({
+    data: {
+      userId: bruker1.id,
+      projectId: prosjekt.id,
+      role: "admin",
+    },
+  });
+
+  const medlem2 = await prisma.projectMember.create({
+    data: {
+      userId: bruker2.id,
+      projectId: prosjekt.id,
+      role: "member",
+    },
+  });
+
+  const medlem3 = await prisma.projectMember.create({
+    data: {
+      userId: bruker3.id,
+      projectId: prosjekt.id,
+      role: "member",
+    },
+  });
+
+  // Koble medlemmer til entrepriser via MemberEnterprise
+  await prisma.memberEnterprise.createMany({
     data: [
-      {
-        userId: bruker1.id,
-        projectId: prosjekt.id,
-        enterpriseId: hovedentreprise.id,
-        role: "admin",
-      },
-      {
-        userId: bruker2.id,
-        projectId: prosjekt.id,
-        enterpriseId: hovedentreprise.id,
-        role: "member",
-      },
-      {
-        userId: bruker3.id,
-        projectId: prosjekt.id,
-        enterpriseId: elEntreprise.id,
-        role: "member",
-      },
+      { projectMemberId: medlem1.id, enterpriseId: hovedentreprise.id },
+      { projectMemberId: medlem2.id, enterpriseId: hovedentreprise.id },
+      { projectMemberId: medlem3.id, enterpriseId: elEntreprise.id },
     ],
   });
 
@@ -319,24 +329,13 @@ async function seed() {
     ],
   });
 
-  // Hent bruker1 sitt prosjektmedlemskap og legg til i Field-admin
-  const bruker1Medlem = await prisma.projectMember.findUnique({
-    where: {
-      userId_projectId: {
-        userId: bruker1.id,
-        projectId: prosjekt.id,
-      },
+  // Legg bruker1 til i Field-admin
+  await prisma.projectGroupMember.create({
+    data: {
+      groupId: fieldAdminGruppe.id,
+      projectMemberId: medlem1.id,
     },
   });
-
-  if (bruker1Medlem) {
-    await prisma.projectGroupMember.create({
-      data: {
-        groupId: fieldAdminGruppe.id,
-        projectMemberId: bruker1Medlem.id,
-      },
-    });
-  }
 
   console.log("  Prosjektgrupper opprettet (bruker1 i Field-admin)");
   console.log("\nSeeding fullført!");

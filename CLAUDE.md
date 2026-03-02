@@ -132,7 +132,8 @@ siteflow/
 | `sessions` | Database-sesjoner for Auth.js |
 | `verification_tokens` | E-postverifiseringstokens |
 | `projects` | Prosjekter med prosjektnummer (SF-YYYYMMDD-XXXX), status |
-| `project_members` | Prosjektmedlemmer med rolle (member/admin) og valgfri entreprisetilknytning |
+| `project_members` | Prosjektmedlemmer med rolle (member/admin), entrepriser via `member_enterprises` |
+| `member_enterprises` | Mange-til-mange join-tabell mellom `project_members` og `enterprises` |
 | `enterprises` | Entrepriser med `enterprise_number` (Dalux-format: "04 Tømrer, Econor"), bransje, firma, farge |
 | `buildings` | Bygninger med status (unpublished/published) |
 | `drawings` | Tegninger med metadata: tegningsnummer, fagdisiplin, revisjon, status, etasje, målestokk, opphav |
@@ -150,6 +151,7 @@ siteflow/
 | `project_invitations` | E-postinvitasjoner med token, status (pending/accepted/expired), utløpsdato |
 
 Viktige relasjoner:
+- `member_enterprises` er mange-til-mange join-tabell: en bruker kan tilhøre flere entrepriser i samme prosjekt via `MemberEnterprise(projectMemberId, enterpriseId)`
 - Sjekklister og oppgaver har ALLTID `creator_enterprise_id` (oppretter) og `responder_enterprise_id` (svarer)
 - `document_transfers` logger all sending mellom entrepriser med full sporbarhet
 - Bilder har valgfri GPS-data (`gps_lat`, `gps_lng`, `gps_enabled`)
@@ -177,7 +179,7 @@ Alle routere i `apps/api/src/routes/`:
 | `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, slett |
 | `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
 | `mappe` | hentForProsjekt, opprett, oppdater, slett |
-| `medlem` | hentForProsjekt, leggTil (m/invitasjon), fjern, oppdaterRolle, sokBrukere |
+| `medlem` | hentForProsjekt, hentMineEntrepriser, leggTil (m/invitasjon), fjern, oppdaterRolle, sokBrukere |
 | `gruppe` | hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem |
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
 
@@ -197,6 +199,21 @@ Sentral forretningslogikk. Dokumenter (sjekklister/oppgaver) flyter mellom entre
 - Oppretter-entreprise initierer og godkjenner/avviser
 - Svar-entreprise mottar, fyller ut og besvarer
 - Alle overganger logges i `document_transfers`
+
+### Flerforetagsbrukere
+
+En bruker kan tilhøre flere entrepriser i samme prosjekt via `MemberEnterprise` join-tabell (mange-til-mange mellom `ProjectMember` og `Enterprise`).
+
+**Database:** `member_enterprises` med `project_member_id` + `enterprise_id` (unik kombinasjon). Cascade-sletting fra begge sider.
+
+**API:** `medlem.hentMineEntrepriser` (protectedProcedure) — returnerer brukerens entrepriser i et prosjekt. Admin uten entreprise-tilknytning ser alle entrepriser. `addMemberSchema` bruker `enterpriseIds: string[]` (array).
+
+**Opprettelse av sjekklister/oppgaver:**
+- **Web:** Oppretter-dropdown viser brukerens entrepriser (`hentMineEntrepriser`), svarer-dropdown viser alle entrepriser
+- **Mobil:** Oppretter-liste viser kun brukerens entrepriser. Hvis brukeren har kun én entreprise → auto-valgt, ingen dropdown
+- Svarer-entreprise utledes automatisk fra arbeidsforløp (mobil) eller velges fritt (web)
+
+**Entreprise-veiviser (web):** Medlemsvalg i entreprise-opprettelse bruker `MemberEnterprise.createMany` (en bruker kan tilknyttes flere entrepriser uten å fjernes fra eksisterende)
 
 ### Statusendring (mobil)
 
@@ -293,8 +310,6 @@ Komponenter:
 - Databasemigrering: nye felter på Task-modellen (`number`, `templateId`, `data`, `checklistId`, `checklistFieldId`)
 - Adgangskontroll: Field-admin kan sende kryssentreprise, brukergruppe-brukere kun til eget arbeidsforløp
 - Videresending av sjekklister/oppgaver til annen entreprise (svarer og oppretter)
-- Flerforetagsbrukere: velg entreprise å sende fra ved opprettelse
-- Dato/tid-felter (Dalux-stil): automatisk datoforslag (dagens dato), redigerbart, tid med scrollhjul + "Nå"-knapp for nåværende tidspunkt
 - TrafikklysObjekt (mobil): legge til 4. farge grå/"Ikke relevant" i mobilrenderer
 
 ### Oppgave fra tegning (mobil)
@@ -380,6 +395,26 @@ Maler bygges på PC med drag-and-drop. Hver mal inneholder objekter med definert
 | `repeater` | spesial | Repeterende seksjon |
 
 Hvert objekt har metadata (`REPORT_OBJECT_TYPE_META`) med label, ikon, kategori og standardkonfigurasjon. Objektkonfigurasjon lagres som JSON i `report_objects.config`.
+
+### Dato/tid-felter (mobil, Dalux-stil)
+
+`DatoObjekt` og `DatoTidObjekt` i `apps/mobile/src/components/rapportobjekter/` har smart UX inspirert av Dalux:
+
+**DatoObjekt:**
+- Autoforslag: trykk på tomt felt → setter dagens dato + åpner picker for justering
+- "I dag"-lenke (blå tekst under feltet): synlig kun når verdi finnes og ikke er dagens dato
+- ×-knapp i feltet for å tømme verdi (setter til `null`)
+- Behold eksisterende spinner (iOS) / dialog (Android) for justering
+
+**DatoTidObjekt:**
+- Splittet layout: dato-felt (`flex-[2]`) og tid-felt (`flex-1`) side om side
+- Autoforslag: trykk på tomt dato- eller tid-felt → setter nåværende dato+tid
+- "Nå"-lenke (blå tekst under feltene): setter dato+tid til nå, begge samtidig
+- Uavhengig redigering: trykk dato → dato-picker, trykk tid → tid-picker direkte
+- ×-knapp på dato-feltet tømmer hele verdien (dato+tid)
+- Android: dato-picker → tid-picker automatisk ved nytt valg (bevart fra før)
+
+Begge bruker `@react-native-community/datetimepicker`. Verdi lagres som ISO 8601-streng. I lesemodus skjules alle knapper/lenker.
 
 ### Malbygger (PC)
 
@@ -777,6 +812,7 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Kontainer:** Et Enkeltvalg- eller Flervalg-felt som har betingelse aktivert (`conditionActive: true`) og dermed kan inneholde barnefelt. Kontainere kan nestes rekursivt (eske-i-eske-prinsippet).
 - **Betingelse:** Logikk på en kontainer som styrer synligheten av barnefelt. Defineres av `conditionValues` (trigger-verdier) i config. Når brukerens valg matcher en trigger-verdi, vises barnefeltene.
 - **Eske-i-eske:** Metafor for rekursiv nesting — en kontainer kan inneholde andre kontainere med egne betingelser og barn, i ubegrenset dybde.
+- **Flerforetagsbruker:** Bruker som tilhører flere entrepriser i samme prosjekt. Koblet via `MemberEnterprise` join-tabell. Ved opprettelse av sjekklister/oppgaver velger brukeren hvilken entreprise de handler på vegne av.
 
 ## Språk
 
