@@ -424,6 +424,19 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 - Tilbakeknapp lagrer automatisk uten bekreftelsesdialog
 - Data bevares ved krasj/restart — SQLite er persistent
 
+**Bildeannotering (Fabric.js):**
+- `BildeAnnotering`-komponenten bruker WebView med Fabric.js canvas for å tegne på bilder
+- HTML/JS-koden ligger i `apps/mobile/src/assets/annoterings-html.ts`
+- Verktøy: pil, sirkel, firkant, frihåndstegning, tekst
+- Tekststyling: `fontSize: 24`, `fontWeight: 'bold'`, rød fyll (`#ef4444`), hvit omriss (`stroke: '#ffffff'`, `strokeWidth: 3`, `paintFirst: 'stroke'`)
+- Kommunikasjon: React Native → WebView via `postMessage`, WebView → RN via `ReactNativeWebView.postMessage`
+- Server-URL-er (`/uploads/...` eller `http://...`) MÅ lastes ned til lokal fil (`FileSystem.downloadAsync`) før base64-konvertering — `FileSystem.readAsStringAsync` feiler stille på server-URL-er
+
+**Server-URL-håndtering (mobil):**
+- Relative server-URL-er (`/uploads/...`) MÅ prefikses med `AUTH_CONFIG.apiUrl` for WebView, Image og FileSystem-operasjoner
+- URL-logikk: `file://` / `/var/` → lokal | `/uploads/...` → `AUTH_CONFIG.apiUrl + url` | `http(s)://` → direkte
+- Gjelder: `TegningsVisning`, `TegningsSkjermbilde`, `BildeAnnotering`, `FeltDokumentasjon` filmrull
+
 **Komprimering:**
 1. Maks 1920px bredde
 2. Iterativ kvalitetsjustering til 300–400 KB
@@ -431,6 +444,14 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 4. Lagres lokalt via `lokalBilde.ts` (persistent `documentDirectory`), synkroniseres til S3 via bakgrunnskø
 
 **Viktig:** `InteractionManager.runAfterInteractions` MÅ brukes etter at kamera/picker lukkes, før state-oppdateringer, for å unngå React Navigation "Cannot read property 'stale' of undefined"-krasj.
+
+### React Native-mønstre (mobil)
+
+**Modal-rendering:** Render ALLTID `<Modal>` i komponenttreet med `visible`-prop — ALDRI bruk `{betingelse && <Modal visible>}`. Conditional mounting forårsaker animasjonsfrys (svart skjerm) i React Native.
+
+**SafeAreaView i Modals:** Bruk `SafeAreaView` fra `react-native` (IKKE `react-native-safe-area-context`) inne i Modals, da `SafeAreaProvider` kanskje ikke er i det native view-hierarkiet.
+
+**React Query cache-invalidering:** Invalider query-cache etter mutasjoner for å unngå stale data ved re-navigasjon: `utils.sjekkliste.hentMedId.invalidate({ id })` etter `oppdaterData`-mutasjon.
 
 ### Offline-first (SQLite lokal database)
 
