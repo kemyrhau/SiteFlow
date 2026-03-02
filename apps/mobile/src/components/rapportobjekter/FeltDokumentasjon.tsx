@@ -6,7 +6,8 @@ import { randomUUID } from "expo-crypto";
 import type { Vedlegg } from "../../hooks/useSjekklisteSkjema";
 import { komprimer, hentGps } from "../../services/bilde";
 import { lastOppFil } from "../../services/opplasting";
-import { trpc } from "../../lib/trpc";
+import { lagreLokaltBilde, hentFilstorrelse } from "../../services/lokalBilde";
+import { useOpplastingsKo } from "../../providers/OpplastingsKoProvider";
 import { BildeAnnotering } from "../BildeAnnotering";
 import { KameraModal } from "../KameraModal";
 import { TegningsSkjermbilde } from "../TegningsSkjermbilde";
@@ -21,6 +22,7 @@ interface FeltDokumentasjonProps {
   onFjernVedlegg: (vedleggId: string) => void;
   leseModus?: boolean;
   sjekklisteId: string;
+  objektId: string;
   skjulKommentar?: boolean;
 }
 
@@ -32,6 +34,7 @@ export function FeltDokumentasjon({
   onFjernVedlegg,
   leseModus,
   sjekklisteId,
+  objektId,
   skjulKommentar,
 }: FeltDokumentasjonProps) {
   const [lasterOpp, settLasterOpp] = useState(false);
@@ -42,41 +45,45 @@ export function FeltDokumentasjon({
   const [visKommentarModal, settVisKommentarModal] = useState(false);
   const [lokalKommentar, settLokalKommentar] = useState("");
   const { valgtProsjektId } = useProsjekt();
-
-  const bildeOpprettMutasjon = trpc.bilde.opprettForSjekkliste.useMutation();
+  const { leggIKo } = useOpplastingsKo();
 
   const håndterBilde = useCallback(async (bildeUri: string, gpsLat?: number, gpsLng?: number) => {
-    settLasterOpp(true);
     try {
       const filnavn = `IMG_${Date.now()}.jpg`;
-      const opplastet = await lastOppFil(bildeUri, filnavn, "image/jpeg");
 
-      // Legg til vedlegg med server-URL (persisterbar på tvers av app-restart)
+      // 1. Lagre lokalt (instant, ~5ms)
+      const lokalSti = await lagreLokaltBilde(bildeUri, filnavn);
+
+      // 2. Hent filstørrelse
+      const filstorrelse = await hentFilstorrelse(lokalSti);
+
+      // 3. Legg til vedlegg med LOKAL URI (vises umiddelbart i filmrullen)
+      const vedleggId = randomUUID();
       onLeggTilVedlegg({
-        id: randomUUID(),
+        id: vedleggId,
         type: "bilde",
-        url: opplastet.fileUrl,
-        filnavn: opplastet.fileName,
+        url: lokalSti,
+        filnavn,
       });
 
-      // Lagre bildemetadata i bakgrunnen (ikke-blokkerende)
-      bildeOpprettMutasjon.mutate({
-        checklistId: sjekklisteId,
-        fileUrl: opplastet.fileUrl,
-        fileName: opplastet.fileName,
-        fileSize: opplastet.fileSize,
+      // 4. Legg i bakgrunnskø (asynkront, ikke-blokkerende)
+      await leggIKo({
+        sjekklisteId,
+        objektId,
+        vedleggId,
+        lokalSti,
+        filnavn,
+        mimeType: "image/jpeg",
+        filstorrelse,
         gpsLat,
         gpsLng,
-        gpsEnabled: gpsLat != null,
+        gpsAktivert: gpsLat != null,
       });
     } catch (e) {
       const melding = e instanceof Error ? e.message : "Ukjent feil";
-      console.error("Bildeopplasting feilet:", melding);
-      Alert.alert("Feil", `Kunne ikke laste opp bildet: ${melding}`);
-    } finally {
-      settLasterOpp(false);
+      console.error("Bildehåndtering feilet:", melding);
     }
-  }, [sjekklisteId, bildeOpprettMutasjon, onLeggTilVedlegg]);
+  }, [sjekklisteId, objektId, leggIKo, onLeggTilVedlegg]);
 
   const håndterKameraBilde = useCallback((uri: string) => {
     // Kameraet forblir åpent — prosesser bildet i bakgrunnen
@@ -226,8 +233,12 @@ export function FeltDokumentasjon({
         >
           {vedlegg.map((v) => {
             const erValgt = v.id === valgtVedleggId;
-            // Relativ server-URL → full URL, lokal fil-URI → bruk direkte
-            const bildeUrl = v.url.startsWith("/") ? `${AUTH_CONFIG.apiUrl}${v.url}` : v.url;
+            // Lokal fil → vis direkte, server-relativ → full URL
+            const bildeUrl = v.url.startsWith("file://") || v.url.startsWith("/var/")
+              ? v.url
+              : v.url.startsWith("/")
+                ? `${AUTH_CONFIG.apiUrl}${v.url}`
+                : v.url;
             return (
               <Pressable
                 key={v.id}
@@ -295,7 +306,7 @@ export function FeltDokumentasjon({
       )}
 
       {lasterOpp && (
-        <Text className="text-center text-xs text-gray-400">Laster opp...</Text>
+        <Text className="text-center text-xs text-gray-400">Laster opp fil...</Text>
       )}
 
       {/* Bildeannotering modal */}

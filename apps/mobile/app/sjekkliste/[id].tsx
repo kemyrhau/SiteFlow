@@ -9,9 +9,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Save, Check, AlertTriangle, Clock } from "lucide-react-native";
+import { ArrowLeft, Save, Check, AlertTriangle, Clock, CloudOff, Cloud } from "lucide-react-native";
 import { harBetingelse } from "@siteflow/shared";
 import { useSjekklisteSkjema } from "../../src/hooks/useSjekklisteSkjema";
+import { useOpplastingsKo } from "../../src/providers/OpplastingsKoProvider";
 import { StatusMerkelapp } from "../../src/components/StatusMerkelapp";
 import { RapportObjektRenderer, DISPLAY_TYPER } from "../../src/components/rapportobjekter";
 import { FeltWrapper } from "../../src/components/rapportobjekter/FeltWrapper";
@@ -48,6 +49,8 @@ export default function SjekklisteUtfylling() {
   );
   const overforinger = (detaljQuery.data as { transfers?: Transfer[] } | undefined)?.transfers;
 
+  const { ventende, erAktiv } = useOpplastingsKo();
+
   const {
     sjekkliste,
     erLaster,
@@ -64,6 +67,7 @@ export default function SjekklisteUtfylling() {
     harEndringer,
     erRedigerbar,
     lagreStatus,
+    synkStatus,
   } = useSjekklisteSkjema(id!);
 
   const håndterTilbake = useCallback(async () => {
@@ -121,6 +125,24 @@ export default function SjekklisteUtfylling() {
         </Text>
         {erRedigerbar && (
           <View className="flex-row items-center gap-2">
+            {/* Opplastingskø-fremdrift */}
+            {ventende > 0 && (
+              <View className="flex-row items-center gap-1">
+                <ActivityIndicator size="small" color="#fbbf24" />
+                <Text className="text-[10px] text-yellow-200">{ventende}</Text>
+              </View>
+            )}
+            {/* Synkroniseringsstatus */}
+            {synkStatus === "synkroniserer" && (
+              <ActivityIndicator size="small" color="#93c5fd" />
+            )}
+            {synkStatus === "lokalt_lagret" && ventende === 0 && (
+              <CloudOff size={16} color="#fbbf24" />
+            )}
+            {synkStatus === "synkronisert" && ventende === 0 && lagreStatus !== "lagret" && lagreStatus !== "lagrer" && (
+              <Cloud size={16} color="#86efac" />
+            )}
+            {/* Lagrestatus */}
             {lagreStatus === "lagrer" && (
               <ActivityIndicator size="small" color="#93c5fd" />
             )}

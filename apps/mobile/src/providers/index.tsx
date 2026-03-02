@@ -2,7 +2,9 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, opprettTrpcKlient } from "../lib/trpc";
+import { DatabaseProvider } from "./DatabaseProvider";
 import { NettverkProvider } from "./NettverkProvider";
+import { OpplastingsKoProvider } from "./OpplastingsKoProvider";
 import { AuthProvider } from "./AuthProvider";
 import { ProsjektProvider } from "../kontekst/ProsjektKontekst";
 
@@ -26,14 +28,18 @@ export function Providers({ children }: { children: ReactNode }) {
   const [trpcClient] = useState(() => opprettTrpcKlient());
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <NettverkProvider>
-          <AuthProvider>
-            <ProsjektProvider>{children}</ProsjektProvider>
-          </AuthProvider>
-        </NettverkProvider>
-      </QueryClientProvider>
-    </trpc.Provider>
+    <DatabaseProvider>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <NettverkProvider>
+            <OpplastingsKoProvider>
+              <AuthProvider>
+                <ProsjektProvider>{children}</ProsjektProvider>
+              </AuthProvider>
+            </OpplastingsKoProvider>
+          </NettverkProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
+    </DatabaseProvider>
   );
 }

@@ -1,7 +1,14 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { eq } from "drizzle-orm";
+import { randomUUID } from "expo-crypto";
 import { trpc } from "../lib/trpc";
+import { hentDatabase } from "../db/database";
+import { sjekklisteFeltdata } from "../db/schema";
+import { useNettverk } from "../providers/NettverkProvider";
+import { useOpplastingsKo } from "../providers/OpplastingsKoProvider";
 
 type LagreStatus = "idle" | "lagrer" | "lagret" | "feil";
+type SynkStatus = "synkronisert" | "lokalt_lagret" | "synkroniserer";
 
 export interface Vedlegg {
   id: string;
@@ -58,9 +65,83 @@ export interface UseSjekklisteSkjemaResultat {
   harEndringer: boolean;
   erRedigerbar: boolean;
   lagreStatus: LagreStatus;
+  synkStatus: SynkStatus;
 }
 
 const REDIGERBARE_STATUSER = new Set(["draft", "received", "in_progress"]);
+
+// --- SQLite-hjelpere ---
+
+function lesSQLiteFeltdata(sjekklisteId: string): Record<string, FeltVerdi> | null {
+  try {
+    const db = hentDatabase();
+    const rader = db
+      .select()
+      .from(sjekklisteFeltdata)
+      .where(eq(sjekklisteFeltdata.sjekklisteId, sjekklisteId))
+      .all();
+    if (rader.length === 0) return null;
+    return JSON.parse(rader[0]!.feltVerdier) as Record<string, FeltVerdi>;
+  } catch {
+    return null;
+  }
+}
+
+function erSQLiteSynkronisert(sjekklisteId: string): boolean {
+  try {
+    const db = hentDatabase();
+    const rader = db
+      .select({ erSynkronisert: sjekklisteFeltdata.erSynkronisert })
+      .from(sjekklisteFeltdata)
+      .where(eq(sjekklisteFeltdata.sjekklisteId, sjekklisteId))
+      .all();
+    if (rader.length === 0) return true;
+    return rader[0]!.erSynkronisert;
+  } catch {
+    return true;
+  }
+}
+
+function skrivTilSQLite(
+  sjekklisteId: string,
+  feltVerdier: Record<string, FeltVerdi>,
+  synkronisert: boolean,
+) {
+  try {
+    const db = hentDatabase();
+    const json = JSON.stringify(feltVerdier);
+    const rader = db
+      .select({ id: sjekklisteFeltdata.id })
+      .from(sjekklisteFeltdata)
+      .where(eq(sjekklisteFeltdata.sjekklisteId, sjekklisteId))
+      .all();
+
+    if (rader.length > 0) {
+      db.update(sjekklisteFeltdata)
+        .set({
+          feltVerdier: json,
+          erSynkronisert: synkronisert,
+          sistEndretLokalt: Date.now(),
+          ...(synkronisert ? { sistSynkronisert: Date.now() } : {}),
+        })
+        .where(eq(sjekklisteFeltdata.id, rader[0]!.id))
+        .run();
+    } else {
+      db.insert(sjekklisteFeltdata)
+        .values({
+          id: randomUUID(),
+          sjekklisteId,
+          feltVerdier: json,
+          erSynkronisert: synkronisert,
+          sistEndretLokalt: Date.now(),
+          sistSynkronisert: synkronisert ? Date.now() : null,
+        })
+        .run();
+    }
+  } catch (feil) {
+    console.warn("SQLite skriving feilet:", feil);
+  }
+}
 
 export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaResultat {
   const [feltVerdier, settFeltVerdier] = useState<Record<string, FeltVerdi>>({});
@@ -68,12 +149,19 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
   const [harEndringer, settHarEndringer] = useState(false);
   const [erInitialisert, settErInitialisert] = useState(false);
   const [lagreStatus, settLagreStatus] = useState<LagreStatus>("idle");
+  const [synkStatus, settSynkStatus] = useState<SynkStatus>("synkronisert");
   const lagreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Ref for å unngå stale closure i lagreIntern
   const feltVerdierRef = useRef(feltVerdier);
   feltVerdierRef.current = feltVerdier;
+
+  const { erPaaNettet } = useNettverk();
+  const { registrerCallback } = useOpplastingsKo();
+
+  // tRPC utils for å invalidere query-cache etter lagring
+  const utils = trpc.useUtils();
 
   // Hent sjekklistedata
   const sjekklisteQuery = trpc.sjekkliste.hentMedId.useQuery(
@@ -91,11 +179,25 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     [sjekkliste],
   );
 
-  // Initialiser feltVerdier fra sjekklistens data-JSON
+  // Initialiser feltVerdier — SQLite først, så server
   useEffect(() => {
     if (!sjekkliste || erInitialisert) return;
 
     const eksisterendeData = (sjekkliste.data ?? {}) as Record<string, Record<string, unknown>>;
+
+    // Prøv SQLite først (instant, <10ms)
+    const sqliteData = lesSQLiteFeltdata(sjekklisteId);
+    const sqliteSynkronisert = erSQLiteSynkronisert(sjekklisteId);
+
+    if (sqliteData && !sqliteSynkronisert) {
+      // SQLite har usynkroniserte lokale endringer — bruk dem
+      settFeltVerdier(sqliteData);
+      settErInitialisert(true);
+      settSynkStatus("lokalt_lagret");
+      return;
+    }
+
+    // Bruk server-data (eller SQLite hvis synkronisert)
     const initialisert: Record<string, FeltVerdi> = {};
 
     for (const objekt of alleObjekter) {
@@ -115,7 +217,41 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
 
     settFeltVerdier(initialisert);
     settErInitialisert(true);
-  }, [sjekkliste, alleObjekter, erInitialisert]);
+
+    // Lagre server-data til SQLite (synkronisert)
+    skrivTilSQLite(sjekklisteId, initialisert, true);
+    settSynkStatus("synkronisert");
+  }, [sjekkliste, alleObjekter, erInitialisert, sjekklisteId]);
+
+  // Lytt på opplastingsfullføringer — oppdater vedlegg-URL i minnet
+  useEffect(() => {
+    const avregistrer = registrerCallback(
+      (cbSjekklisteId, _objektId, vedleggId, serverUrl) => {
+        if (cbSjekklisteId !== sjekklisteId) return;
+
+        settFeltVerdier((prev) => {
+          const oppdatert = { ...prev };
+          let endret = false;
+          for (const feltId of Object.keys(oppdatert)) {
+            const felt = oppdatert[feltId];
+            if (!felt) continue;
+            const vedleggIdx = felt.vedlegg.findIndex((v) => v.id === vedleggId);
+            if (vedleggIdx >= 0) {
+              oppdatert[feltId] = {
+                ...felt,
+                vedlegg: felt.vedlegg.map((v) =>
+                  v.id === vedleggId ? { ...v, url: serverUrl } : v,
+                ),
+              };
+              endret = true;
+            }
+          }
+          return endret ? oppdatert : prev;
+        });
+      },
+    );
+    return avregistrer;
+  }, [sjekklisteId, registrerCallback]);
 
   const hentFeltVerdi = useCallback(
     (objektId: string): FeltVerdi => feltVerdier[objektId] ?? TOM_FELTVERDI,
@@ -127,22 +263,37 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
 
   const lagreIntern = useCallback(async () => {
     if (!sjekklisteId) return;
-    settLagreStatus("lagrer");
-    try {
-      await oppdaterDataMutasjon.mutateAsync({
-        id: sjekklisteId,
-        data: feltVerdierRef.current,
-      });
-      settHarEndringer(false);
-      settLagreStatus("lagret");
-      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-      statusTimerRef.current = setTimeout(() => settLagreStatus("idle"), 2000);
-    } catch {
-      settLagreStatus("feil");
-      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-      statusTimerRef.current = setTimeout(() => settLagreStatus("idle"), 3000);
+
+    const data = feltVerdierRef.current;
+
+    // 1. Skriv til SQLite umiddelbart (alltid suksess)
+    skrivTilSQLite(sjekklisteId, data, false);
+    settLagreStatus("lagret");
+    settSynkStatus("lokalt_lagret");
+
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    statusTimerRef.current = setTimeout(() => settLagreStatus("idle"), 2000);
+
+    // 2. Prøv server-sync hvis online
+    if (erPaaNettet) {
+      settSynkStatus("synkroniserer");
+      try {
+        await oppdaterDataMutasjon.mutateAsync({
+          id: sjekklisteId,
+          data,
+        });
+        await utils.sjekkliste.hentMedId.invalidate({ id: sjekklisteId });
+        settHarEndringer(false);
+
+        // Marker som synkronisert i SQLite
+        skrivTilSQLite(sjekklisteId, data, true);
+        settSynkStatus("synkronisert");
+      } catch {
+        // Server feilet — data er trygg i SQLite
+        settSynkStatus("lokalt_lagret");
+      }
     }
-  }, [sjekklisteId, oppdaterDataMutasjon]);
+  }, [sjekklisteId, erPaaNettet, oppdaterDataMutasjon, utils]);
 
   const planleggLagring = useCallback(() => {
     if (lagreTimerRef.current) clearTimeout(lagreTimerRef.current);
@@ -158,6 +309,13 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     }
     await lagreIntern();
   }, [lagreIntern]);
+
+  // Synk til server når nett kommer tilbake
+  useEffect(() => {
+    if (erPaaNettet && erInitialisert && synkStatus === "lokalt_lagret") {
+      lagreIntern();
+    }
+  }, [erPaaNettet, erInitialisert, synkStatus, lagreIntern]);
 
   // Oppdater én nøkkel i et felt og planlegg auto-lagring
   const oppdaterFelt = useCallback(
@@ -221,7 +379,7 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     [planleggLagring],
   );
 
-  // Betinget synlighet (Fase 9)
+  // Betinget synlighet
   const erSynlig = useCallback(
     (objekt: RapportObjekt): boolean => {
       const parentId = objekt.config.conditionParentId;
@@ -290,5 +448,6 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     harEndringer,
     erRedigerbar,
     lagreStatus,
+    synkStatus,
   };
 }
