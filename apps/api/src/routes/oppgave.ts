@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
 import { documentStatusSchema } from "@siteflow/shared";
 import { isValidStatusTransition } from "@siteflow/shared";
 import { TRPCError } from "@trpc/server";
@@ -20,6 +20,7 @@ export const oppgaveRouter = router({
           ...(input.status ? { status: input.status } : {}),
         },
         include: {
+          template: true,
           creator: true,
           creatorEnterprise: true,
           responderEnterprise: true,
@@ -50,28 +51,61 @@ export const oppgaveRouter = router({
     }),
 
   // Opprett ny oppgave
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(
       z.object({
-        creatorUserId: z.string().uuid(),
         creatorEnterpriseId: z.string().uuid(),
         responderEnterpriseId: z.string().uuid(),
         title: z.string().min(1).max(255),
         description: z.string().optional(),
         priority: z.enum(["low", "medium", "high", "critical"]).default("medium"),
         dueDate: z.string().datetime().optional(),
+        templateId: z.string().uuid().optional(),
         drawingId: z.string().uuid().optional(),
         positionX: z.number().min(0).max(100).optional(),
         positionY: z.number().min(0).max(100).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.task.create({
-        data: {
-          ...input,
-          dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
-          status: "draft",
-        },
+      return ctx.prisma.$transaction(async (tx) => {
+        let nummer: number | undefined;
+
+        if (input.templateId) {
+          // Finn malens prefix for autonummerering
+          const mal = await tx.reportTemplate.findUniqueOrThrow({
+            where: { id: input.templateId },
+            select: { prefix: true },
+          });
+
+          if (mal.prefix) {
+            const maks = await tx.task.aggregate({
+              where: {
+                templateId: input.templateId,
+                number: { not: null },
+              },
+              _max: { number: true },
+            });
+            nummer = (maks._max.number ?? 0) + 1;
+          }
+        }
+
+        return tx.task.create({
+          data: {
+            templateId: input.templateId,
+            creatorUserId: ctx.userId,
+            creatorEnterpriseId: input.creatorEnterpriseId,
+            responderEnterpriseId: input.responderEnterpriseId,
+            title: input.title,
+            description: input.description,
+            priority: input.priority,
+            number: nummer,
+            dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+            drawingId: input.drawingId,
+            positionX: input.positionX,
+            positionY: input.positionY,
+            status: "draft",
+          },
+        });
       });
     }),
 

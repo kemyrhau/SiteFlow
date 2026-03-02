@@ -6,6 +6,9 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
+  ActionSheetIOS,
+  Platform,
+  Modal as RNModal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,13 +22,23 @@ import {
 import { trpc } from "../../src/lib/trpc";
 import { useProsjekt } from "../../src/kontekst/ProsjektKontekst";
 import { ProsjektVelger } from "../../src/components/ProsjektVelger";
+import { MalVelger } from "../../src/components/MalVelger";
+import { OpprettDokumentModal } from "../../src/components/OpprettDokumentModal";
 
 const AKTIVE_STATUSER = ["sent", "received", "in_progress"];
+
+interface MalData {
+  id: string;
+  name: string;
+  prefix: string | null;
+  category: string;
+}
 
 interface InnboksElement {
   id: string;
   type: "sjekkliste" | "oppgave";
   tittel: string;
+  nummer: string | null;
   undertekst: string;
   tidspunkt: Date | string;
   status: string;
@@ -65,10 +78,19 @@ const PRIORITETS_TEKST: Record<string, string> = {
   critical: "Kritisk",
 };
 
+function formaterNummer(prefix: string | null | undefined, nummer: number | null | undefined): string | null {
+  if (!prefix || nummer == null) return null;
+  return `${prefix}-${String(nummer).padStart(3, "0")}`;
+}
+
 export default function HjemSkjerm() {
   const { valgtProsjektId } = useProsjekt();
   const [velgerSynlig, setVelgerSynlig] = useState(false);
+  const [opprettKategori, setOpprettKategori] = useState<"sjekkliste" | "oppgave" | null>(null);
+  const [valgtMal, setValgtMal] = useState<MalData | null>(null);
+  const [visAndroidMeny, setVisAndroidMeny] = useState(false);
   const router = useRouter();
+  const utils = trpc.useUtils();
 
   // Hent prosjektdata for valgt prosjekt
   const prosjektQuery = trpc.prosjekt.hentMine.useQuery();
@@ -89,11 +111,11 @@ export default function HjemSkjerm() {
 
   // Cast tRPC-data for å unngå TS2589 (excessively deep type instantiation)
   const sjekklister = sjekklisteQuery.data as
-    | Array<{ id: string; title: string; status: string; updatedAt: Date | string; template?: { name: string } | null }>
+    | Array<{ id: string; title: string; status: string; number?: number | null; updatedAt: Date | string; template?: { name: string; prefix?: string | null } | null }>
     | undefined;
 
   const oppgaver = oppgaveQuery.data as
-    | Array<{ id: string; title: string; status: string; priority: string; updatedAt: Date | string }>
+    | Array<{ id: string; title: string; status: string; priority: string; number?: number | null; updatedAt: Date | string; template?: { name: string; prefix?: string | null } | null }>
     | undefined;
 
   // Filtrer aktive elementer for innboksen
@@ -118,6 +140,7 @@ export default function HjemSkjerm() {
         id: s.id,
         type: "sjekkliste" as const,
         tittel: s.title,
+        nummer: formaterNummer(s.template?.prefix, s.number),
         undertekst: s.template?.name ?? "",
         tidspunkt: s.updatedAt,
         status: s.status,
@@ -126,6 +149,7 @@ export default function HjemSkjerm() {
         id: o.id,
         type: "oppgave" as const,
         tittel: o.title,
+        nummer: formaterNummer(o.template?.prefix, o.number),
         undertekst: PRIORITETS_TEKST[o.priority] ?? o.priority,
         tidspunkt: o.updatedAt,
         status: o.status,
@@ -156,6 +180,40 @@ export default function HjemSkjerm() {
     }
   }, [valgtProsjektId, prosjektQuery, sjekklisteQuery, oppgaveQuery]);
 
+  const håndterPluss = useCallback(() => {
+    if (!valgtProsjektId) return;
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Ny sjekkliste", "Ny oppgave", "Avbryt"],
+          cancelButtonIndex: 2,
+        },
+        (indeks) => {
+          if (indeks === 0) setOpprettKategori("sjekkliste");
+          else if (indeks === 1) setOpprettKategori("oppgave");
+        },
+      );
+    } else {
+      setVisAndroidMeny(true);
+    }
+  }, [valgtProsjektId]);
+
+  const håndterOpprettet = useCallback(
+    (id: string) => {
+      setValgtMal(null);
+      setOpprettKategori(null);
+      // Invalidér queries for å oppdatere listene
+      if (valgtProsjektId) {
+        utils.sjekkliste.hentForProsjekt.invalidate({ projectId: valgtProsjektId });
+        utils.oppgave.hentForProsjekt.invalidate({ projectId: valgtProsjektId });
+      }
+      if (opprettKategori === "sjekkliste") {
+        router.push(`/sjekkliste/${id}`);
+      }
+    },
+    [valgtProsjektId, opprettKategori, utils, router],
+  );
+
   const lasterData =
     valgtProsjektId &&
     (sjekklisteQuery.isLoading || oppgaveQuery.isLoading);
@@ -174,7 +232,7 @@ export default function HjemSkjerm() {
           </Text>
           <ChevronDown size={20} color="#ffffff" />
         </Pressable>
-        <Pressable className="rounded-full bg-white/20 p-2">
+        <Pressable onPress={håndterPluss} className="rounded-full bg-white/20 p-2">
           <Plus size={20} color="#ffffff" />
         </Pressable>
       </View>
@@ -254,7 +312,7 @@ export default function HjemSkjerm() {
                       className="text-sm font-medium text-gray-900"
                       numberOfLines={1}
                     >
-                      {element.tittel}
+                      {element.nummer ? `${element.nummer} ` : ""}{element.tittel}
                     </Text>
                     <Text className="text-xs text-gray-500" numberOfLines={1}>
                       {element.undertekst}
@@ -330,6 +388,66 @@ export default function HjemSkjerm() {
       <ProsjektVelger
         synlig={velgerSynlig}
         onLukk={() => setVelgerSynlig(false)}
+      />
+
+      {/* Android-meny for opprettelse */}
+      <RNModal
+        visible={visAndroidMeny}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setVisAndroidMeny(false)}
+      >
+        <Pressable
+          className="flex-1 justify-end bg-black/40"
+          onPress={() => setVisAndroidMeny(false)}
+        >
+          <View className="rounded-t-2xl bg-white pb-8 pt-4">
+            <Pressable
+              onPress={() => {
+                setVisAndroidMeny(false);
+                setOpprettKategori("sjekkliste");
+              }}
+              className="px-6 py-4"
+            >
+              <Text className="text-base font-medium text-gray-900">Ny sjekkliste</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setVisAndroidMeny(false);
+                setOpprettKategori("oppgave");
+              }}
+              className="px-6 py-4"
+            >
+              <Text className="text-base font-medium text-gray-900">Ny oppgave</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setVisAndroidMeny(false)}
+              className="px-6 py-4"
+            >
+              <Text className="text-base text-gray-500">Avbryt</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </RNModal>
+
+      {/* Malvelger-modal */}
+      <MalVelger
+        synlig={!!opprettKategori && !valgtMal}
+        kategori={opprettKategori ?? "sjekkliste"}
+        onVelg={(mal) => setValgtMal(mal)}
+        onLukk={() => setOpprettKategori(null)}
+      />
+
+      {/* Opprett dokument-modal */}
+      <OpprettDokumentModal
+        synlig={!!opprettKategori && !!valgtMal}
+        kategori={opprettKategori ?? "sjekkliste"}
+        mal={valgtMal ?? { id: "", name: "", prefix: null, category: "" }}
+        onOpprettet={håndterOpprettet}
+        onLukk={() => {
+          setValgtMal(null);
+          setOpprettKategori(null);
+        }}
       />
     </SafeAreaView>
   );

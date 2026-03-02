@@ -63,13 +63,38 @@ export const sjekklisteRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.checklist.create({
-        data: {
-          ...input,
-          creatorUserId: ctx.userId,
-          dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
-          status: "draft",
-        },
+      return ctx.prisma.$transaction(async (tx) => {
+        // Finn malens prefix og prosjekt for autonummerering
+        const mal = await tx.reportTemplate.findUniqueOrThrow({
+          where: { id: input.templateId },
+          select: { prefix: true, projectId: true },
+        });
+
+        let nummer: number | undefined;
+        if (mal.prefix) {
+          // Finn høyeste nummer for denne malen i prosjektet
+          const maks = await tx.checklist.aggregate({
+            where: {
+              templateId: input.templateId,
+              number: { not: null },
+            },
+            _max: { number: true },
+          });
+          nummer = (maks._max.number ?? 0) + 1;
+        }
+
+        return tx.checklist.create({
+          data: {
+            templateId: input.templateId,
+            creatorEnterpriseId: input.creatorEnterpriseId,
+            responderEnterpriseId: input.responderEnterpriseId,
+            title: input.title,
+            creatorUserId: ctx.userId,
+            number: nummer,
+            dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
+            status: "draft",
+          },
+        });
       });
     }),
 

@@ -34,13 +34,20 @@ interface OppgaveRad {
   title: string;
   status: string;
   priority: string;
+  number?: number | null;
   description: string | null;
   dueDate: Date | string | null;
   updatedAt: Date | string;
   createdAt: Date | string;
+  template?: { name: string; prefix?: string | null } | null;
   creatorEnterprise?: { name: string } | null;
   responderEnterprise?: { name: string } | null;
   creator?: { name: string | null } | null;
+}
+
+function formaterNummer(prefix: string | null | undefined, nummer: number | null | undefined): string | null {
+  if (!prefix || nummer == null) return null;
+  return `${prefix}-${String(nummer).padStart(3, "0")}`;
 }
 
 export default function OppgaveListe() {
@@ -60,6 +67,7 @@ export default function OppgaveListe() {
 
   const renderElement = useCallback(
     ({ item }: { item: OppgaveRad }) => {
+      const nummer = formaterNummer(item.template?.prefix, item.number);
       const undertekst = [
         item.responderEnterprise?.name,
         item.dueDate
@@ -81,7 +89,7 @@ export default function OppgaveListe() {
         >
           <View className="flex-1">
             <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
-              {item.title}
+              {nummer ? `${nummer} ` : ""}{item.title}
             </Text>
             <View className="mt-0.5 flex-row items-center gap-2">
               <Text className={`text-xs font-medium ${PRIORITETS_FARGE[item.priority] ?? "text-gray-500"}`}>

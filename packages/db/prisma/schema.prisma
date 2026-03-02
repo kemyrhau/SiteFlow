@@ -268,6 +268,7 @@ model ReportTemplate {
   project            Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   objects            ReportObject[]
   checklists         Checklist[]
+  tasks              Task[]
   workflowTemplates  WorkflowTemplate[]
 
   @@map("report_templates")
@@ -297,6 +298,7 @@ model Checklist {
   responderEnterpriseId String  @map("responder_enterprise_id")
   status               String   @default("draft")
   title                String
+  number               Int?     @map("number")
   data                 Json     @default("{}")
   dueDate              DateTime? @map("due_date")
   createdAt            DateTime @default(now()) @map("created_at")
@@ -314,12 +316,14 @@ model Checklist {
 
 model Task {
   id                   String    @id @default(uuid())
+  templateId           String?   @map("template_id")
   creatorUserId        String    @map("creator_user_id")
   creatorEnterpriseId  String    @map("creator_enterprise_id")
   responderEnterpriseId String   @map("responder_enterprise_id")
   status               String    @default("draft")
   title                String
   description          String?
+  number               Int?      @map("number")
   priority             String    @default("medium")
   dueDate              DateTime? @map("due_date")
   drawingId            String?   @map("drawing_id")
@@ -328,6 +332,7 @@ model Task {
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
+  template           ReportTemplate?    @relation(fields: [templateId], references: [id])
   creator            User               @relation("TaskCreator", fields: [creatorUserId], references: [id])
   creatorEnterprise  Enterprise         @relation("TaskCreatorEnterprise", fields: [creatorEnterpriseId], references: [id])
   responderEnterprise Enterprise        @relation("TaskResponderEnterprise", fields: [responderEnterpriseId], references: [id])

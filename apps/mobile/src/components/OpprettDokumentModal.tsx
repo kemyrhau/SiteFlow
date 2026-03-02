@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { MapPin, ChevronDown } from "lucide-react-native";
+import { SafeAreaView } from "react-native";
+import { ChevronDown } from "lucide-react-native";
 import { trpc } from "../lib/trpc";
 import { useProsjekt } from "../kontekst/ProsjektKontekst";
 
@@ -21,14 +21,19 @@ interface EntrepriseData {
   name: string;
 }
 
-interface OppgaveModalProps {
+interface MalData {
+  id: string;
+  name: string;
+  prefix: string | null;
+  category: string;
+}
+
+interface OpprettDokumentModalProps {
   synlig: boolean;
+  kategori: "sjekkliste" | "oppgave";
+  mal: MalData;
+  onOpprettet: (id: string) => void;
   onLukk: () => void;
-  onOpprettet: () => void;
-  tegningNavn: string;
-  tegningId: string;
-  posisjonX: number;
-  posisjonY: number;
 }
 
 const PRIORITETER: { verdi: Prioritet; label: string }[] = [
@@ -45,26 +50,22 @@ const PRIORITET_FARGER: Record<Prioritet, string> = {
   critical: "bg-red-100 text-red-700",
 };
 
-export function OppgaveModal({
+export function OpprettDokumentModal({
   synlig,
-  onLukk,
+  kategori,
+  mal,
   onOpprettet,
-  tegningNavn,
-  tegningId,
-  posisjonX,
-  posisjonY,
-}: OppgaveModalProps) {
+  onLukk,
+}: OpprettDokumentModalProps) {
   const { valgtProsjektId } = useProsjekt();
 
   const [tittel, setTittel] = useState("");
-  const [beskrivelse, setBeskrivelse] = useState("");
   const [prioritet, setPrioritet] = useState<Prioritet>("medium");
   const [oppretterEntrepriseId, setOppretterEntrepriseId] = useState<string | null>(null);
   const [svarerEntrepriseId, setSvarerEntrepriseId] = useState<string | null>(null);
   const [visOppretterListe, setVisOppretterListe] = useState(false);
   const [visSvarerListe, setVisSvarerListe] = useState(false);
 
-  // Hent entrepriser for prosjektet
   const entrepriseQuery = trpc.entreprise.hentForProsjekt.useQuery(
     { projectId: valgtProsjektId! },
     { enabled: !!valgtProsjektId && synlig },
@@ -72,19 +73,34 @@ export function OppgaveModal({
 
   const entrepriser = (entrepriseQuery.data ?? []) as EntrepriseData[];
 
-  const opprettMutasjon = trpc.oppgave.opprett.useMutation({
-    onSuccess: () => {
+  // eslint-disable-next-line
+  const opprettSjekkliste = trpc.sjekkliste.opprett.useMutation({
+    onSuccess: (_data: unknown) => {
+      const resultat = _data as { id: string };
       nullstillSkjema();
-      onOpprettet();
+      onOpprettet(resultat.id);
     },
-    onError: (feil) => {
+    onError: (feil: { message: string }) => {
+      Alert.alert("Feil", feil.message || "Kunne ikke opprette sjekkliste");
+    },
+  });
+
+  // eslint-disable-next-line
+  const opprettOppgave = trpc.oppgave.opprett.useMutation({
+    onSuccess: (_data: unknown) => {
+      const resultat = _data as { id: string };
+      nullstillSkjema();
+      onOpprettet(resultat.id);
+    },
+    onError: (feil: { message: string }) => {
       Alert.alert("Feil", feil.message || "Kunne ikke opprette oppgave");
     },
   });
 
+  const erPending = opprettSjekkliste.isPending || opprettOppgave.isPending;
+
   const nullstillSkjema = useCallback(() => {
     setTittel("");
-    setBeskrivelse("");
     setPrioritet("medium");
     setOppretterEntrepriseId(null);
     setSvarerEntrepriseId(null);
@@ -97,9 +113,9 @@ export function OppgaveModal({
     onLukk();
   }, [nullstillSkjema, onLukk]);
 
-  const håndterOpprett = useCallback(async () => {
+  const håndterOpprett = useCallback(() => {
     if (!tittel.trim()) {
-      Alert.alert("Mangler tittel", "Skriv inn en tittel for oppgaven");
+      Alert.alert("Mangler tittel", "Skriv inn en tittel");
       return;
     }
     if (!oppretterEntrepriseId) {
@@ -111,26 +127,31 @@ export function OppgaveModal({
       return;
     }
 
-    opprettMutasjon.mutate({
-      creatorEnterpriseId: oppretterEntrepriseId,
-      responderEnterpriseId: svarerEntrepriseId,
-      title: tittel.trim(),
-      description: beskrivelse.trim() || undefined,
-      priority: prioritet,
-      drawingId: tegningId,
-      positionX: posisjonX,
-      positionY: posisjonY,
-    });
+    if (kategori === "sjekkliste") {
+      opprettSjekkliste.mutate({
+        templateId: mal.id,
+        creatorEnterpriseId: oppretterEntrepriseId,
+        responderEnterpriseId: svarerEntrepriseId,
+        title: tittel.trim(),
+      });
+    } else {
+      opprettOppgave.mutate({
+        templateId: mal.id,
+        creatorEnterpriseId: oppretterEntrepriseId,
+        responderEnterpriseId: svarerEntrepriseId,
+        title: tittel.trim(),
+        priority: prioritet,
+      });
+    }
   }, [
     tittel,
-    beskrivelse,
     prioritet,
     oppretterEntrepriseId,
     svarerEntrepriseId,
-    tegningId,
-    posisjonX,
-    posisjonY,
-    opprettMutasjon,
+    kategori,
+    mal.id,
+    opprettSjekkliste,
+    opprettOppgave,
   ]);
 
   const valgtOppretter = entrepriser.find((e) => e.id === oppretterEntrepriseId);
@@ -140,23 +161,21 @@ export function OppgaveModal({
     tittel.trim().length > 0 &&
     !!oppretterEntrepriseId &&
     !!svarerEntrepriseId &&
-    !opprettMutasjon.isPending;
+    !erPending;
 
   return (
     <Modal visible={synlig} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
         {/* Header */}
         <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
           <Pressable onPress={håndterAvbryt} hitSlop={8}>
             <Text className="text-sm font-medium text-white">Avbryt</Text>
           </Pressable>
-          <Text className="text-sm font-semibold text-white">Ny oppgave</Text>
-          <Pressable
-            onPress={håndterOpprett}
-            disabled={!kanOpprett}
-            hitSlop={8}
-          >
-            {opprettMutasjon.isPending ? (
+          <Text className="text-sm font-semibold text-white">
+            Ny {kategori === "sjekkliste" ? "sjekkliste" : "oppgave"}
+          </Text>
+          <Pressable onPress={håndterOpprett} disabled={!kanOpprett} hitSlop={8}>
+            {erPending ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <Text
@@ -169,11 +188,22 @@ export function OppgaveModal({
         </View>
 
         <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
+          {/* Mal-info med prefix-badge */}
+          <View className="border-b border-gray-100 bg-gray-50 px-4 py-3">
+            <Text className="text-xs font-medium text-gray-500">Mal</Text>
+            <View className="mt-1 flex-row items-center gap-2">
+              <Text className="text-sm font-medium text-gray-900">{mal.name}</Text>
+              {mal.prefix ? (
+                <View className="rounded bg-blue-100 px-2 py-0.5">
+                  <Text className="text-xs font-medium text-blue-700">{mal.prefix}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
           {/* Tittel */}
           <View className="border-b border-gray-100 px-4 py-3">
-            <Text className="mb-1 text-xs font-medium text-gray-500">
-              Tittel *
-            </Text>
+            <Text className="mb-1 text-xs font-medium text-gray-500">Tittel *</Text>
             <TextInput
               className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800"
               placeholder="Skriv tittel…"
@@ -184,48 +214,30 @@ export function OppgaveModal({
             />
           </View>
 
-          {/* Beskrivelse */}
-          <View className="border-b border-gray-100 px-4 py-3">
-            <Text className="mb-1 text-xs font-medium text-gray-500">
-              Beskrivelse
-            </Text>
-            <TextInput
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800"
-              placeholder="Valgfri beskrivelse…"
-              placeholderTextColor="#9ca3af"
-              value={beskrivelse}
-              onChangeText={setBeskrivelse}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              style={{ minHeight: 72 }}
-            />
-          </View>
-
-          {/* Prioritet */}
-          <View className="border-b border-gray-100 px-4 py-3">
-            <Text className="mb-2 text-xs font-medium text-gray-500">
-              Prioritet
-            </Text>
-            <View className="flex-row gap-2">
-              {PRIORITETER.map((p) => {
-                const erValgt = prioritet === p.verdi;
-                return (
-                  <Pressable
-                    key={p.verdi}
-                    onPress={() => setPrioritet(p.verdi)}
-                    className={`rounded-full px-3 py-1.5 ${erValgt ? PRIORITET_FARGER[p.verdi] : "bg-gray-100"}`}
-                  >
-                    <Text
-                      className={`text-xs font-medium ${erValgt ? "" : "text-gray-500"}`}
+          {/* Prioritet — kun for oppgaver */}
+          {kategori === "oppgave" && (
+            <View className="border-b border-gray-100 px-4 py-3">
+              <Text className="mb-2 text-xs font-medium text-gray-500">Prioritet</Text>
+              <View className="flex-row gap-2">
+                {PRIORITETER.map((p) => {
+                  const erValgt = prioritet === p.verdi;
+                  return (
+                    <Pressable
+                      key={p.verdi}
+                      onPress={() => setPrioritet(p.verdi)}
+                      className={`rounded-full px-3 py-1.5 ${erValgt ? PRIORITET_FARGER[p.verdi] : "bg-gray-100"}`}
                     >
-                      {p.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        className={`text-xs font-medium ${erValgt ? "" : "text-gray-500"}`}
+                      >
+                        {p.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Oppretter-entreprise */}
           <View className="border-b border-gray-100 px-4 py-3">
@@ -307,20 +319,6 @@ export function OppgaveModal({
                 ))}
               </View>
             )}
-          </View>
-
-          {/* Tegningsposisjon (kun lesbart) */}
-          <View className="px-4 py-3">
-            <Text className="mb-1 text-xs font-medium text-gray-500">
-              Posisjon på tegning
-            </Text>
-            <View className="flex-row items-center gap-2 rounded-lg bg-blue-50 px-3 py-2.5">
-              <MapPin size={16} color="#1e40af" />
-              <Text className="text-sm text-blue-800">
-                {tegningNavn} ({Math.round(posisjonX)}%, {Math.round(posisjonY)}
-                %)
-              </Text>
-            </View>
           </View>
         </ScrollView>
       </SafeAreaView>

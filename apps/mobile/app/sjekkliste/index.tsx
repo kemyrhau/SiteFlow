@@ -19,12 +19,18 @@ interface SjekklisteRad {
   id: string;
   title: string;
   status: string;
+  number?: number | null;
   updatedAt: Date | string;
   createdAt: Date | string;
   template?: { name: string; prefix?: string | null } | null;
   creatorEnterprise?: { name: string } | null;
   responderEnterprise?: { name: string } | null;
   creator?: { name: string | null } | null;
+}
+
+function formaterNummer(prefix: string | null | undefined, nummer: number | null | undefined): string | null {
+  if (!prefix || nummer == null) return null;
+  return `${prefix}-${String(nummer).padStart(3, "0")}`;
 }
 
 export default function SjekklisteListe() {
@@ -44,6 +50,7 @@ export default function SjekklisteListe() {
 
   const renderElement = useCallback(
     ({ item }: { item: SjekklisteRad }) => {
+      const nummer = formaterNummer(item.template?.prefix, item.number);
       const undertekst = [
         item.template?.name,
         item.responderEnterprise?.name,
@@ -58,7 +65,7 @@ export default function SjekklisteListe() {
         >
           <View className="flex-1">
             <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
-              {item.title}
+              {nummer ? `${nummer} ` : ""}{item.title}
             </Text>
             {undertekst ? (
               <Text className="mt-0.5 text-xs text-gray-500" numberOfLines={1}>

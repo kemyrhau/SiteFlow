@@ -53,7 +53,6 @@ export default function OppgaverSide() {
     if (!oppretterEntreprise) return;
 
     opprettMutation.mutate({
-      creatorUserId: "",
       creatorEnterpriseId: oppretterEntreprise.id,
       responderEnterpriseId: valgtSvarer,
       title: tittel.trim(),
