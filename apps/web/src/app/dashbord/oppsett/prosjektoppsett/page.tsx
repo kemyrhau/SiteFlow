@@ -99,6 +99,7 @@ export default function ProsjektoppsettSide() {
   const [status, setStatus] = useState("active");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [eksterntNummer, setEksterntNummer] = useState("");
   const [harEndringer, setHarEndringer] = useState(false);
 
   // Synkroniser skjemafelter med prosjektdata
@@ -110,6 +111,7 @@ export default function ProsjektoppsettSide() {
       setStatus(prosjekt.status);
       setLatitude(prosjekt.latitude ?? null);
       setLongitude(prosjekt.longitude ?? null);
+      setEksterntNummer(prosjekt.externalProjectNumber ?? "");
       setHarEndringer(false);
     }
   }, [prosjekt]);
@@ -138,6 +140,7 @@ export default function ProsjektoppsettSide() {
       address: adresse.trim() || undefined,
       latitude,
       longitude,
+      externalProjectNumber: eksterntNummer.trim() || null,
       status: status as "active" | "archived" | "completed",
     });
   }
@@ -179,6 +182,15 @@ export default function ProsjektoppsettSide() {
                 </p>
               </div>
             </div>
+
+            <Input
+              label="Eksternt prosjektnummer"
+              placeholder="F.eks. kundens prosjektnummer..."
+              value={eksterntNummer}
+              onChange={(e) =>
+                handleFeltEndring(setEksterntNummer)(e.target.value)
+              }
+            />
 
             <Input
               label="Prosjektnavn"

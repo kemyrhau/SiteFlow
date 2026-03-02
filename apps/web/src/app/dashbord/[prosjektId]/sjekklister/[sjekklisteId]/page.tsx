@@ -3,13 +3,17 @@
 import { useParams } from "next/navigation";
 import { useMemo, useCallback } from "react";
 import { Spinner, StatusBadge, Card } from "@siteflow/ui";
-import { Check, AlertCircle, Loader2 } from "lucide-react";
+import { Check, AlertCircle, Loader2, Printer } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useSjekklisteSkjema } from "@/hooks/useSjekklisteSkjema";
 import { useAutoVaer } from "@/hooks/useAutoVaer";
 import { RapportObjektRenderer, DISPLAY_TYPER } from "@/components/rapportobjekter/RapportObjektRenderer";
 import { FeltWrapper } from "@/components/rapportobjekter/FeltWrapper";
 import type { RapportObjekt } from "@/components/rapportobjekter/typer";
+
+/* ------------------------------------------------------------------ */
+/*  LagreIndikator                                                     */
+/* ------------------------------------------------------------------ */
 
 function LagreIndikator({ status }: { status: "idle" | "lagrer" | "lagret" | "feil" }) {
   if (status === "idle") return null;
@@ -37,6 +41,92 @@ function LagreIndikator({ status }: { status: "idle" | "lagrer" | "lagret" | "fe
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  PrintHeader — skjult på skjerm, synlig ved print                   */
+/* ------------------------------------------------------------------ */
+
+interface PrintHeaderProps {
+  prosjektnavn: string;
+  prosjektnummer: string;
+  eksterntNummer?: string | null;
+  sjekklisteTittel: string;
+  sjekklisteNummer?: string | null;
+  oppretter?: string | null;
+  oppretterBruker?: string | null;
+  svarer?: string | null;
+  vaerTekst?: string | null;
+}
+
+function PrintHeader({
+  prosjektnavn,
+  prosjektnummer,
+  eksterntNummer,
+  sjekklisteTittel,
+  sjekklisteNummer,
+  oppretter,
+  oppretterBruker,
+  svarer,
+  vaerTekst,
+}: PrintHeaderProps) {
+  const dato = new Date().toLocaleDateString("nb-NO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+
+  return (
+    <div className="print-header mb-6 border border-gray-300">
+      {/* Rad 1: Prosjekt */}
+      <div className="flex items-center justify-between border-b border-gray-300 px-4 py-2">
+        <div>
+          <p className="text-base font-bold text-gray-900">{prosjektnavn}</p>
+          <p className="text-xs text-gray-600">Prosjektnr: {prosjektnummer}</p>
+        </div>
+        <div className="text-right">
+          {eksterntNummer && (
+            <p className="text-xs text-gray-600">Eksternt nr: {eksterntNummer}</p>
+          )}
+          <p className="text-xs text-gray-600">Dato: {dato}</p>
+        </div>
+      </div>
+
+      {/* Rad 2: Sjekkliste */}
+      <div className="flex items-center justify-between border-b border-gray-300 px-4 py-2">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">
+            Sjekkliste: {sjekklisteTittel}
+          </p>
+          {oppretter && (
+            <p className="text-xs text-gray-600">
+              Oppretter: {oppretter}
+              {oppretterBruker && ` (${oppretterBruker})`}
+            </p>
+          )}
+          {svarer && (
+            <p className="text-xs text-gray-600">Svarer: {svarer}</p>
+          )}
+        </div>
+        {sjekklisteNummer && (
+          <p className="text-sm font-medium text-gray-700">
+            Nr: {sjekklisteNummer}
+          </p>
+        )}
+      </div>
+
+      {/* Rad 3: Vær (kun hvis data finnes) */}
+      {vaerTekst && (
+        <div className="px-4 py-2">
+          <p className="text-xs text-gray-600">Vær: {vaerTekst}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hovedside                                                          */
+/* ------------------------------------------------------------------ */
+
 export default function SjekklisteDetaljSide() {
   const params = useParams<{ prosjektId: string; sjekklisteId: string }>();
 
@@ -53,6 +143,22 @@ export default function SjekklisteDetaljSide() {
     erRedigerbar,
     lagreStatus,
   } = useSjekklisteSkjema(params.sjekklisteId);
+
+  // Hent prosjektdata for print-header
+  const { data: prosjekt } = trpc.prosjekt.hentMedId.useQuery(
+    { id: params.prosjektId },
+    { enabled: !!params.prosjektId },
+  );
+
+  // Hent full sjekklistedata for nummer/oppretter-bruker (cast for TS2589)
+  const { data: fullSjekklisteRå } = trpc.sjekkliste.hentMedId.useQuery(
+    { id: params.sjekklisteId },
+    { enabled: !!params.sjekklisteId },
+  );
+  const fullSjekkliste = fullSjekklisteRå as {
+    number?: number | null;
+    creator?: { name?: string | null };
+  } | undefined;
 
   const objekter = useMemo(
     () => (sjekkliste?.template?.objects ?? []) as RapportObjekt[],
@@ -79,6 +185,32 @@ export default function SjekklisteDetaljSide() {
     [],
   );
 
+  // Finn vær-verdi for print-header
+  const vaerTekst = useMemo(() => {
+    const vaerObjekt = objekter.find((o) => o.type === "weather");
+    if (!vaerObjekt) return null;
+    const vaerVerdi = hentFeltVerdi(vaerObjekt.id).verdi as {
+      temp?: string;
+      conditions?: string;
+      wind?: string;
+    } | null;
+    if (!vaerVerdi) return null;
+    const deler: string[] = [];
+    if (vaerVerdi.temp) deler.push(vaerVerdi.temp);
+    if (vaerVerdi.conditions) deler.push(vaerVerdi.conditions);
+    if (vaerVerdi.wind) deler.push(`Vind ${vaerVerdi.wind}`);
+    return deler.length > 0 ? deler.join(", ") : null;
+  }, [objekter, hentFeltVerdi]);
+
+  // Sjekkliste-nummer med prefiks
+  const sjekklisteNummer = useMemo(() => {
+    const nummer = fullSjekkliste?.number;
+    const prefix = sjekkliste?.template?.prefix;
+    if (nummer == null) return null;
+    const nummerPad = String(nummer).padStart(3, "0");
+    return prefix ? `${prefix}-${nummerPad}` : nummerPad;
+  }, [fullSjekkliste?.number, sjekkliste?.template?.prefix]);
+
   const leseModus = !erRedigerbar;
 
   if (erLaster) {
@@ -93,21 +225,51 @@ export default function SjekklisteDetaljSide() {
     return <p className="py-12 text-center text-gray-500">Sjekklisten ble ikke funnet.</p>;
   }
 
+  const oppretterBruker = fullSjekkliste?.creator?.name;
+
   return (
     <div className="mx-auto max-w-3xl pb-12">
-      {/* Header */}
-      <div className="mb-6">
+      {/* Print-header: skjult på skjerm, synlig ved print */}
+      <PrintHeader
+        prosjektnavn={prosjekt?.name ?? ""}
+        prosjektnummer={prosjekt?.projectNumber ?? ""}
+        eksterntNummer={prosjekt?.externalProjectNumber}
+        sjekklisteTittel={sjekkliste.title}
+        sjekklisteNummer={sjekklisteNummer}
+        oppretter={sjekkliste.creatorEnterprise?.name}
+        oppretterBruker={oppretterBruker ?? null}
+        svarer={sjekkliste.responderEnterprise?.name}
+        vaerTekst={vaerTekst}
+      />
+
+      {/* Skjerm-header: synlig på skjerm, skjult ved print */}
+      <div className="print-skjul mb-6">
         <div className="flex items-center gap-3">
           <h3 className="text-xl font-bold">{sjekkliste.title}</h3>
           <StatusBadge status={sjekkliste.status} />
           <LagreIndikator status={lagreStatus} />
+          <div className="ml-auto">
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+            >
+              <Printer className="h-4 w-4" />
+              Skriv ut
+            </button>
+          </div>
         </div>
         <p className="text-sm text-gray-500">
           Mal: {sjekkliste.template.name}
+          {sjekkliste.creatorEnterprise && (
+            <> &middot; Oppretter: {sjekkliste.creatorEnterprise.name}</>
+          )}
           {sjekkliste.responderEnterprise && (
             <> &middot; Svarer: {sjekkliste.responderEnterprise.name}</>
           )}
         </p>
+        {sjekklisteNummer && (
+          <p className="mt-1 text-xs text-gray-400">Nr: {sjekklisteNummer}</p>
+        )}
       </div>
 
       {/* Rapportobjekter */}
@@ -126,7 +288,7 @@ export default function SjekklisteDetaljSide() {
               : "";
             const rammeKlasse = nestingNivå > 0 ? "border-l-2 border-l-blue-300 pl-4" : "";
             return (
-              <div key={objekt.id} className={`${marginKlasse} ${rammeKlasse}`}>
+              <div key={objekt.id} className={`print-no-break ${marginKlasse} ${rammeKlasse}`}>
                 <RapportObjektRenderer
                   objekt={objekt}
                   verdi={feltVerdi.verdi}
@@ -139,26 +301,27 @@ export default function SjekklisteDetaljSide() {
           }
 
           return (
-            <FeltWrapper
-              key={objekt.id}
-              objekt={objekt}
-              kommentar={feltVerdi.kommentar}
-              vedlegg={feltVerdi.vedlegg}
-              onEndreKommentar={(k) => settKommentar(objekt.id, k)}
-              onLeggTilVedlegg={(v) => leggTilVedlegg(objekt.id, v)}
-              onFjernVedlegg={(id) => fjernVedlegg(objekt.id, id)}
-              leseModus={leseModus}
-              nestingNivå={nestingNivå}
-              valideringsfeil={valideringsfeil[objekt.id]}
-            >
-              <RapportObjektRenderer
+            <div key={objekt.id} className="print-no-break">
+              <FeltWrapper
                 objekt={objekt}
-                verdi={feltVerdi.verdi}
-                onEndreVerdi={(v) => settVerdi(objekt.id, v)}
+                kommentar={feltVerdi.kommentar}
+                vedlegg={feltVerdi.vedlegg}
+                onEndreKommentar={(k) => settKommentar(objekt.id, k)}
+                onLeggTilVedlegg={(v) => leggTilVedlegg(objekt.id, v)}
+                onFjernVedlegg={(id) => fjernVedlegg(objekt.id, id)}
                 leseModus={leseModus}
-                prosjektId={params.prosjektId}
-              />
-            </FeltWrapper>
+                nestingNivå={nestingNivå}
+                valideringsfeil={valideringsfeil[objekt.id]}
+              >
+                <RapportObjektRenderer
+                  objekt={objekt}
+                  verdi={feltVerdi.verdi}
+                  onEndreVerdi={(v) => settVerdi(objekt.id, v)}
+                  leseModus={leseModus}
+                  prosjektId={params.prosjektId}
+                />
+              </FeltWrapper>
+            </div>
           );
         })}
       </div>
@@ -170,6 +333,10 @@ export default function SjekklisteDetaljSide() {
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Historikk                                                          */
+/* ------------------------------------------------------------------ */
 
 function HistorikkSeksjon({ sjekklisteId }: { sjekklisteId: string }) {
   const { data: sjekkliste } = trpc.sjekkliste.hentMedId.useQuery({ id: sjekklisteId });
@@ -189,7 +356,7 @@ function HistorikkSeksjon({ sjekklisteId }: { sjekklisteId: string }) {
       <h4 className="mb-3 text-sm font-medium text-gray-500">Historikk</h4>
       <div className="flex flex-col gap-2">
         {overgangshistorikk.map((overgang) => (
-          <div key={overgang.id} className="flex items-center gap-3 text-sm">
+          <div key={overgang.id} className="flex items-center gap-3 text-sm print-no-break">
             <span className="text-xs text-gray-400">
               {new Date(overgang.createdAt).toLocaleString("nb-NO")}
             </span>

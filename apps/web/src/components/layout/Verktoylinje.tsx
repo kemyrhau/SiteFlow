@@ -11,7 +11,7 @@ export function Verktoylinje() {
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-4 py-2">
+    <div data-toolbar className="flex items-center gap-2 border-b border-gray-200 bg-white px-4 py-2">
       {verktoylinjeHandlinger.map((handling) => (
         <Button
           key={handling.id}

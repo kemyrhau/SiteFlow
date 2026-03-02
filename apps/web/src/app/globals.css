@@ -1,3 +1,41 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Print-header: skjult på skjerm */
+.print-header {
+  display: none;
+}
+
+@media print {
+  /* Skjul navigasjon og chrome */
+  header,
+  aside,
+  [data-panel="sekundaert"],
+  [data-toolbar] {
+    display: none !important;
+  }
+
+  /* Hovedinnhold: fullbredde uten margin */
+  main {
+    margin: 0 !important;
+    padding: 20px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Vis print-header */
+  .print-header {
+    display: block !important;
+  }
+
+  /* Skjul elementer som kun er for skjerm */
+  .print-skjul {
+    display: none !important;
+  }
+
+  /* Unngå sideskift inni felter */
+  .print-no-break {
+    page-break-inside: avoid;
+  }
+}
