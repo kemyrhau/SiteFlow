@@ -138,7 +138,7 @@ siteflow/
 | `drawings` | Tegninger med metadata: tegningsnummer, fagdisiplin, revisjon, status, etasje, målestokk, opphav |
 | `drawing_revisions` | Revisjonshistorikk for tegninger med fil, status og hvem som lastet opp |
 | `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon |
-| `report_objects` | Rapportobjekter i maler (21 typer, JSON-konfig) |
+| `report_objects` | Rapportobjekter i maler (21 typer, JSON-konfig), rekursiv nesting via `parent_id` |
 | `checklists` | Sjekklister med oppretter/svarer-entreprise, status, data (JSON) |
 | `tasks` | Oppgaver med mal-tilknytning (`template_id`), prefiks+løpenummer (`number`), prioritet, frist, oppretter/svarer, utfylt data (JSON), valgfri tegningsposisjon og sjekkliste-kobling (`checklist_id`, `checklist_field_id`) |
 | `document_transfers` | Sporbarhet: all sending mellom entrepriser |
@@ -155,6 +155,7 @@ Viktige relasjoner:
 - Bilder har valgfri GPS-data (`gps_lat`, `gps_lng`, `gps_enabled`)
 - Oppgaver kan kobles til en tegning med posisjon (`drawing_id`, `position_x`, `position_y`) — brukes for markør-plassering på tegninger
 - `workflows` tilhører en oppretter-entreprise (`enterpriseId`) med valgfri svarer-entreprise (`responderEnterpriseId`), kobler til maler via `workflow_templates`. Relasjoner er navngitte: `WorkflowCreator` / `WorkflowResponder`
+- `report_objects` bruker selvrefererande relasjon (`parent_id`) for rekursiv nesting — kontainerfelt (`list_single`/`list_multi`) kan ha barnefelt som selv kan være kontainere (Dalux-stil), CASCADE-sletting av barn
 - `report_templates` har `category` (`oppgave` | `sjekkliste`) og valgfritt `prefix`
 - `buildings` tilhører et prosjekt, med tegninger koblet via `building_id`
 - `drawings` har full metadata (tegningsnummer, fagdisiplin, revisjon, etasje, målestokk, status) med `drawing_revisions` for historikk
@@ -250,6 +251,10 @@ Arbeidsforløp kobler maler til entrepriser og definerer oppretter/svarer-flyten
 - Entreprise-headere har fast bredde (280px) og kun oppretter-kolonnen, arbeidsforløp-rader har oppretter + pil + svarer-badge
 - Treprikk-menyer (⋮) på to nivåer: entreprise-header og arbeidsforløp-rad
 - Alle arbeidsforløp for et prosjekt hentes i én query (`hentForProsjekt`) og grupperes klient-side per entreprise
+- Sjekklister og oppgaver knyttes til arbeidsforløp via `workflowId` på Checklist/Task-modellene
+- Svarer-entreprise bestemmes automatisk fra valgt arbeidsforløp ved opprettelse
+- Sjekklister har valgfrie felter: `buildingId` (lokasjon), `drawingId` (tegning), `subject` (emne)
+- Tittel settes automatisk til prosjektnavn ved opprettelse fra mobil
 
 ### Prosjektgrupper
 
@@ -282,6 +287,9 @@ Komponenter:
 - Oppgave-fra-felt i sjekkliste-utfylling (knapp per rapportobjekt + visning av oppgavenummer)
 - Oppgave-utfylling med maler (tilsvarende sjekkliste-utfylling, med samme 21 rapportobjekttyper)
 - Databasemigrering: nye felter på Task-modellen (`number`, `templateId`, `data`, `checklistId`, `checklistFieldId`)
+- Adgangskontroll: Field-admin kan sende kryssentreprise, brukergruppe-brukere kun til eget arbeidsforløp
+- Videresending av sjekklister/oppgaver til annen entreprise (svarer og oppretter)
+- Flerforetagsbrukere: velg entreprise å sende fra ved opprettelse
 
 ### Oppgave fra tegning (mobil)
 
@@ -369,27 +377,33 @@ Hvert objekt har metadata (`REPORT_OBJECT_TYPE_META`) med label, ikon, kategori 
 
 ### Malbygger (PC)
 
-Drag-and-drop-editor for å bygge maler. Komponenter i `apps/web/src/components/malbygger/`:
+Drag-and-drop-editor for å bygge maler med rekursiv kontainer-nesting (Dalux-stil). Komponenter i `apps/web/src/components/malbygger/`:
 
 | Komponent | Beskrivelse |
 |-----------|-------------|
-| `MalBygger` | Hovedkomponent: tre-kolonne layout (FeltPalett, DropSoner, FeltKonfigurasjon) |
+| `MalBygger` | Hovedkomponent: tre-kolonne layout (FeltPalett, DropSoner, FeltKonfigurasjon), bygger tre fra flat array |
 | `FeltPalett` | Venstre panel med draggbare felttyper (21 typer) |
-| `DropSone` | Droppbar sone (topptekst/datafelter) med sorterbare objekter |
-| `DraggbartFelt` | Individuelt sorterbart felt i en sone |
+| `DropSone` | Droppbar sone (topptekst/datafelter) med rekursiv `RekursivtFelt`-rendering |
+| `DraggbartFelt` | Individuelt sorterbart felt med `nestingNivå`, `parentId` og `children`-prop for inline barn |
 | `FeltKonfigurasjon` | Høyre panel for å redigere valgt felts label, påkrevd-status og type-spesifikk config |
 | `DragOverlay_` | Visuell overlay under drag-operasjoner |
-| `BetingelseBjelke` | Blå betingelsesbar under foreldrefelt: "Vis felter hvis verdien er en av følgende: [chips]" |
+| `BetingelseBjelke` | Blå betingelsesbar inne i kontainerfelt: "Vis felter hvis verdien er en av følgende: [chips]" |
 | `TreprikkMeny` | Kontekstmeny per felt: Rediger, Tilføy/Fjern betingelse, Slett |
+| `typer.ts` | `TreObjekt` interface (MalObjekt + children) |
 
-**Betinget synlighet:**
-- Enkeltvalg- og flervalg-felt (`list_single`, `list_multi`) kan ha betingelse (`conditionActive: true`)
-- Betingelsen definerer trigger-verdier (`conditionValues: string[]`)
-- Etterfølgende felt kan knyttes til betingelsen via `conditionParentId` i config
-- Barnefelt vises med blå venstre-kant og innrykk
-- Dra-og-slipp håndterer automatisk betingelsestilhørighet: felt arver betingelse ved drop i gruppe, mister den ved drag ut
-- Sletting av foreldrefelt kaskaderer: fjerner `conditionParentId` fra alle barn
-- `harBetingelse()` utility fra `@siteflow/shared` sjekker om et objekt har `conditionParentId`
+**Rekursiv kontainer-nesting (Dalux-stil):**
+- Kontainertyper: `list_single` og `list_multi` (sjekkes med `erKontainerType()`)
+- Forelder-barn-relasjon via `report_objects.parent_id` DB-kolonne (ikke config JSON)
+- Betingelse aktiveres på kontainerfelt: `conditionActive: true`, `conditionValues: string[]` i config
+- Barn knyttes via `parentId` på ReportObject — ubegrenset nesting-dybde
+- Visuelt: blå ramme (`border-l-2 border-blue-400 bg-blue-50/30`) rundt barnegrupper
+- "Dra og slipp felter her"-placeholder i tomme barnegrupper per nesting-nivå
+- Rekursiv `RekursivtFelt`-komponent i DropSone rendrer barn inline med BetingelseBjelke
+- Dra-og-slipp: felt arver `parentId` ved drop i kontainer, nullstilles ved drag ut
+- Sletting av kontainerfelt kaskaderer via DB CASCADE — barn slettes automatisk
+- Trebygging: flat array → tre med `byggTre()` i MalBygger, splittes i topptekst/datafelter
+- `harForelderObjekt(obj)` fra `@siteflow/shared` sjekker `obj.parentId != null`
+- `harBetingelse(config)` er deprecated — bruk `harForelderObjekt()` for nye kall
 
 ### Innstillings-sidebar
 
@@ -446,6 +460,15 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 - Header-ikoner: opplastingskø (gul spinner + antall), synkstatus (sky/offline-sky), lagrestatus (hake/advarsel)
 - Tilbakeknapp lagrer automatisk uten bekreftelsesdialog
 - Data bevares ved krasj/restart — SQLite er persistent
+
+**Rekursiv synlighet og nesting (mobil):**
+- `erSynlig(objekt)` i `useSjekklisteSkjema` er rekursiv — sjekker hele foreldrekjeden opp til rot
+- Bruker `parentId` fra DB-kolonne med fallback til `config.conditionParentId` (bakoverkompatibilitet)
+- `RapportObjekt` interface har `parentId: string | null`
+- `FeltWrapper` har `nestingNivå: number` prop for gradert innrykk: 0=ingen, 1=`ml-4`, 2=`ml-8`, 3+=`ml-12`
+- `erBetinget` prop er deprecated — bruk `nestingNivå` for nye kall
+- Nesting-nivå beregnes rekursivt i sjekkliste-skjermen via `hentNestingNivå()`
+- Alle nivåer viser blå venstre-kant (`border-l-2 border-l-blue-300`)
 
 **Bildeannotering (Fabric.js):**
 - `BildeAnnotering`-komponenten bruker WebView med Fabric.js canvas for å tegne på bilder
@@ -639,6 +662,13 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `GroupCategory` — 3 gruppekategorier (`generelt`, `field`, `brukergrupper`)
 - `StandardProjectGroup` — Interface for standardgrupper med slug, navn, kategori, tillatelser
 - `STANDARD_PROJECT_GROUPS` — Konstantarray med 4 standardgrupper
+- `CONTAINER_TYPES` — Kontainertyper som kan ha barn: `["list_single", "list_multi"]`
+- `TreObjekt` — Interface for rekursivt objekttre (id, type, label, parentId, children)
+- `erKontainerType(type)` — Sjekker om en type kan ha barnefelt
+- `harForelderObjekt(obj)` — Sjekker `obj.parentId != null`
+- `byggObjektTre(objekter)` — Bygger tre fra flat array basert på `parentId`
+- `harBetingelse(config)` — **Deprecated**: sjekker gammel `conditionParentId` i config
+- `erBetingelseKvalifisert(type)` — **Deprecated**: bruk `erKontainerType()`
 - `BaseEntity`, `GpsData`, `SyncableEntity` — Grunnleggende interfaces
 
 **Valideringsschemaer** (`packages/shared/src/validation/`):
