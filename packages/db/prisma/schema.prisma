@@ -211,10 +211,11 @@ model Drawing {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  building  Building?         @relation(fields: [buildingId], references: [id], onDelete: SetNull)
-  revisions DrawingRevision[]
-  tasks     Task[]
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  building   Building?         @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  revisions  DrawingRevision[]
+  tasks      Task[]
+  checklists Checklist[]
 
   @@map("drawings")
 }
@@ -248,8 +249,9 @@ model Building {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  drawings Drawing[]
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  drawings   Drawing[]
+  checklists Checklist[]
 
   @@map("buildings")
 }
@@ -277,6 +279,7 @@ model ReportTemplate {
 model ReportObject {
   id         String   @id @default(uuid())
   templateId String   @map("template_id")
+  parentId   String?  @map("parent_id")
   type       String
   label      String
   config     Json     @default("{}")
@@ -285,8 +288,11 @@ model ReportObject {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  template ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  template ReportTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parent   ReportObject?   @relation("ObjektHierarki", fields: [parentId], references: [id], onDelete: Cascade)
+  children ReportObject[]  @relation("ObjektHierarki")
 
+  @@index([parentId])
   @@map("report_objects")
 }
 
@@ -301,6 +307,10 @@ model Checklist {
   number               Int?     @map("number")
   data                 Json     @default("{}")
   dueDate              DateTime? @map("due_date")
+  workflowId           String?  @map("workflow_id")
+  subject              String?
+  buildingId           String?  @map("building_id")
+  drawingId            String?  @map("drawing_id")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -308,6 +318,9 @@ model Checklist {
   creator            User               @relation("ChecklistCreator", fields: [creatorUserId], references: [id])
   creatorEnterprise  Enterprise         @relation("ChecklistCreatorEnterprise", fields: [creatorEnterpriseId], references: [id])
   responderEnterprise Enterprise        @relation("ChecklistResponderEnterprise", fields: [responderEnterpriseId], references: [id])
+  workflow           Workflow?          @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  building           Building?          @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  drawing            Drawing?           @relation(fields: [drawingId], references: [id], onDelete: SetNull)
   transfers          DocumentTransfer[]
   images             Image[]
 
@@ -329,6 +342,7 @@ model Task {
   drawingId            String?   @map("drawing_id")
   positionX            Float?    @map("position_x")
   positionY            Float?    @map("position_y")
+  workflowId           String?   @map("workflow_id")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
@@ -337,6 +351,7 @@ model Task {
   creatorEnterprise  Enterprise         @relation("TaskCreatorEnterprise", fields: [creatorEnterpriseId], references: [id])
   responderEnterprise Enterprise        @relation("TaskResponderEnterprise", fields: [responderEnterpriseId], references: [id])
   drawing            Drawing?           @relation(fields: [drawingId], references: [id])
+  workflow           Workflow?          @relation(fields: [workflowId], references: [id], onDelete: SetNull)
   transfers          DocumentTransfer[]
   images             Image[]
 
@@ -421,6 +436,8 @@ model Workflow {
   enterprise          Enterprise  @relation("WorkflowCreator", fields: [enterpriseId], references: [id], onDelete: Cascade)
   responderEnterprise Enterprise? @relation("WorkflowResponder", fields: [responderEnterpriseId], references: [id], onDelete: SetNull)
   templates           WorkflowTemplate[]
+  checklists          Checklist[]
+  tasks               Task[]
 
   @@map("workflows")
 }

@@ -38,6 +38,7 @@ export default function MalDetaljSide() {
             required: boolean;
             sortOrder: number;
             config: unknown;
+            parentId: string | null;
           }>;
         }
       }

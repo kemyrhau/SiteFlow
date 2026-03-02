@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { REPORT_OBJECT_TYPE_META, type ReportObjectType, harBetingelse } from "@siteflow/shared";
+import { REPORT_OBJECT_TYPE_META, type ReportObjectType } from "@siteflow/shared";
 import { Input, Button, Badge } from "@siteflow/ui";
 import type { MalObjekt } from "./DraggbartFelt";
 
@@ -11,7 +11,7 @@ interface FeltKonfigurasjonProps {
   onLagre: (data: { label: string; required: boolean; config: Record<string, unknown> }) => void;
   erLagrer: boolean;
   onFjernBetingelse?: (parentId: string) => void;
-  onFjernBarnBetingelse?: (barnId: string) => void;
+  onFjernBarnFraKontainer?: (barnId: string) => void;
 }
 
 export function FeltKonfigurasjon({
@@ -20,7 +20,7 @@ export function FeltKonfigurasjon({
   onLagre,
   erLagrer,
   onFjernBetingelse,
-  onFjernBarnBetingelse,
+  onFjernBarnFraKontainer,
 }: FeltKonfigurasjonProps) {
   const [label, setLabel] = useState(objekt.label);
   const [påkrevd, setPåkrevd] = useState(objekt.required);
@@ -44,17 +44,17 @@ export function FeltKonfigurasjon({
     påkrevd !== objekt.required ||
     JSON.stringify(config) !== JSON.stringify(objekt.config);
 
-  const erBarn = harBetingelse(objekt.config);
+  const erBarn = objekt.parentId != null;
   const harAktivBetingelse = objekt.config.conditionActive === true;
 
   // Finn foreldrefeltets label for barnefelt
   const forelderLabel = erBarn
-    ? alleObjekter.find((o) => o.id === objekt.config.conditionParentId)?.label ?? "Ukjent"
+    ? alleObjekter.find((o) => o.id === objekt.parentId)?.label ?? "Ukjent"
     : null;
 
-  // Tell barnefelt for foreldrefelt
+  // Tell barnefelt for foreldrefelt (direkte barn)
   const antallBarn = harAktivBetingelse
-    ? alleObjekter.filter((o) => o.config.conditionParentId === objekt.id).length
+    ? alleObjekter.filter((o) => o.parentId === objekt.id).length
     : 0;
 
   return (
@@ -148,11 +148,11 @@ export function FeltKonfigurasjon({
                   <span>Tilhører:</span>
                   <Badge variant="default">{forelderLabel}</Badge>
                 </div>
-                {onFjernBarnBetingelse && (
+                {onFjernBarnFraKontainer && (
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => onFjernBarnBetingelse(objekt.id)}
+                    onClick={() => onFjernBarnFraKontainer(objekt.id)}
                     className="w-full"
                   >
                     Fjern fra betingelse

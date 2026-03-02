@@ -56,6 +56,7 @@ export default function SjekklistemalByggerSide() {
               required: boolean;
               sortOrder: number;
               config: unknown;
+              parentId: string | null;
             }>;
           }
         }

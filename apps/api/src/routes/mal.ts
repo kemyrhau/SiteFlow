@@ -90,13 +90,16 @@ export const malRouter = router({
         config: configSchema.default({}),
         sortOrder: z.number().int().min(0),
         required: z.boolean().default(false),
+        parentId: z.string().uuid().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const { parentId, ...rest } = input;
       return ctx.prisma.reportObject.create({
         data: {
-          ...input,
-          config: input.config as Prisma.InputJsonValue,
+          ...rest,
+          config: rest.config as Prisma.InputJsonValue,
+          ...(parentId !== undefined ? { parentId } : {}),
         },
       });
     }),
@@ -109,10 +112,11 @@ export const malRouter = router({
         label: z.string().min(1).optional(),
         required: z.boolean().optional(),
         config: configSchema.optional(),
+        parentId: z.string().uuid().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, config, ...rest } = input;
+      const { id, config, parentId, ...rest } = input;
       return ctx.prisma.reportObject.update({
         where: { id },
         data: {
@@ -120,11 +124,12 @@ export const malRouter = router({
           ...(config !== undefined
             ? { config: config as Prisma.InputJsonValue }
             : {}),
+          ...(parentId !== undefined ? { parentId } : {}),
         },
       });
     }),
 
-  // Oppdater rekkefølge og sone på objekter
+  // Oppdater rekkefølge, sone og parentId på objekter
   oppdaterRekkefølge: publicProcedure
     .input(
       z.object({
@@ -133,6 +138,7 @@ export const malRouter = router({
             id: z.string().uuid(),
             sortOrder: z.number().int().min(0),
             zone: templateZoneSchema.optional(),
+            parentId: z.string().uuid().nullable().optional(),
           }),
         ),
       }),
@@ -142,6 +148,15 @@ export const malRouter = router({
         async (tx) => {
           const resultater = [];
           for (const obj of input.objekter) {
+            const oppdatering: Record<string, unknown> = {
+              sortOrder: obj.sortOrder,
+            };
+
+            // Oppdater parentId hvis angitt (inkludert null for å fjerne)
+            if (obj.parentId !== undefined) {
+              oppdatering.parentId = obj.parentId;
+            }
+
             if (obj.zone) {
               const eksisterende = await tx.reportObject.findUniqueOrThrow({
                 where: { id: obj.id },
@@ -150,23 +165,15 @@ export const malRouter = router({
                 typeof eksisterende.config === "object" && eksisterende.config !== null
                   ? (eksisterende.config as Record<string, unknown>)
                   : {};
-              resultater.push(
-                await tx.reportObject.update({
-                  where: { id: obj.id },
-                  data: {
-                    sortOrder: obj.sortOrder,
-                    config: { ...eksisterendeConfig, zone: obj.zone } as Prisma.InputJsonValue,
-                  },
-                }),
-              );
-            } else {
-              resultater.push(
-                await tx.reportObject.update({
-                  where: { id: obj.id },
-                  data: { sortOrder: obj.sortOrder },
-                }),
-              );
+              oppdatering.config = { ...eksisterendeConfig, zone: obj.zone } as Prisma.InputJsonValue;
             }
+
+            resultater.push(
+              await tx.reportObject.update({
+                where: { id: obj.id },
+                data: oppdatering,
+              }),
+            );
           }
           return resultater;
         },

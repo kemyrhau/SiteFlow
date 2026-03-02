@@ -2,9 +2,10 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { REPORT_OBJECT_TYPE_META, type ReportObjectType, erBetingelseKvalifisert } from "@siteflow/shared";
+import { REPORT_OBJECT_TYPE_META, type ReportObjectType, erKontainerType } from "@siteflow/shared";
 import { Badge } from "@siteflow/ui";
 import { TreprikkMeny } from "./TreprikkMeny";
+import type { ReactNode } from "react";
 
 export interface MalObjekt {
   id: string;
@@ -13,17 +14,18 @@ export interface MalObjekt {
   required: boolean;
   sortOrder: number;
   config: Record<string, unknown>;
+  parentId: string | null;
 }
 
 interface DraggbartFeltProps {
   objekt: MalObjekt;
   erValgt: boolean;
-  erBarnFelt?: boolean;
-  harAktivBetingelse?: boolean;
+  nestingNivå?: number;
   onClick: () => void;
   onSlett: () => void;
   onTilfoyjBetingelse?: () => void;
   onFjernBetingelse?: () => void;
+  children?: ReactNode;
 }
 
 const ikonMap: Record<string, string> = {
@@ -52,12 +54,12 @@ const ikonMap: Record<string, string> = {
 export function DraggbartFelt({
   objekt,
   erValgt,
-  erBarnFelt = false,
-  harAktivBetingelse = false,
+  nestingNivå = 0,
   onClick,
   onSlett,
   onTilfoyjBetingelse,
   onFjernBetingelse,
+  children,
 }: DraggbartFeltProps) {
   const {
     attributes,
@@ -78,67 +80,73 @@ export function DraggbartFelt({
 
   const meta = REPORT_OBJECT_TYPE_META[objekt.type as ReportObjectType];
 
-  // Kan ha betingelse: er kvalifisert type, har minst én opsjon, og har ikke allerede aktiv betingelse
+  const erBarn = nestingNivå > 0;
+  const harAktivBetingelse = objekt.config.conditionActive === true;
+
+  // Kan ha betingelse: er kontainertype, har minst én opsjon, og har ikke allerede aktiv betingelse
   const harOpsjoner = Array.isArray(objekt.config.options) && (objekt.config.options as string[]).length > 0;
-  const kanHaBetingelse = erBetingelseKvalifisert(objekt.type) && harOpsjoner && !harAktivBetingelse;
+  const kanHaBetingelse = erKontainerType(objekt.type) && harOpsjoner && !harAktivBetingelse;
 
   return (
-    <div
-      ref={setNodeRef}
-      style={stil}
-      className={`flex items-center gap-3 rounded-lg border bg-white px-3 py-2.5 transition-all ${
-        erBarnFelt ? "ml-8 border-l-2 border-l-blue-300" : ""
-      } ${isDragging ? "z-50 opacity-50 shadow-lg" : ""} ${
-        erValgt ? "border-blue-500 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"
-      }`}
-    >
-      {/* Drag-håndtak */}
-      <button
-        type="button"
-        className="flex cursor-grab touch-none items-center text-gray-400 hover:text-gray-600 active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
+    <div ref={setNodeRef} style={stil}>
+      <div
+        className={`flex items-center gap-3 rounded-lg border bg-white px-3 py-2.5 transition-all ${
+          isDragging ? "z-50 opacity-50 shadow-lg" : ""
+        } ${
+          erValgt ? "border-blue-500 ring-1 ring-blue-500" : "border-gray-200 hover:border-gray-300"
+        }`}
       >
-        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
-          <circle cx="5" cy="3" r="1.5" />
-          <circle cx="11" cy="3" r="1.5" />
-          <circle cx="5" cy="8" r="1.5" />
-          <circle cx="11" cy="8" r="1.5" />
-          <circle cx="5" cy="13" r="1.5" />
-          <circle cx="11" cy="13" r="1.5" />
-        </svg>
-      </button>
+        {/* Drag-håndtak */}
+        <button
+          type="button"
+          className="flex cursor-grab touch-none items-center text-gray-400 hover:text-gray-600 active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
+            <circle cx="5" cy="3" r="1.5" />
+            <circle cx="11" cy="3" r="1.5" />
+            <circle cx="5" cy="8" r="1.5" />
+            <circle cx="11" cy="8" r="1.5" />
+            <circle cx="5" cy="13" r="1.5" />
+            <circle cx="11" cy="13" r="1.5" />
+          </svg>
+        </button>
 
-      {/* Ikon */}
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-xs">
-        {meta ? ikonMap[meta.icon] ?? "?" : "?"}
-      </span>
-
-      {/* Innhold — klikk for å velge */}
-      <button
-        type="button"
-        className="flex flex-1 flex-col items-start text-left"
-        onClick={onClick}
-      >
-        <span className="text-sm font-medium text-gray-800">{objekt.label}</span>
-        <span className="text-xs text-gray-400">
-          {meta?.label ?? objekt.type}
+        {/* Ikon */}
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-xs">
+          {meta ? ikonMap[meta.icon] ?? "?" : "?"}
         </span>
-      </button>
 
-      {/* Badges og meny */}
-      <div className="flex items-center gap-2">
-        {erBarnFelt && <Badge variant="default">Betinget</Badge>}
-        {objekt.required && <Badge variant="warning">Påkrevd</Badge>}
-        <TreprikkMeny
-          onRediger={onClick}
-          onSlett={onSlett}
-          onTilfoyjBetingelse={kanHaBetingelse ? onTilfoyjBetingelse : undefined}
-          onFjernBetingelse={erBarnFelt ? onFjernBetingelse : undefined}
-          kanHaBetingelse={kanHaBetingelse}
-          erBarnFelt={erBarnFelt}
-        />
+        {/* Innhold — klikk for å velge */}
+        <button
+          type="button"
+          className="flex flex-1 flex-col items-start text-left"
+          onClick={onClick}
+        >
+          <span className="text-sm font-medium text-gray-800">{objekt.label}</span>
+          <span className="text-xs text-gray-400">
+            {meta?.label ?? objekt.type}
+          </span>
+        </button>
+
+        {/* Badges og meny */}
+        <div className="flex items-center gap-2">
+          {erBarn && <Badge variant="default">Betinget</Badge>}
+          {objekt.required && <Badge variant="warning">Påkrevd</Badge>}
+          <TreprikkMeny
+            onRediger={onClick}
+            onSlett={onSlett}
+            onTilfoyjBetingelse={kanHaBetingelse ? onTilfoyjBetingelse : undefined}
+            onFjernBetingelse={erBarn ? onFjernBetingelse : undefined}
+            kanHaBetingelse={kanHaBetingelse}
+            erBarnFelt={erBarn}
+          />
+        </div>
       </div>
+
+      {/* Barn rendres inline under feltet */}
+      {children}
     </div>
   );
 }

@@ -49,7 +49,7 @@ export function BetingelseBjelke({
   }
 
   return (
-    <div className="ml-8 flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2">
+    <div className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2">
       <svg className="h-4 w-4 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
       </svg>

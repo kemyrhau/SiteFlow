@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Save, Check, AlertTriangle, Clock, CloudOff, Cloud } from "lucide-react-native";
-import { harBetingelse } from "@siteflow/shared";
+import { harBetingelse, harForelderObjekt } from "@siteflow/shared";
 import type { DocumentStatus } from "@siteflow/shared";
 import { useSjekklisteSkjema } from "../../src/hooks/useSjekklisteSkjema";
 import { useOpplastingsKo } from "../../src/providers/OpplastingsKoProvider";
@@ -264,7 +264,18 @@ export default function SjekklisteUtfylling() {
           if (!erSynlig(objekt)) return null;
 
           const erDisplay = DISPLAY_TYPER.has(objekt.type);
-          const erBetinget = harBetingelse(objekt.config);
+          // Bruk parentId fra DB (ny) med fallback til config (gammel)
+          const erBetinget = harForelderObjekt(objekt) || harBetingelse(objekt.config);
+
+          // Beregn nesting-nivå for gradert innrykk
+          const hentNestingNivå = (obj: typeof objekt): number => {
+            const pid = obj.parentId ?? (obj.config.conditionParentId as string | undefined);
+            if (!pid) return 0;
+            const forelder = objekter.find((o) => o.id === pid);
+            if (!forelder) return 0;
+            return 1 + hentNestingNivå(forelder);
+          };
+          const nestingNivå = hentNestingNivå(objekt);
 
           // Display-typer (heading, subtitle) rendres uten wrapper
           if (erDisplay) {
@@ -294,7 +305,7 @@ export default function SjekklisteUtfylling() {
               onFjernVedlegg={(vId) => fjernVedlegg(objekt.id, vId)}
               leseModus={leseModus}
               sjekklisteId={sjekkliste.id}
-              erBetinget={erBetinget}
+              nestingNivå={nestingNivå}
               valideringsfeil={valideringsfeil[objekt.id]}
             >
               <RapportObjektRenderer

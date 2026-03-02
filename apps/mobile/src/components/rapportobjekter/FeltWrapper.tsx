@@ -18,7 +18,9 @@ interface FeltWrapperProps {
   onFjernVedlegg: (vedleggId: string) => void;
   leseModus?: boolean;
   sjekklisteId: string;
+  /** @deprecated Bruk nestingNivå istedenfor */
   erBetinget?: boolean;
+  nestingNivå?: number;
   valideringsfeil?: string;
   children: ReactNode;
 }
@@ -33,14 +35,22 @@ export function FeltWrapper({
   leseModus,
   sjekklisteId,
   erBetinget,
+  nestingNivå = 0,
   valideringsfeil,
   children,
 }: FeltWrapperProps) {
+  // Bakoverkompatibilitet: erBetinget → nestingNivå=1
+  const effektivNivå = nestingNivå > 0 ? nestingNivå : (erBetinget ? 1 : 0);
+
+  // Gradert innrykk: ml-4 per nivå, maks ml-12
+  const marginKlasse = effektivNivå > 0
+    ? effektivNivå === 1 ? "ml-4" : effektivNivå === 2 ? "ml-8" : "ml-12"
+    : "";
+  const rammeKlasse = effektivNivå > 0 ? "border-l-2 border-l-blue-300" : "";
+
   return (
     <View
-      className={`rounded-lg bg-white p-4 ${
-        erBetinget ? "ml-4 border-l-2 border-l-blue-300" : ""
-      }`}
+      className={`rounded-lg bg-white p-4 ${marginKlasse} ${rammeKlasse}`}
     >
       {/* Label + påkrevd-badge */}
       <View className="mb-2 flex-row items-center gap-2">

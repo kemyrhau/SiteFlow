@@ -256,12 +256,72 @@ export type EnterpriseColor = (typeof ENTERPRISE_COLORS)[number];
 // Betingelser i malbygger
 export const CONDITION_ELIGIBLE_TYPES = ["list_single", "list_multi"] as const;
 
+/** @deprecated Bruk `obj.parentId != null` istedenfor — conditionParentId er migrert til DB-kolonne */
 export function harBetingelse(config: Record<string, unknown>): boolean {
   return typeof config.conditionParentId === "string" && config.conditionParentId.length > 0;
 }
 
+/** @deprecated Bruk `erKontainerType(type)` */
 export function erBetingelseKvalifisert(type: string): boolean {
   return (CONDITION_ELIGIBLE_TYPES as readonly string[]).includes(type);
+}
+
+// Kontainertyper som kan ha barn (rekursiv nesting)
+export const CONTAINER_TYPES = ["list_single", "list_multi"] as const;
+
+export function erKontainerType(type: string): boolean {
+  return (CONTAINER_TYPES as readonly string[]).includes(type);
+}
+
+export function harForelderObjekt(obj: { parentId?: string | null }): boolean {
+  return obj.parentId != null;
+}
+
+// Trestruktur for rekursiv nesting
+export interface TreObjekt {
+  id: string;
+  type: string;
+  label: string;
+  required: boolean;
+  sortOrder: number;
+  config: Record<string, unknown>;
+  parentId: string | null;
+  children: TreObjekt[];
+}
+
+export function byggObjektTre<T extends { id: string; parentId?: string | null; sortOrder: number }>(
+  objekter: T[],
+): (T & { children: (T & { children: unknown[] })[] })[] {
+  type Node = T & { children: Node[] };
+  const map = new Map<string, Node>();
+  const rotObjekter: Node[] = [];
+
+  // Opprett noder
+  for (const obj of objekter) {
+    map.set(obj.id, { ...obj, children: [] });
+  }
+
+  // Knyt barn til foreldre
+  for (const obj of objekter) {
+    const node = map.get(obj.id)!;
+    if (obj.parentId && map.has(obj.parentId)) {
+      map.get(obj.parentId)!.children.push(node);
+    } else {
+      rotObjekter.push(node);
+    }
+  }
+
+  // Sorter barn etter sortOrder
+  function sorterRekursivt(noder: Node[]) {
+    noder.sort((a, b) => a.sortOrder - b.sortOrder);
+    for (const node of noder) {
+      sorterRekursivt(node.children);
+    }
+  }
+
+  sorterRekursivt(rotObjekter);
+
+  return rotObjekter as (T & { children: (T & { children: unknown[] })[] })[];
 }
 
 // Grunnleggende entitetsgrensesnitt

@@ -30,6 +30,7 @@ interface RapportObjekt {
   required: boolean;
   config: Record<string, unknown>;
   sortOrder: number;
+  parentId: string | null;
 }
 
 const TOM_FELTVERDI: FeltVerdi = { verdi: null, kommentar: "", vedlegg: [] };
@@ -382,14 +383,21 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
     [planleggLagring],
   );
 
-  // Betinget synlighet
+  // Betinget synlighet (rekursiv — sjekker hele foreldrekjeden)
   const erSynlig = useCallback(
     (objekt: RapportObjekt): boolean => {
-      const parentId = objekt.config.conditionParentId;
-      if (!parentId || typeof parentId !== "string") return true;
+      // Bruk parentId fra DB-kolonne (ny) med fallback til config (gammel)
+      const parentId = objekt.parentId ?? (objekt.config.conditionParentId as string | undefined);
+      if (!parentId) return true;
 
       const forelder = alleObjekter.find((o) => o.id === parentId);
-      if (!forelder?.config.conditionActive) return true;
+      if (!forelder) return true; // Sikkerhets-fallback
+
+      // Sjekk at forelderen selv er synlig (rekursivt)
+      if (!erSynlig(forelder)) return false;
+
+      // Sjekk at forelderens betingelse er oppfylt
+      if (!forelder.config.conditionActive) return true;
 
       const triggerVerdier = (forelder.config.conditionValues as string[]) ?? [];
       const forelderVerdi = hentFeltVerdi(parentId).verdi;

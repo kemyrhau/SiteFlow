@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   DndContext,
   pointerWithin,
@@ -17,7 +17,6 @@ import {
   REPORT_OBJECT_TYPE_META,
   type ReportObjectType,
   type TemplateZone,
-  harBetingelse,
 } from "@siteflow/shared";
 import { trpc } from "@/lib/trpc";
 import { FeltPalett } from "./FeltPalett";
@@ -25,6 +24,7 @@ import { DropSone } from "./DropSone";
 import { FeltKonfigurasjon } from "./FeltKonfigurasjon";
 import { DragOverlayKomponent } from "./DragOverlay_";
 import type { MalObjekt } from "./DraggbartFelt";
+import type { TreObjekt } from "./typer";
 
 interface MalData {
   id: string;
@@ -37,6 +37,7 @@ interface MalData {
     required: boolean;
     sortOrder: number;
     config: unknown;
+    parentId: string | null;
   }>;
 }
 
@@ -67,7 +68,47 @@ function tilMalObjekt(obj: MalData["objects"][number]): MalObjekt {
     config: typeof obj.config === "object" && obj.config !== null
       ? (obj.config as Record<string, unknown>)
       : {},
+    parentId: obj.parentId ?? null,
   };
+}
+
+// Bygg trestruktur fra flat array
+function byggTre(objekter: MalObjekt[]): TreObjekt[] {
+  const map = new Map<string, TreObjekt>();
+  const rotObjekter: TreObjekt[] = [];
+
+  for (const obj of objekter) {
+    map.set(obj.id, { ...obj, children: [] });
+  }
+
+  for (const obj of objekter) {
+    const node = map.get(obj.id)!;
+    if (obj.parentId && map.has(obj.parentId)) {
+      map.get(obj.parentId)!.children.push(node);
+    } else {
+      rotObjekter.push(node);
+    }
+  }
+
+  function sorterRekursivt(noder: TreObjekt[]) {
+    noder.sort((a, b) => a.sortOrder - b.sortOrder);
+    for (const node of noder) {
+      sorterRekursivt(node.children);
+    }
+  }
+
+  sorterRekursivt(rotObjekter);
+  return rotObjekter;
+}
+
+// Finn alle etterkommere (rekursivt) av et objekt
+function finnAlleEtterkommere(objekter: MalObjekt[], parentId: string): MalObjekt[] {
+  const direkte = objekter.filter((o) => o.parentId === parentId);
+  const alle: MalObjekt[] = [...direkte];
+  for (const barn of direkte) {
+    alle.push(...finnAlleEtterkommere(objekter, barn.id));
+  }
+  return alle;
 }
 
 export function MalBygger({ mal }: MalByggerProps) {
@@ -80,14 +121,15 @@ export function MalBygger({ mal }: MalByggerProps) {
     () => mal.objects.map(tilMalObjekt),
   );
 
-  // Del objekter i to soner
-  const topptekstObjekter = objekter
-    .filter((o) => hentZone(o.config) === "topptekst")
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  // Bygg trestruktur
+  const rotObjekter = useMemo(() => {
+    const sortert = [...objekter].sort((a, b) => a.sortOrder - b.sortOrder);
+    return byggTre(sortert);
+  }, [objekter]);
 
-  const datafeltObjekter = objekter
-    .filter((o) => hentZone(o.config) === "datafelter")
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  // Del trestrukturen i to soner (kun rot-objekter har sone)
+  const topptekstTre = rotObjekter.filter((o) => hentZone(o.config) === "topptekst");
+  const datafeltTre = rotObjekter.filter((o) => hentZone(o.config) === "datafelter");
 
   // Valgt objekt for konfigurasjon
   const valgtObjekt = valgtId ? objekter.find((o) => o.id === valgtId) ?? null : null;
@@ -126,12 +168,19 @@ export function MalBygger({ mal }: MalByggerProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Finn hvilken sone et objekt-id tilhører
+  // Finn hvilken sone et objekt-id tilhører (gå opp til rot)
   const finnSone = useCallback(
     (id: string): TemplateZone | null => {
       const objekt = objekter.find((o) => o.id === id);
       if (!objekt) return null;
-      return hentZone(objekt.config);
+      // Gå opp til rot for å finne sone
+      let current = objekt;
+      while (current.parentId) {
+        const parent = objekter.find((o) => o.id === current.parentId);
+        if (!parent) break;
+        current = parent;
+      }
+      return hentZone(current.config);
     },
     [objekter],
   );
@@ -139,12 +188,8 @@ export function MalBygger({ mal }: MalByggerProps) {
   // Finn droppable sone fra over-id
   function finnMålSone(overId: string | null): TemplateZone | null {
     if (!overId) return null;
-
-    // Direkte droppet på en sone-container
     if (overId === "sone-topptekst") return "topptekst";
     if (overId === "sone-datafelter") return "datafelter";
-
-    // Droppet over et eksisterende element — finn dets sone
     return finnSone(overId as string);
   }
 
@@ -183,8 +228,6 @@ export function MalBygger({ mal }: MalByggerProps) {
       if (førsteOpsjon) {
         oppdaterObjektMutation.mutate({
           id: parentId,
-          label: forelder.label,
-          required: forelder.required,
           config: {
             ...forelder.config,
             conditionActive: true,
@@ -219,8 +262,6 @@ export function MalBygger({ mal }: MalByggerProps) {
     if (forelder) {
       oppdaterObjektMutation.mutate({
         id: parentId,
-        label: forelder.label,
-        required: forelder.required,
         config: {
           ...forelder.config,
           conditionValues: verdier,
@@ -230,69 +271,55 @@ export function MalBygger({ mal }: MalByggerProps) {
   }
 
   function handleFjernBetingelse(parentId: string) {
+    // Fjern conditionActive/conditionValues fra forelder, og frigjør alle direkte barn
     setObjekter((prev) => {
-      const neste = prev.map((o) => {
-        // Fjern conditionActive/conditionValues fra forelder
+      return prev.map((o) => {
         if (o.id === parentId) {
           const { conditionActive: _, conditionValues: __, ...restConfig } = o.config;
           return { ...o, config: restConfig };
         }
-        // Fjern conditionParentId fra alle barn
-        if (o.config.conditionParentId === parentId) {
-          const { conditionParentId: _, ...restConfig } = o.config;
-          return { ...o, config: restConfig };
+        // Direkte barn → frigjør fra kontaineren (sett parentId = null)
+        if (o.parentId === parentId) {
+          return { ...o, parentId: null };
         }
         return o;
       });
-      return neste;
     });
 
-    // Lagre forelder til server
+    // Lagre forelder config til server
     const forelder = objekter.find((o) => o.id === parentId);
     if (forelder) {
       const { conditionActive: _, conditionValues: __, ...restConfig } = forelder.config;
       oppdaterObjektMutation.mutate({
         id: parentId,
-        label: forelder.label,
-        required: forelder.required,
         config: restConfig,
       });
     }
 
-    // Lagre barn til server
-    const barn = objekter.filter((o) => o.config.conditionParentId === parentId);
+    // Frigjør barn fra kontainer (nullstill parentId)
+    const barn = objekter.filter((o) => o.parentId === parentId);
     for (const b of barn) {
-      const { conditionParentId: _, ...restConfig } = b.config;
       oppdaterObjektMutation.mutate({
         id: b.id,
-        label: b.label,
-        required: b.required,
-        config: restConfig,
+        parentId: null,
       });
     }
   }
 
-  function handleFjernBarnBetingelse(barnId: string) {
+  function handleFjernBarnFraKontainer(barnId: string) {
     setObjekter((prev) => {
       return prev.map((o) => {
         if (o.id === barnId) {
-          const { conditionParentId: _, ...restConfig } = o.config;
-          return { ...o, config: restConfig };
+          return { ...o, parentId: null };
         }
         return o;
       });
     });
 
-    const barn = objekter.find((o) => o.id === barnId);
-    if (barn) {
-      const { conditionParentId: _, ...restConfig } = barn.config;
-      oppdaterObjektMutation.mutate({
-        id: barnId,
-        label: barn.label,
-        required: barn.required,
-        config: restConfig,
-      });
-    }
+    oppdaterObjektMutation.mutate({
+      id: barnId,
+      parentId: null,
+    });
   }
 
   // --- DRAG-AND-DROP ---
@@ -315,35 +342,36 @@ export function MalBygger({ mal }: MalByggerProps) {
       const meta = REPORT_OBJECT_TYPE_META[type];
       const målSone = finnMålSone(over.id as string) ?? "datafelter";
 
-      const soneObjekter =
-        målSone === "topptekst" ? topptekstObjekter : datafeltObjekter;
-
-      // Finn posisjon: droppet over et element → sett inn etter det, ellers på slutten
+      // Finn posisjon og mulig forelder
+      const overObjekt = objekter.find((o) => o.id === over.id);
+      let parentId: string | null = null;
       let sortOrder: number;
-      const overObjekt = soneObjekter.find((o) => o.id === over.id);
+
       if (overObjekt) {
-        sortOrder = overObjekt.sortOrder + 1;
+        // Droppet over et element
+        if (overObjekt.config.conditionActive === true) {
+          // Droppet på kontainer → bli barn
+          parentId = overObjekt.id;
+          const barn = objekter.filter((o) => o.parentId === overObjekt.id);
+          const sisteBarn = barn.sort((a, b) => b.sortOrder - a.sortOrder)[0];
+          sortOrder = sisteBarn ? sisteBarn.sortOrder + 1 : 0;
+        } else if (overObjekt.parentId) {
+          // Droppet på et barn → arv samme forelder
+          parentId = overObjekt.parentId;
+          sortOrder = overObjekt.sortOrder + 1;
+        } else {
+          sortOrder = overObjekt.sortOrder + 1;
+        }
       } else {
-        const siste = soneObjekter[soneObjekter.length - 1];
+        // Droppet på tom sone
+        const rotObjekterISone = objekter.filter(
+          (o) => !o.parentId && hentZone(o.config) === målSone,
+        );
+        const siste = rotObjekterISone.sort((a, b) => b.sortOrder - a.sortOrder)[0];
         sortOrder = siste ? siste.sortOrder + 1 : 0;
       }
 
-      // Sjekk om feltet droppes inn i en betingelsesgruppe
-      let conditionParentId: string | undefined;
-      if (overObjekt) {
-        if (overObjekt.config.conditionActive === true) {
-          // Droppet rett etter et foreldrefelt med betingelse
-          conditionParentId = overObjekt.id;
-        } else if (harBetingelse(overObjekt.config)) {
-          // Droppet etter et barnefelt — arv betingelse
-          conditionParentId = overObjekt.config.conditionParentId as string;
-        }
-      }
-
       const nyConfig: Record<string, unknown> = { ...meta.defaultConfig, zone: målSone };
-      if (conditionParentId) {
-        nyConfig.conditionParentId = conditionParentId;
-      }
 
       leggTilMutation.mutate({
         templateId: mal.id,
@@ -352,6 +380,7 @@ export function MalBygger({ mal }: MalByggerProps) {
         config: nyConfig,
         sortOrder,
         required: false,
+        parentId,
       });
       return;
     }
@@ -361,6 +390,8 @@ export function MalBygger({ mal }: MalByggerProps) {
       const aktivId = active.id as string;
       const overId = over.id as string;
 
+      if (aktivId === overId) return;
+
       const kildeSone = finnSone(aktivId);
       const målSone = finnMålSone(overId) ?? kildeSone;
 
@@ -368,119 +399,74 @@ export function MalBygger({ mal }: MalByggerProps) {
 
       setObjekter((prev) => {
         const neste = [...prev];
+        const aktivObjekt = neste.find((o) => o.id === aktivId);
+        const overObjekt = neste.find((o) => o.id === overId);
+
+        if (!aktivObjekt) return prev;
 
         if (kildeSone === målSone) {
-          // Sortering innenfor samme sone
-          const soneObjekter = neste
-            .filter((o) => hentZone(o.config) === kildeSone)
-            .sort((a, b) => a.sortOrder - b.sortOrder);
+          // Sortering innenfor samme sone — finn alle objekter på samme nivå
+          const aktivParentId = aktivObjekt.parentId;
 
-          const gammelIdx = soneObjekter.findIndex((o) => o.id === aktivId);
-          const nyIdx = soneObjekter.findIndex((o) => o.id === overId);
-
-          if (gammelIdx === -1 || nyIdx === -1 || gammelIdx === nyIdx) return prev;
-
-          const omorganisert = arrayMove(soneObjekter, gammelIdx, nyIdx);
-          for (let i = 0; i < omorganisert.length; i++) {
-            const obj = omorganisert[i];
-            if (!obj) continue;
-            const idx = neste.findIndex((n) => n.id === obj.id);
-            const eksisterende = idx !== -1 ? neste[idx] : undefined;
-            if (idx !== -1 && eksisterende) {
-              neste[idx] = { id: eksisterende.id, type: eksisterende.type, label: eksisterende.label, required: eksisterende.required, config: eksisterende.config, sortOrder: i };
+          // Sjekk om vi drar inn i en kontainer, ut av en, eller innenfor samme nivå
+          if (overObjekt) {
+            if (overObjekt.config.conditionActive === true && overObjekt.id !== aktivParentId) {
+              // Droppet på kontainer → bli barn av den kontaineren
+              const aktivIdx = neste.findIndex((o) => o.id === aktivId);
+              if (aktivIdx !== -1) {
+                neste[aktivIdx] = { ...aktivObjekt, parentId: overObjekt.id };
+              }
+            } else if (overObjekt.parentId && overObjekt.parentId !== aktivParentId) {
+              // Droppet på et barn av en annen kontainer → flytt dit
+              const aktivIdx = neste.findIndex((o) => o.id === aktivId);
+              if (aktivIdx !== -1) {
+                neste[aktivIdx] = { ...aktivObjekt, parentId: overObjekt.parentId };
+              }
+            } else if (!overObjekt.parentId && aktivParentId) {
+              // Droppet på rot-nivå — fjern fra kontainer
+              const aktivIdx = neste.findIndex((o) => o.id === aktivId);
+              if (aktivIdx !== -1) {
+                neste[aktivIdx] = { ...aktivObjekt, parentId: null };
+              }
             }
           }
 
-          // Oppdater betingelse-tilhørighet basert på ny posisjon
-          const aktivObjekt = neste.find((o) => o.id === aktivId);
-          if (aktivObjekt) {
-            const overObjekt = neste.find((o) => o.id === overId);
-            const aktivHarBetingelse = harBetingelse(aktivObjekt.config);
+          // Omsorter på riktig nivå
+          const oppdatertAktiv = neste.find((o) => o.id === aktivId)!;
+          const nivåObjekter = neste
+            .filter((o) => o.parentId === oppdatertAktiv.parentId && hentZone(o.config) === kildeSone)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
 
-            if (overObjekt) {
-              if (overObjekt.config.conditionActive === true && !aktivHarBetingelse) {
-                // Droppet rett etter foreldrefelt → bli barn
-                const aktivIdx = neste.findIndex((o) => o.id === aktivId);
-                if (aktivIdx !== -1) {
-                  neste[aktivIdx] = {
-                    ...aktivObjekt,
-                    config: { ...aktivObjekt.config, conditionParentId: overObjekt.id },
-                  };
-                  // Lagre barnebetingelse til server
-                  oppdaterObjektMutation.mutate({
-                    id: aktivId,
-                    label: aktivObjekt.label,
-                    required: aktivObjekt.required,
-                    config: { ...aktivObjekt.config, conditionParentId: overObjekt.id },
-                  });
-                }
-              } else if (harBetingelse(overObjekt.config) && !aktivHarBetingelse) {
-                // Droppet etter et barnefelt → arv betingelse
-                const parentId = overObjekt.config.conditionParentId as string;
-                const aktivIdx = neste.findIndex((o) => o.id === aktivId);
-                if (aktivIdx !== -1) {
-                  neste[aktivIdx] = {
-                    ...aktivObjekt,
-                    config: { ...aktivObjekt.config, conditionParentId: parentId },
-                  };
-                  oppdaterObjektMutation.mutate({
-                    id: aktivId,
-                    label: aktivObjekt.label,
-                    required: aktivObjekt.required,
-                    config: { ...aktivObjekt.config, conditionParentId: parentId },
-                  });
-                }
-              } else if (aktivHarBetingelse) {
-                // Sjekk om feltet er dratt utenfor betingelsesgruppen
-                const parentId = aktivObjekt.config.conditionParentId as string;
-                const overErSammeGruppe =
-                  overObjekt.id === parentId ||
-                  overObjekt.config.conditionParentId === parentId;
+          const gammelIdx = nivåObjekter.findIndex((o) => o.id === aktivId);
+          const nyIdx = nivåObjekter.findIndex((o) => o.id === overId);
 
-                if (!overErSammeGruppe) {
-                  // Dratt utenfor gruppen → fjern betingelse
-                  const aktivIdx = neste.findIndex((o) => o.id === aktivId);
-                  if (aktivIdx !== -1) {
-                    const { conditionParentId: _, ...restConfig } = aktivObjekt.config;
-                    neste[aktivIdx] = {
-                      ...aktivObjekt,
-                      config: restConfig,
-                    };
-                    oppdaterObjektMutation.mutate({
-                      id: aktivId,
-                      label: aktivObjekt.label,
-                      required: aktivObjekt.required,
-                      config: restConfig,
-                    });
-                  }
-                }
+          if (gammelIdx !== -1 && nyIdx !== -1 && gammelIdx !== nyIdx) {
+            const omorganisert = arrayMove(nivåObjekter, gammelIdx, nyIdx);
+            for (let i = 0; i < omorganisert.length; i++) {
+              const obj = omorganisert[i];
+              if (!obj) continue;
+              const idx = neste.findIndex((n) => n.id === obj.id);
+              const eksisterende = idx !== -1 ? neste[idx] : undefined;
+              if (idx !== -1 && eksisterende) {
+                neste[idx] = { ...eksisterende, sortOrder: i };
               }
             }
           }
         } else {
-          // Flytt mellom soner
+          // Flytt mellom soner — fjern fra kontainer
           const idx = neste.findIndex((o) => o.id === aktivId);
           if (idx === -1) return prev;
 
-          const gammel = neste[idx];
-          if (!gammel) return prev;
-
-          // Fjern betingelse ved soneflytt
-          const { conditionParentId: _, ...configUtenBetingelse } = gammel.config;
-
           neste[idx] = {
-            id: gammel.id,
-            type: gammel.type,
-            label: gammel.label,
-            required: gammel.required,
-            sortOrder: gammel.sortOrder,
-            config: { ...configUtenBetingelse, zone: målSone },
+            ...aktivObjekt,
+            parentId: null,
+            config: { ...aktivObjekt.config, zone: målSone },
           };
 
-          // Renummerer begge soner
+          // Renummerer begge soner (kun rot-nivå)
           const renummerer = (sone: TemplateZone) => {
             const soneObjekter = neste
-              .filter((o) => hentZone(o.config) === sone)
+              .filter((o) => !o.parentId && hentZone(o.config) === sone)
               .sort((a, b) => a.sortOrder - b.sortOrder);
             for (let i = 0; i < soneObjekter.length; i++) {
               const obj = soneObjekter[i];
@@ -488,7 +474,7 @@ export function MalBygger({ mal }: MalByggerProps) {
               const oIdx = neste.findIndex((n) => n.id === obj.id);
               const eksisterende = oIdx !== -1 ? neste[oIdx] : undefined;
               if (oIdx !== -1 && eksisterende) {
-                neste[oIdx] = { id: eksisterende.id, type: eksisterende.type, label: eksisterende.label, required: eksisterende.required, config: eksisterende.config, sortOrder: i };
+                neste[oIdx] = { ...eksisterende, sortOrder: i };
               }
             }
           };
@@ -502,6 +488,7 @@ export function MalBygger({ mal }: MalByggerProps) {
           id: o.id,
           sortOrder: o.sortOrder,
           zone: hentZone(o.config),
+          parentId: o.parentId,
         }));
         oppdaterRekkefølgeMutation.mutate({ objekter: oppdateringer });
 
@@ -511,30 +498,14 @@ export function MalBygger({ mal }: MalByggerProps) {
   }
 
   function handleSlett(id: string) {
-    // Kaskade: fjern betingelse fra alle barn først
-    const forelder = objekter.find((o) => o.id === id);
-    if (forelder?.config.conditionActive) {
-      const barn = objekter.filter((o) => o.config.conditionParentId === id);
-      for (const b of barn) {
-        const { conditionParentId: _, ...restConfig } = b.config;
-        oppdaterObjektMutation.mutate({
-          id: b.id,
-          label: b.label,
-          required: b.required,
-          config: restConfig,
-        });
-      }
-      // Optimistisk oppdatering av barn
-      setObjekter((prev) =>
-        prev.map((o) => {
-          if (o.config.conditionParentId === id) {
-            const { conditionParentId: _, ...restConfig } = o.config;
-            return { ...o, config: restConfig };
-          }
-          return o;
-        }),
-      );
-    }
+    // Med CASCADE fjerner databasen barn automatisk.
+    // Optimistisk: fjern feltet + alle etterkommere lokalt
+    const etterkommere = finnAlleEtterkommere(objekter, id);
+    const sletteIder = new Set([id, ...etterkommere.map((e) => e.id)]);
+
+    setObjekter((prev) => prev.filter((o) => !sletteIder.has(o.id)));
+    if (valgtId && sletteIder.has(valgtId)) setValgtId(null);
+
     slettMutation.mutate({ id });
   }
 
@@ -575,27 +546,29 @@ export function MalBygger({ mal }: MalByggerProps) {
           <DropSone
             zone="topptekst"
             label="Topptekst"
-            objekter={topptekstObjekter}
+            treObjekter={topptekstTre}
+            alleObjekter={objekter}
             valgtId={valgtId}
             onVelg={setValgtId}
             onSlett={handleSlett}
             onTilfoyjBetingelse={handleTilfoyjBetingelse}
             onOppdaterBetingelseVerdier={handleOppdaterBetingelseVerdier}
             onFjernBetingelse={handleFjernBetingelse}
-            onFjernBarnBetingelse={handleFjernBarnBetingelse}
+            onFjernBarnFraKontainer={handleFjernBarnFraKontainer}
           />
 
           <DropSone
             zone="datafelter"
             label="Datafelter"
-            objekter={datafeltObjekter}
+            treObjekter={datafeltTre}
+            alleObjekter={objekter}
             valgtId={valgtId}
             onVelg={setValgtId}
             onSlett={handleSlett}
             onTilfoyjBetingelse={handleTilfoyjBetingelse}
             onOppdaterBetingelseVerdier={handleOppdaterBetingelseVerdier}
             onFjernBetingelse={handleFjernBetingelse}
-            onFjernBarnBetingelse={handleFjernBarnBetingelse}
+            onFjernBarnFraKontainer={handleFjernBarnFraKontainer}
           />
         </div>
 
@@ -611,7 +584,7 @@ export function MalBygger({ mal }: MalByggerProps) {
           onLagre={handleLagreKonfig}
           erLagrer={oppdaterObjektMutation.isPending}
           onFjernBetingelse={handleFjernBetingelse}
-          onFjernBarnBetingelse={handleFjernBarnBetingelse}
+          onFjernBarnFraKontainer={handleFjernBarnFraKontainer}
         />
       ) : (
         <aside className="flex w-72 shrink-0 items-center justify-center border-l border-gray-200 bg-gray-50 p-4">
