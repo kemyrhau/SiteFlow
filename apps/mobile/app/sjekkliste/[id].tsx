@@ -11,8 +11,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Save, Check, AlertTriangle, Clock, CloudOff, Cloud } from "lucide-react-native";
 import { harBetingelse } from "@siteflow/shared";
+import type { DocumentStatus } from "@siteflow/shared";
 import { useSjekklisteSkjema } from "../../src/hooks/useSjekklisteSkjema";
 import { useOpplastingsKo } from "../../src/providers/OpplastingsKoProvider";
+import { useAuth } from "../../src/providers/AuthProvider";
 import { StatusMerkelapp } from "../../src/components/StatusMerkelapp";
 import { RapportObjektRenderer, DISPLAY_TYPER } from "../../src/components/rapportobjekter";
 import { FeltWrapper } from "../../src/components/rapportobjekter/FeltWrapper";
@@ -38,9 +40,34 @@ function formaterHistorikkDato(dato: Date | string): string {
   });
 }
 
+interface StatusHandling {
+  tekst: string;
+  nyStatus: DocumentStatus;
+  farge: string;
+  aktivFarge: string;
+}
+
+function hentStatusHandlinger(status: string): StatusHandling[] {
+  const handlinger: Record<string, StatusHandling[]> = {
+    draft: [{ tekst: "Send", nyStatus: "sent", farge: "bg-blue-600", aktivFarge: "bg-blue-400" }],
+    sent: [{ tekst: "Motta", nyStatus: "received", farge: "bg-blue-600", aktivFarge: "bg-blue-400" }],
+    received: [{ tekst: "Start arbeid", nyStatus: "in_progress", farge: "bg-amber-500", aktivFarge: "bg-amber-400" }],
+    in_progress: [{ tekst: "Besvar", nyStatus: "responded", farge: "bg-purple-600", aktivFarge: "bg-purple-400" }],
+    responded: [
+      { tekst: "Godkjenn", nyStatus: "approved", farge: "bg-green-600", aktivFarge: "bg-green-400" },
+      { tekst: "Avvis", nyStatus: "rejected", farge: "bg-red-600", aktivFarge: "bg-red-400" },
+    ],
+    rejected: [{ tekst: "Start arbeid igjen", nyStatus: "in_progress", farge: "bg-amber-500", aktivFarge: "bg-amber-400" }],
+    approved: [{ tekst: "Lukk", nyStatus: "closed", farge: "bg-gray-500", aktivFarge: "bg-gray-400" }],
+  };
+  return handlinger[status] ?? [];
+}
+
 export default function SjekklisteUtfylling() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { bruker } = useAuth();
+  const utils = trpc.useUtils();
 
   // Hent overføringer for historikk
   const detaljQuery = trpc.sjekkliste.hentMedId.useQuery(
@@ -50,6 +77,43 @@ export default function SjekklisteUtfylling() {
   const overforinger = (detaljQuery.data as { transfers?: Transfer[] } | undefined)?.transfers;
 
   const { ventende, erAktiv } = useOpplastingsKo();
+
+  const endreStatusMutasjon = trpc.sjekkliste.endreStatus.useMutation({
+    onSuccess: () => {
+      utils.sjekkliste.hentMedId.invalidate({ id: id! });
+      utils.sjekkliste.hentForProsjekt.invalidate();
+    },
+  });
+
+  const håndterStatusEndring = useCallback(
+    (handling: StatusHandling) => {
+      if (!bruker?.id) return;
+
+      Alert.alert(
+        "Bekreft statusendring",
+        `Er du sikker på at du vil endre status til "${handling.tekst.toLowerCase()}"?`,
+        [
+          { text: "Avbryt", style: "cancel" },
+          {
+            text: handling.tekst,
+            style: handling.nyStatus === "rejected" ? "destructive" : "default",
+            onPress: async () => {
+              try {
+                await endreStatusMutasjon.mutateAsync({
+                  id: id!,
+                  nyStatus: handling.nyStatus,
+                  senderId: bruker.id,
+                });
+              } catch {
+                Alert.alert("Feil", "Kunne ikke endre status. Prøv igjen.");
+              }
+            },
+          },
+        ],
+      );
+    },
+    [bruker?.id, id, endreStatusMutasjon],
+  );
 
   const {
     sjekkliste,
@@ -279,9 +343,34 @@ export default function SjekklisteUtfylling() {
         )}
       </ScrollView>
 
-      {/* Lagre-knapp i bunn */}
-      {erRedigerbar && (
-        <View className="border-t border-gray-200 bg-white px-4 py-3">
+      {/* Statusknapper + lagre-knapp i bunn */}
+      <View className="border-t border-gray-200 bg-white px-4 py-3">
+        {/* Statushandlinger */}
+        {sjekkliste && (() => {
+          const handlinger = hentStatusHandlinger(sjekkliste.status);
+          if (handlinger.length === 0) return null;
+          return (
+            <View className={`mb-2 ${handlinger.length > 1 ? "flex-row gap-2" : ""}`}>
+              {handlinger.map((handling) => (
+                <Pressable
+                  key={handling.nyStatus}
+                  onPress={() => håndterStatusEndring(handling)}
+                  disabled={endreStatusMutasjon.isPending}
+                  className={`items-center rounded-lg py-3 ${handlinger.length > 1 ? "flex-1" : ""} ${endreStatusMutasjon.isPending ? handling.aktivFarge : handling.farge}`}
+                >
+                  {endreStatusMutasjon.isPending ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text className="font-medium text-white">{handling.tekst}</Text>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          );
+        })()}
+
+        {/* Lagre-knapp */}
+        {erRedigerbar && (
           <Pressable
             onPress={håndterLagre}
             disabled={erLagrer}
@@ -291,8 +380,8 @@ export default function SjekklisteUtfylling() {
               {erLagrer ? "Lagrer..." : "Lagre utfylling"}
             </Text>
           </Pressable>
-        </View>
-      )}
+        )}
+      </View>
     </SafeAreaView>
   );
 }
