@@ -141,7 +141,7 @@ siteflow/
 | `project_members` | Prosjektmedlemmer med rolle (member/admin), entrepriser via `member_enterprises` |
 | `member_enterprises` | Mange-til-mange join-tabell mellom `project_members` og `enterprises` |
 | `enterprises` | Entrepriser med `enterprise_number` (Dalux-format: "04 Tømrer, Econor"), bransje, firma, farge |
-| `buildings` | Lokasjoner med `type` (deprecated, default `"bygg"`), status (unpublished/published) |
+| `buildings` | Lokasjoner med `number` (auto-generert per prosjekt), `type` (deprecated, default `"bygg"`), status (unpublished/published) |
 | `drawings` | Tegninger med metadata: tegningsnummer, fagdisiplin, revisjon, status, etasje, målestokk, opphav, valgfri `geoReference` (JSON) |
 | `drawing_revisions` | Revisjonshistorikk for tegninger med fil, status og hvem som lastet opp |
 | `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon, `domain` (bygg/hms/kvalitet, default "bygg"), `subjects` (JSON-array med forhåndsdefinerte emnetekster) |
@@ -913,6 +913,7 @@ Dalux-inspirert tre-kolonne layout:
 ### Kontekster og hooks
 
 - `ProsjektKontekst` — Valgt prosjekt synkronisert med URL-parameter `[prosjektId]`, alle prosjekter, loading-state
+- `BygningKontekst` — Aktiv bygning (`id`, `name`, `number`) + standard-tegning, localStorage-persistering per prosjekt/bygning. `useBygning()` hook. Filtrerer sjekklister automatisk
 - `NavigasjonKontekst` — Aktiv seksjon + kontekstuelle verktøylinje-handlinger
 - `useAktivSeksjon()` — Utleder aktiv seksjon fra pathname, oppdaterer NavigasjonKontekst
 - `useVerktoylinje(handlinger)` — Registrerer kontekstuelle handlinger per side med auto-cleanup
@@ -929,11 +930,11 @@ Dalux-inspirert tre-kolonne layout:
 ### Paneler (SekundaertPanel-innhold)
 
 - `DashbordPanel` — Prosjektliste med hurtignavigasjon og søk
-- `SjekklisterPanel` — Sjekklister med statusgruppe-filtrering
+- `SjekklisterPanel` — Sjekklister med statusgruppe-filtrering, bygningsfilter-badge fra BygningKontekst
 - `OppgaverPanel` — Oppgaver med status- og prioritetsgrupper
 - `MalerPanel` — Malliste med søk
 - `EntrepriserPanel` — Entrepriseliste med søk
-- `TegningerPanel` — Tegninger (placeholder med søk)
+- `TegningerPanel` — Bygning+tegningstrevisning med søk, utvid/kollaps, aktiv bygning (blå), standard-tegning (stjerne). Setter `aktivBygning` via BygningKontekst
 - `MapperPanel` — Klikkbar mappestruktur med søk, valgt mappe markeres blå, navigerer via URL-param `?mappe=id`
 
 ### Mer-meny
