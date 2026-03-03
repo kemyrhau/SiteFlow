@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { View, Text, Pressable, Modal, Animated } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Accelerometer } from "expo-sensors";
-import { X, Timer, TimerOff } from "lucide-react-native";
+import { X, Timer } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface KameraModalProps {
@@ -269,22 +269,6 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
             </Pressable>
           </Animated.View>
 
-          {/* Tidtaker-knapp — roterer med enhetens orientering */}
-          <Animated.View
-            style={[
-              { position: "absolute", left: 16, zIndex: 10, top: insets.top + 56 },
-              uiRotasjon,
-            ]}
-          >
-            <Pressable
-              onPress={() => setTidtakerAktiv((t) => !t)}
-              hitSlop={16}
-              className={`h-10 w-10 items-center justify-center rounded-full ${tidtakerAktiv ? "bg-yellow-500" : "bg-black/50"}`}
-            >
-              {tidtakerAktiv ? <Timer size={20} color="#000000" /> : <TimerOff size={20} color="#ffffff" />}
-            </Pressable>
-          </Animated.View>
-
           {/* Nedtelling — stor tekst midt på kameraet */}
           {nedtelling > 0 && (
             <View
@@ -342,13 +326,23 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
             })}
           </Animated.View>
 
-          {/* Utløserknapp */}
-          <Pressable
-            onPress={håndterTaBilde}
-            className="h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-white"
-          >
-            <View className="h-[58px] w-[58px] rounded-full bg-white" />
-          </Pressable>
+          {/* Utløserknapp — lang-trykk aktiverer/deaktiverer 2s tidtaker */}
+          <View style={{ alignItems: "center" }}>
+            <Pressable
+              onPress={håndterTaBilde}
+              onLongPress={() => setTidtakerAktiv((t) => !t)}
+              delayLongPress={600}
+              className="h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-white"
+            >
+              <View className={`h-[58px] w-[58px] rounded-full ${tidtakerAktiv ? "bg-yellow-400" : "bg-white"}`} />
+            </Pressable>
+            {tidtakerAktiv && (
+              <Animated.View style={[{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: 4 }, uiRotasjon]}>
+                <Timer size={14} color="#facc15" />
+                <Text style={{ color: "#facc15", fontSize: 12, fontWeight: "600" }}>2s</Text>
+              </Animated.View>
+            )}
+          </View>
         </View>
       </View>
     </Modal>
