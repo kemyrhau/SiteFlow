@@ -635,6 +635,8 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 - Verktøy: pil, sirkel, firkant, frihåndstegning, tekst
 - Tekststyling: `fontSize: 24`, `fontWeight: 'bold'`, rød fyll (`#ef4444`), hvit omriss (`stroke: '#ffffff'`, `strokeWidth: 3`, `paintFirst: 'stroke'`)
 - Kommunikasjon: React Native → WebView via `postMessage`, WebView → RN via `ReactNativeWebView.postMessage`
+- **Canvas-resize:** Når bilde lastes inn, resizes canvas til bildets skalerte dimensjoner (ikke hele skjermen) — bevarer 5:4 aspect ratio og fjerner svarte kanter
+- **Eksport:** `lagre()` bruker `multiplier` (original bredde / canvas bredde) for å eksportere i full originaloppløsning
 - Server-URL-er (`/uploads/...` eller `http://...`) MÅ lastes ned til lokal fil (`FileSystem.downloadAsync`) før base64-konvertering — `FileSystem.readAsStringAsync` feiler stille på server-URL-er
 
 **Server-URL-håndtering (mobil):**
@@ -651,9 +653,16 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 
 **Kamerazoom (`KameraModal`):**
 - `zoom`-prop på `CameraView` (0–1, logaritmisk)
-- Tre zoomknapper over utløserknappen: `0.5x` (zoom=0), `1x` (zoom=0.02), `3x` (zoom=0.06)
+- Tre zoomknapper over utløserknappen: `0.5x` (zoom=0), `1x` (zoom=0.05), `3x` (zoom=0.15)
 - Aktiv knapp: hvit bakgrunn med mørk tekst, inaktive: gjennomsiktig med hvit tekst
 - Resettes til 0 ved lukking
+
+**5:4 crop-guide (`KameraModal`):**
+- Visuell guide som viser nøyaktig hva som ender opp i det endelige bildet
+- Halvgjennomsiktige svarte felt (50% opacity) over/under 5:4-sonen
+- Tynne hvite guidelinjer (40% opacity) langs crop-kantene
+- Beregnes dynamisk via `onLayout` + `useWindowDimensions` — tilpasser seg orientasjonsendring
+- `pointerEvents="none"` slik at overlayet ikke blokkerer kamerainteraksjon
 
 **Viktig:** `InteractionManager.runAfterInteractions` MÅ brukes etter at kamera/picker lukkes, før state-oppdateringer, for å unngå React Navigation "Cannot read property 'stale' of undefined"-krasj.
 

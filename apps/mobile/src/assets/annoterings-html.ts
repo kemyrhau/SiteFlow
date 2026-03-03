@@ -211,19 +211,33 @@ export const ANNOTERINGS_HTML = `<!DOCTYPE html>
     }
   };
 
+  // Lagre originalt bildestørrelse for eksport i korrekt oppløsning
+  var originalBredde = 0;
+  var originalHoyde = 0;
+
   window.settBilde = function(bildeUrl) {
     fabric.Image.fromURL(bildeUrl, function(img) {
-      var skala = Math.min(
-        canvas.width / img.width,
-        canvas.height / img.height
-      );
+      originalBredde = img.width;
+      originalHoyde = img.height;
+
+      var container = document.getElementById('canvas-container');
+      var maxW = container.clientWidth;
+      var maxH = container.clientHeight;
+      var skala = Math.min(maxW / img.width, maxH / img.height);
+
+      // Resize canvas til bildets skalerte dimensjoner (fjerner svarte kanter)
+      var visningsBredde = Math.round(img.width * skala);
+      var visningsHoyde = Math.round(img.height * skala);
+      canvas.setWidth(visningsBredde);
+      canvas.setHeight(visningsHoyde);
+
       img.set({
         scaleX: skala,
         scaleY: skala,
-        originX: 'center',
-        originY: 'center',
-        left: canvas.width / 2,
-        top: canvas.height / 2,
+        originX: 'left',
+        originY: 'top',
+        left: 0,
+        top: 0,
         selectable: false,
         evented: false,
       });
@@ -249,7 +263,9 @@ export const ANNOTERINGS_HTML = `<!DOCTYPE html>
   window.lagre = function() {
     canvas.discardActiveObject();
     canvas.renderAll();
-    var dataUrl = canvas.toDataURL({ format: 'png', quality: 1 });
+    // Eksporter i originaloppløsning for å bevare bildekvalitet og aspect ratio
+    var multiplier = originalBredde > 0 ? (originalBredde / canvas.width) : 1;
+    var dataUrl = canvas.toDataURL({ format: 'png', quality: 1, multiplier: multiplier });
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ferdig', dataUrl: dataUrl }));
   };
 

@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from "react";
-import { View, Text, Pressable, Modal, Animated } from "react-native";
+import { View, Text, Pressable, Modal, Animated, useWindowDimensions } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,17 +12,23 @@ interface KameraModalProps {
 
 const ZOOM_NIVÅER = [
   { label: "0.5x", verdi: 0 },
-  { label: "1x", verdi: 0.02 },
-  { label: "3x", verdi: 0.06 },
+  { label: "1x", verdi: 0.05 },
+  { label: "3x", verdi: 0.15 },
 ] as const;
+
+/** Kamerasensoren produserer 4:3 bilde, crop til 5:4 */
+const SENSOR_FORHOLD = 4 / 3;
+const MAL_FORHOLD = 5 / 4;
 
 export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
   const cameraRef = useRef<CameraView>(null);
   const insets = useSafeAreaInsets();
+  const { width: skjermBredde } = useWindowDimensions();
   const [tillatelse, spørOmTillatelse] = useCameraPermissions();
   const tarBilde = useRef(false);
   const [antallTatt, settAntallTatt] = useState(0);
   const [zoom, setZoom] = useState(0);
+  const [kameraHøyde, setKameraHøyde] = useState(0);
   const flashOpacity = useRef(new Animated.Value(0)).current;
 
   const håndterTaBilde = useCallback(async () => {
@@ -56,6 +62,17 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
     onLukk();
   }, [onLukk]);
 
+  // Beregn 5:4 crop-guide dimensjoner
+  // Kamerasensoren gir 4:3 bilde (i landskapsmodus: 4 bred × 3 høy)
+  // I portrettmodus: sensoren gir bredde × (bredde × 4/3) høyde
+  // 5:4 crop av dette: bredde × (bredde / (5/4)) = bredde × (bredde × 4/5)
+  const sensorHøyde = skjermBredde * SENSOR_FORHOLD; // Faktisk bildeinnhold i kameravisningen
+  const cropHøyde = skjermBredde / MAL_FORHOLD; // Høyden på 5:4 utsnittet
+  // Halvparten av det som croppes bort (per side)
+  const overlayHøyde = kameraHøyde > 0
+    ? Math.max(0, (kameraHøyde - cropHøyde) / 2)
+    : Math.max(0, (sensorHøyde - cropHøyde) / 2);
+
   if (!synlig) return null;
 
   if (!tillatelse?.granted) {
@@ -85,7 +102,59 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
           style={{ flex: 1 }}
           facing="back"
           zoom={zoom}
+          onLayout={(e) => setKameraHøyde(e.nativeEvent.layout.height)}
         >
+          {/* 5:4 crop-guide — mørke overlay over/under */}
+          {overlayHøyde > 0 && (
+            <>
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: overlayHøyde,
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                }}
+              />
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: overlayHøyde,
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                }}
+              />
+              {/* Tynne hvite guidelinjer */}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  top: overlayHøyde,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  backgroundColor: "rgba(255, 255, 255, 0.4)",
+                }}
+              />
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  bottom: overlayHøyde,
+                  left: 0,
+                  right: 0,
+                  height: 1,
+                  backgroundColor: "rgba(255, 255, 255, 0.4)",
+                }}
+              />
+            </>
+          )}
+
           {/* Flash-overlay */}
           <Animated.View
             pointerEvents="none"
