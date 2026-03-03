@@ -232,19 +232,16 @@ export function GeoReferanseEditor({
       const bilde = bildeRef.current;
       if (!container || !bilde) return;
 
-      // Konverter skjermkoordinater til lokale koordinater
-      // ved å invertere CSS-transform: translate(pan) scale(zoom) med origin center
+      // Inverter CSS-transform: translate(pan) scale(zoom) med origin 0 0
+      // Visuell posisjon: vx = lx * zoom + pan.x → lokal: lx = (vx - pan.x) / zoom
       const containerRect = container.getBoundingClientRect();
-      const bildeBredd = bilde.offsetWidth;
-      const bildeHoyde = bilde.offsetHeight;
-      const ox = bildeBredd / 2;
-      const oy = bildeHoyde / 2;
-
       const klikkX = e.clientX - containerRect.left;
       const klikkY = e.clientY - containerRect.top;
-      const lokalX = (klikkX - pan.x - ox) / zoom + ox;
-      const lokalY = (klikkY - pan.y - oy) / zoom + oy;
+      const lokalX = (klikkX - pan.x) / zoom;
+      const lokalY = (klikkY - pan.y) / zoom;
 
+      const bildeBredd = bilde.offsetWidth;
+      const bildeHoyde = bilde.offsetHeight;
       const x = Math.max(0, Math.min(100, (lokalX / bildeBredd) * 100));
       const y = Math.max(0, Math.min(100, (lokalY / bildeHoyde) * 100));
 
@@ -270,14 +267,10 @@ export function GeoReferanseEditor({
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const bilde = bildeRef.current;
-      if (!bilde) return;
 
       const containerRect = container.getBoundingClientRect();
       const cx = e.clientX - containerRect.left;
       const cy = e.clientY - containerRect.top;
-      const ox = bilde.offsetWidth / 2;
-      const oy = bilde.offsetHeight / 2;
 
       setZoom((prev) => {
         const faktor = e.deltaY > 0 ? 0.85 : 1.18;
@@ -285,13 +278,16 @@ export function GeoReferanseEditor({
 
         if (neste !== prev) {
           setPan((p) => {
-            // Zoom mot musepekeren: hold punktet under cursoren fast
-            const relX = (cx - p.x - ox) / prev;
-            const relY = (cy - p.y - oy) / prev;
+            // Zoom mot musepekeren med transformOrigin: 0 0
+            // Behold punktet under cursoren fast:
+            // cx = lx * zoom + pan.x → lx = (cx - pan.x) / zoom
+            // pan_ny = pan_gammel - lx * (zoom_ny - zoom_gammel)
+            const lx = (cx - p.x) / prev;
+            const ly = (cy - p.y) / prev;
             const dz = neste - prev;
             return {
-              x: p.x - relX * dz,
-              y: p.y - relY * dz,
+              x: p.x - lx * dz,
+              y: p.y - ly * dz,
             };
           });
         }
@@ -341,13 +337,29 @@ export function GeoReferanseEditor({
     setPan({ x: 0, y: 0 });
   }, []);
 
-  const zoomInn = useCallback(() => {
-    setZoom((prev) => Math.min(10, prev * 1.3));
+  // Zoom mot midten av synlig område (for knappene)
+  const zoomMotMidten = useCallback((faktor: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const cx = container.offsetWidth / 2;
+    const cy = container.offsetHeight / 2;
+
+    setZoom((prev) => {
+      const neste = Math.min(10, Math.max(1, prev * faktor));
+      if (neste !== prev) {
+        setPan((p) => {
+          const lx = (cx - p.x) / prev;
+          const ly = (cy - p.y) / prev;
+          const dz = neste - prev;
+          return { x: p.x - lx * dz, y: p.y - ly * dz };
+        });
+      }
+      return neste;
+    });
   }, []);
 
-  const zoomUt = useCallback(() => {
-    setZoom((prev) => Math.max(1, prev / 1.3));
-  }, []);
+  const zoomInn = useCallback(() => zoomMotMidten(1.3), [zoomMotMidten]);
+  const zoomUt = useCallback(() => zoomMotMidten(1 / 1.3), [zoomMotMidten]);
 
   const kanLagre =
     punkt1 &&
@@ -507,10 +519,10 @@ export function GeoReferanseEditor({
           <div
             ref={bildeRef}
             onClick={handleBildeKlikk}
-            className="relative origin-center"
+            className="relative"
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              transformOrigin: "center center",
+              transformOrigin: "0 0",
             }}
           >
             {erBilde ? (
@@ -549,14 +561,13 @@ export function GeoReferanseEditor({
           </div>
 
           {/* Markører — utenfor transformert div for fast størrelse */}
+          {/* Med transformOrigin: 0 0 → visuell pos: vx = lx * zoom + pan.x */}
           {punkt1 && bildeRef.current && (() => {
             const b = bildeRef.current;
-            const ox = b.offsetWidth / 2;
-            const oy = b.offsetHeight / 2;
             const lx = (punkt1.pixel.x / 100) * b.offsetWidth;
             const ly = (punkt1.pixel.y / 100) * b.offsetHeight;
-            const vx = (lx - ox) * zoom + ox + pan.x;
-            const vy = (ly - oy) * zoom + oy + pan.y;
+            const vx = lx * zoom + pan.x;
+            const vy = ly * zoom + pan.y;
             return (
               <div
                 className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
@@ -574,12 +585,10 @@ export function GeoReferanseEditor({
 
           {punkt2 && bildeRef.current && (() => {
             const b = bildeRef.current;
-            const ox = b.offsetWidth / 2;
-            const oy = b.offsetHeight / 2;
             const lx = (punkt2.pixel.x / 100) * b.offsetWidth;
             const ly = (punkt2.pixel.y / 100) * b.offsetHeight;
-            const vx = (lx - ox) * zoom + ox + pan.x;
-            const vy = (ly - oy) * zoom + oy + pan.y;
+            const vx = lx * zoom + pan.x;
+            const vy = ly * zoom + pan.y;
             return (
               <div
                 className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
