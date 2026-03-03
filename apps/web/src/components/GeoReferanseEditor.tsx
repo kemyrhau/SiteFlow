@@ -475,7 +475,8 @@ export function GeoReferanseEditor({
                 : aktivtPunkt
                   ? "crosshair"
                   : "default",
-            maxHeight: "600px",
+            height: "calc(100vh - 350px)",
+            minHeight: "400px",
           }}
         >
           <div
@@ -485,36 +486,39 @@ export function GeoReferanseEditor({
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: "center center",
+              width: "100%",
+              height: "100%",
             }}
           >
             {erBilde ? (
               <img
                 src={`/api${tegning.fileUrl}`}
                 alt={tegning.name}
-                className="w-full"
+                className="h-full w-full object-contain"
                 draggable={false}
               />
             ) : (
-              <div className="relative">
+              <div className="relative h-full w-full">
                 <iframe
                   src={`/api${tegning.fileUrl}`}
                   title={tegning.name}
-                  className="h-[500px] w-full border-0"
+                  className="h-full w-full border-0"
+                  scrolling="no"
                 />
-                {/* Gjennomsiktig overlay for å fange klikk over PDF-iframe */}
-                {(aktivtPunkt || modus === "hånd") && (
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      cursor:
-                        modus === "hånd"
-                          ? erDraging
-                            ? "grabbing"
-                            : "grab"
-                          : "crosshair",
-                    }}
-                  />
-                )}
+                {/* Permanent overlay — fanger alle mus/scroll-hendelser over PDF-iframe */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    cursor:
+                      modus === "hånd"
+                        ? erDraging
+                          ? "grabbing"
+                          : "grab"
+                        : aktivtPunkt
+                          ? "crosshair"
+                          : "default",
+                  }}
+                />
               </div>
             )}
 
