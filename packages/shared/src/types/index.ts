@@ -357,6 +357,21 @@ export interface VaerVerdi {
   kilde?: "manuell" | "automatisk";
 }
 
+// Bygningstyper
+export const BUILDING_TYPES = ["bygg", "anlegg"] as const;
+export type BuildingType = (typeof BUILDING_TYPES)[number];
+
+// Georeferanse for tegninger (2 referansepunkter for similaritetstransformasjon)
+export interface GeoReferansePunkt {
+  pixel: { x: number; y: number };  // prosent 0-100
+  gps: { lat: number; lng: number };
+}
+
+export interface GeoReferanse {
+  point1: GeoReferansePunkt;
+  point2: GeoReferansePunkt;
+}
+
 // Mappeadgangskontroll
 export const FOLDER_ACCESS_MODES = ["inherit", "custom"] as const;
 export type FolderAccessMode = (typeof FOLDER_ACCESS_MODES)[number];

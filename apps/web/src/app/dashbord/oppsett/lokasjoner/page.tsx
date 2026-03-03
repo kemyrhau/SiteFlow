@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
-import { Building2, Map } from "lucide-react";
+import { Building2, MapPin } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 interface LokasjonKategori {
@@ -17,29 +17,36 @@ interface LokasjonKategori {
 export default function LokasjonerSide() {
   const { prosjektId } = useProsjekt();
 
-  const { data: bygninger } = trpc.bygning.hentForProsjekt.useQuery(
-    { projectId: prosjektId! },
+  const { data: bygg } = trpc.bygning.hentForProsjekt.useQuery(
+    { projectId: prosjektId!, type: "bygg" },
+    { enabled: !!prosjektId },
+  );
+
+  const { data: anlegg } = trpc.bygning.hentForProsjekt.useQuery(
+    { projectId: prosjektId!, type: "anlegg" },
     { enabled: !!prosjektId },
   );
 
   const kategorier: LokasjonKategori[] = [
     {
-      tittel: "Bygninger",
-      beskrivelse: "Administrer bygninger og tilknytt tegninger",
+      tittel: "Bygg",
+      beskrivelse: "Administrer bygg og tilknytt tegninger",
       ikon: <Building2 className="h-12 w-12 text-gray-400" />,
       href: "/dashbord/oppsett/lokasjoner/bygninger",
       aktiv: true,
-      ekstraInfo: bygninger
-        ? `${bygninger.length} bygning${bygninger.length !== 1 ? "er" : ""}`
+      ekstraInfo: bygg
+        ? `${bygg.length} bygg`
         : undefined,
     },
     {
-      tittel: "Kart",
-      beskrivelse: "Prosjektposisjon og kartvisning",
-      ikon: <Map className="h-12 w-12 text-gray-300" />,
-      href: "#",
-      aktiv: false,
-      ekstraInfo: "Kommer snart",
+      tittel: "Anlegg",
+      beskrivelse: "Utendørs lokasjoner med georefererte tegninger",
+      ikon: <MapPin className="h-12 w-12 text-gray-400" />,
+      href: "/dashbord/oppsett/lokasjoner/anlegg",
+      aktiv: true,
+      ekstraInfo: anlegg
+        ? `${anlegg.length} anlegg`
+        : undefined,
     },
   ];
 

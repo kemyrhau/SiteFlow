@@ -1,6 +1,10 @@
 export { vaerkodeTilTekst } from "./vaer";
 export { beregnSynligeMapper } from "./mappeTilgang";
 export type { MappeTilgangInput, BrukerTilgangInfo, SynligeMapperResultat } from "./mappeTilgang";
+export { hentStatusHandlinger } from "./statusHandlinger";
+export type { StatusHandling } from "./statusHandlinger";
+export { beregnTransformasjon, gpsTilTegning, tegningTilGps, erInnenforTegning } from "./georeferanse";
+export type { Transformasjon } from "./georeferanse";
 
 /**
  * Generer et unikt prosjektnummer med prefiks og sekvensielt nummer.

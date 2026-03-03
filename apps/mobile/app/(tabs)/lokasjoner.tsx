@@ -14,6 +14,7 @@ import {
   MoreVertical,
   MapPin,
 } from "lucide-react-native";
+import * as Location from "expo-location";
 import { trpc } from "../../src/lib/trpc";
 import { useProsjekt } from "../../src/kontekst/ProsjektKontekst";
 import { AUTH_CONFIG } from "../../src/config/auth";
@@ -22,12 +23,21 @@ import { TegningsVisning } from "../../src/components/TegningsVisning";
 import type { Markør } from "../../src/components/TegningsVisning";
 import { TegningsVelger } from "../../src/components/TegningsVelger";
 import { OppgaveModal } from "../../src/components/OppgaveModal";
+import {
+  beregnTransformasjon,
+  gpsTilTegning,
+  erInnenforTegning,
+} from "@siteflow/shared/utils";
+import type { GeoReferanse } from "@siteflow/shared";
+
+type LokasjonTab = "bygg" | "anlegg";
 
 // Type-casts for å unngå TS2589 (excessively deep type instantiation)
 interface BygningData {
   id: string;
   name: string;
   status: string;
+  type?: string;
 }
 
 interface TegningData {
@@ -38,6 +48,7 @@ interface TegningData {
   floor: string | null;
   buildingId: string | null;
   fileUrl: string | null;
+  geoReference?: unknown;
   _count: { revisions: number };
 }
 
@@ -45,20 +56,23 @@ interface TegningDetalj {
   id: string;
   name: string;
   fileUrl: string | null;
+  geoReference?: unknown;
 }
 
 export default function LokasjonerSkjerm() {
   const { valgtProsjektId } = useProsjekt();
+  const [aktivTab, setAktivTab] = useState<LokasjonTab>("bygg");
   const [valgtBygningId, setValgtBygningId] = useState<string | null>(null);
   const [valgtTegningId, setValgtTegningId] = useState<string | null>(null);
 
   // Markør- og oppgavemodal-state
   const [markørPosisjon, setMarkørPosisjon] = useState<{ x: number; y: number } | null>(null);
   const [visOppgaveModal, setVisOppgaveModal] = useState(false);
+  const [gpsHenter, setGpsHenter] = useState(false);
 
-  // Hent bygninger for valgt prosjekt
+  // Hent bygninger for valgt prosjekt med type-filter
   const bygningQuery = trpc.bygning.hentForProsjekt.useQuery(
-    { projectId: valgtProsjektId! },
+    { projectId: valgtProsjektId!, type: aktivTab },
     { enabled: !!valgtProsjektId },
   );
 
@@ -71,7 +85,7 @@ export default function LokasjonerSkjerm() {
     { enabled: !!valgtProsjektId },
   );
 
-  // Hent detaljer for valgt tegning (for å få fileUrl)
+  // Hent detaljer for valgt tegning (for å få fileUrl og geoReference)
   const valgtTegningQuery = trpc.tegning.hentMedId.useQuery(
     { id: valgtTegningId! },
     { enabled: !!valgtTegningId },
@@ -94,8 +108,9 @@ export default function LokasjonerSkjerm() {
   // Bygg markørliste fra state
   const markører: Markør[] = useMemo(() => {
     if (!markørPosisjon) return [];
-    return [{ x: markørPosisjon.x, y: markørPosisjon.y, id: "ny-oppgave" }];
-  }, [markørPosisjon]);
+    const farge = aktivTab === "anlegg" ? "#10b981" : undefined; // Grønn for anlegg
+    return [{ x: markørPosisjon.x, y: markørPosisjon.y, id: "ny-oppgave", farge }];
+  }, [markørPosisjon, aktivTab]);
 
   // Treprikk-meny
   const visTreprikkmeny = useCallback(() => {
@@ -123,6 +138,14 @@ export default function LokasjonerSkjerm() {
     }
   }, []);
 
+  // Håndter tab-bytte
+  const håndterTabBytte = useCallback((tab: LokasjonTab) => {
+    setAktivTab(tab);
+    setValgtBygningId(null);
+    setValgtTegningId(null);
+    setMarkørPosisjon(null);
+  }, []);
+
   // Håndter tegningsvalg
   const håndterVelgTegning = useCallback((id: string) => {
     setValgtTegningId(id);
@@ -142,13 +165,54 @@ export default function LokasjonerSkjerm() {
     setMarkørPosisjon(null);
   }, []);
 
-  // Håndter trykk på tegning — plasser markør og åpne oppgavemodal
+  // Håndter trykk på tegning — for Anlegg: hent GPS og beregn posisjon
   const håndterTegningTrykk = useCallback(
-    (posX: number, posY: number) => {
-      setMarkørPosisjon({ x: posX, y: posY });
-      setVisOppgaveModal(true);
+    async (posX: number, posY: number) => {
+      if (aktivTab === "anlegg" && valgtTegningDetalj?.geoReference) {
+        // Anlegg med georeferanse: hent GPS og beregn posisjon
+        setGpsHenter(true);
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert("GPS-tilgang", "Appen trenger tilgang til GPS for å plassere markør på georefererte tegninger.");
+            setGpsHenter(false);
+            return;
+          }
+
+          const lokasjon = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+
+          const geoRef = valgtTegningDetalj.geoReference as GeoReferanse;
+          const transformasjon = beregnTransformasjon(geoRef);
+
+          const gps = {
+            lat: lokasjon.coords.latitude,
+            lng: lokasjon.coords.longitude,
+          };
+
+          if (!erInnenforTegning(gps, transformasjon)) {
+            Alert.alert(
+              "Utenfor tegningen",
+              "Din GPS-posisjon er utenfor tegningens dekningsområde. Posisjonen plasseres likevel, men kan være unøyaktig.",
+            );
+          }
+
+          const posisjon = gpsTilTegning(gps, transformasjon);
+          setMarkørPosisjon({ x: posisjon.x, y: posisjon.y });
+          setVisOppgaveModal(true);
+        } catch (feil) {
+          Alert.alert("GPS-feil", "Kunne ikke hente GPS-posisjon. Prøv igjen.");
+        } finally {
+          setGpsHenter(false);
+        }
+      } else {
+        // Vanlig Bygg-modus: bruk trykk-posisjon direkte
+        setMarkørPosisjon({ x: posX, y: posY });
+        setVisOppgaveModal(true);
+      }
     },
-    [],
+    [aktivTab, valgtTegningDetalj],
   );
 
   // Håndter oppgave opprettet
@@ -183,16 +247,39 @@ export default function LokasjonerSkjerm() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      {/* Blå filterbar */}
+      {/* Blå filterbar med segmentert kontroll */}
       <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
-        <Pressable className="flex-row items-center gap-1">
-          <Text className="text-base font-semibold text-white">Oppgaver</Text>
-          <ChevronDown size={18} color="#ffffff" />
-        </Pressable>
+        <View className="flex-row items-center gap-1">
+          {(["bygg", "anlegg"] as const).map((tab) => (
+            <Pressable
+              key={tab}
+              onPress={() => håndterTabBytte(tab)}
+              className={`rounded-full px-4 py-1.5 ${
+                aktivTab === tab ? "bg-white" : "bg-transparent"
+              }`}
+            >
+              <Text
+                className={`text-sm font-medium ${
+                  aktivTab === tab ? "text-siteflow-blue" : "text-white/70"
+                }`}
+              >
+                {tab === "bygg" ? "Bygg" : "Anlegg"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <Pressable onPress={visTreprikkmeny} hitSlop={12}>
           <MoreVertical size={20} color="#ffffff" />
         </Pressable>
       </View>
+
+      {/* GPS-henting-indikator */}
+      {gpsHenter && (
+        <View className="flex-row items-center gap-2 bg-amber-50 px-4 py-2">
+          <ActivityIndicator size="small" color="#d97706" />
+          <Text className="text-sm text-amber-700">Henter GPS-posisjon…</Text>
+        </View>
+      )}
 
       {/* Hovedinnhold */}
       <View className="flex-1">
@@ -242,6 +329,7 @@ export default function LokasjonerSkjerm() {
           tegningId={valgtTegningId}
           posisjonX={markørPosisjon.x}
           posisjonY={markørPosisjon.y}
+          gpsPositionert={aktivTab === "anlegg"}
         />
       )}
     </SafeAreaView>

@@ -29,6 +29,7 @@ interface OppgaveModalProps {
   tegningId: string;
   posisjonX: number;
   posisjonY: number;
+  gpsPositionert?: boolean;
 }
 
 const PRIORITETER: { verdi: Prioritet; label: string }[] = [
@@ -53,6 +54,7 @@ export function OppgaveModal({
   tegningId,
   posisjonX,
   posisjonY,
+  gpsPositionert,
 }: OppgaveModalProps) {
   const { valgtProsjektId } = useProsjekt();
 
@@ -314,12 +316,19 @@ export function OppgaveModal({
             <Text className="mb-1 text-xs font-medium text-gray-500">
               Posisjon på tegning
             </Text>
-            <View className="flex-row items-center gap-2 rounded-lg bg-blue-50 px-3 py-2.5">
-              <MapPin size={16} color="#1e40af" />
-              <Text className="text-sm text-blue-800">
-                {tegningNavn} ({Math.round(posisjonX)}%, {Math.round(posisjonY)}
-                %)
-              </Text>
+            <View className={`flex-row items-center gap-2 rounded-lg px-3 py-2.5 ${gpsPositionert ? "bg-green-50" : "bg-blue-50"}`}>
+              <MapPin size={16} color={gpsPositionert ? "#059669" : "#1e40af"} />
+              <View>
+                <Text className={`text-sm ${gpsPositionert ? "text-green-800" : "text-blue-800"}`}>
+                  {tegningNavn} ({Math.round(posisjonX)}%, {Math.round(posisjonY)}
+                  %)
+                </Text>
+                {gpsPositionert && (
+                  <Text className="text-xs text-green-600">
+                    Posisjon beregnet fra GPS
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
         </ScrollView>

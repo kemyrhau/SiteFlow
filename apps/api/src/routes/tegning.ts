@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { Prisma } from "@siteflow/db";
 import { router, publicProcedure } from "../trpc/trpc";
 import {
   drawingDisciplineSchema,
   drawingTypeSchema,
   drawingStatusSchema,
+  geoReferanseSchema,
 } from "@siteflow/shared";
 
 const fagdisipliner = drawingDisciplineSchema;
@@ -190,6 +192,29 @@ export const tegningRouter = router({
       return ctx.prisma.drawing.update({
         where: { id: input.drawingId },
         data: { buildingId: input.buildingId },
+      });
+    }),
+
+  // Sett georeferanse for en tegning
+  settGeoReferanse: publicProcedure
+    .input(z.object({
+      drawingId: z.string().uuid(),
+      geoReference: geoReferanseSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.drawing.update({
+        where: { id: input.drawingId },
+        data: { geoReference: input.geoReference },
+      });
+    }),
+
+  // Fjern georeferanse fra en tegning
+  fjernGeoReferanse: publicProcedure
+    .input(z.object({ drawingId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.drawing.update({
+        where: { id: input.drawingId },
+        data: { geoReference: Prisma.DbNull },
       });
     }),
 

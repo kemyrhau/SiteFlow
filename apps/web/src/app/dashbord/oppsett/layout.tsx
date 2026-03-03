@@ -34,7 +34,8 @@ const navigasjon: NavElement[] = [
     ikon: <MapPin className="h-4 w-4" />,
     kreverProsjekt: true,
     barn: [
-      { label: "Bygninger", href: "/dashbord/oppsett/lokasjoner/bygninger" },
+      { label: "Bygg", href: "/dashbord/oppsett/lokasjoner/bygninger" },
+      { label: "Anlegg", href: "/dashbord/oppsett/lokasjoner/anlegg" },
     ],
   },
   {

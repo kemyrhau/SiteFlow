@@ -17,21 +17,22 @@ import {
   MoreVertical,
   X,
   Upload,
-  Building2,
+  MapPin,
   FileText,
   ChevronDown,
   Loader2,
 } from "lucide-react";
+import { GeoReferanseEditor } from "@/components/GeoReferanseEditor";
 
 /* ------------------------------------------------------------------ */
-/*  RedigerBygning — fullskjerm overlay for å redigere en bygning      */
+/*  RedigerAnlegg — fullskjerm overlay for å redigere et anlegg         */
 /* ------------------------------------------------------------------ */
 
-function RedigerBygning({
-  bygningId,
+function RedigerAnlegg({
+  anleggId,
   onLukk,
 }: {
-  bygningId: string;
+  anleggId: string;
   onLukk: () => void;
 }) {
   const { prosjektId } = useProsjekt();
@@ -48,6 +49,9 @@ function RedigerBygning({
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const forhåndsvisningRef = useRef<HTMLDivElement>(null);
 
+  // Georeferanse-visning
+  const [visGeoEditor, setVisGeoEditor] = useState(false);
+
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (!e.shiftKey) return;
     e.preventDefault();
@@ -56,7 +60,6 @@ function RedigerBygning({
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    // Musposisjon relativt til container (0–1)
     const mx = (e.clientX - rect.left) / rect.width;
     const my = (e.clientY - rect.top) / rect.height;
 
@@ -65,7 +68,6 @@ function RedigerBygning({
       const neste = Math.min(10, Math.max(0.1, prev * faktor));
       const skalaDiff = neste - prev;
 
-      // Juster pan slik at zoom sentreres rundt musepekeren
       setPan((p) => ({
         x: p.x - skalaDiff * (mx - 0.5) * rect.width,
         y: p.y - skalaDiff * (my - 0.5) * rect.height,
@@ -98,11 +100,11 @@ function RedigerBygning({
     setPan({ x: 0, y: 0 });
   }, []);
 
-  // Nullstill zoom ved bytte av tegning
   const velgTegning = useCallback((id: string | null) => {
     setValgtTegningId(id);
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setVisGeoEditor(false);
   }, []);
 
   // Opplastingstilstand
@@ -126,9 +128,8 @@ function RedigerBygning({
   const [metaOpphav, setMetaOpphav] = useState("");
   const [metaBeskrivelse, setMetaBeskrivelse] = useState("");
 
-  const { data: bygning } = trpc.bygning.hentMedId.useQuery({ id: bygningId });
+  const { data: anlegg } = trpc.bygning.hentMedId.useQuery({ id: anleggId });
 
-  // Alle prosjekttegninger uten bygning (for tilknytning)
   const { data: alleTegninger } = trpc.tegning.hentForProsjekt.useQuery(
     { projectId: prosjektId! },
     { enabled: !!prosjektId },
@@ -136,19 +137,15 @@ function RedigerBygning({
 
   const tilknyttMutation = trpc.tegning.tilknyttBygning.useMutation({
     onSuccess: () => {
-      utils.bygning.hentMedId.invalidate({ id: bygningId });
-      utils.tegning.hentForProsjekt.invalidate({
-        projectId: prosjektId!,
-      });
-      utils.bygning.hentForProsjekt.invalidate({
-        projectId: prosjektId!,
-      });
+      utils.bygning.hentMedId.invalidate({ id: anleggId });
+      utils.tegning.hentForProsjekt.invalidate({ projectId: prosjektId! });
+      utils.bygning.hentForProsjekt.invalidate({ projectId: prosjektId! });
     },
   });
 
   const opprettTegningMutation = trpc.tegning.opprett.useMutation({
     onSuccess: () => {
-      utils.bygning.hentMedId.invalidate({ id: bygningId });
+      utils.bygning.hentMedId.invalidate({ id: anleggId });
       utils.tegning.hentForProsjekt.invalidate({ projectId: prosjektId! });
       utils.bygning.hentForProsjekt.invalidate({ projectId: prosjektId! });
       setVisMetadataModal(false);
@@ -193,7 +190,6 @@ function RedigerBygning({
       alert("Kunne ikke laste opp filen");
     } finally {
       setLasterOpp(false);
-      // Nullstill input slik at samme fil kan velges igjen
       e.target.value = "";
     }
   }
@@ -204,7 +200,7 @@ function RedigerBygning({
 
     opprettTegningMutation.mutate({
       projectId: prosjektId,
-      buildingId: bygningId,
+      buildingId: anleggId,
       name: metaNavn,
       drawingNumber: metaTegningsnr || undefined,
       discipline: (metaDisiplin || undefined) as typeof DRAWING_DISCIPLINES[number] | undefined,
@@ -220,10 +216,11 @@ function RedigerBygning({
     });
   }
 
-  const utilknyttede =
-    alleTegninger?.filter((t) => !t.buildingId) ?? [];
-
-  const tegninger = bygning?.drawings ?? [];
+  // Cast til enkle typer for å unngå TS2589 (excessively deep type instantiation)
+  type TegningRad = { id: string; name: string; buildingId: string | null; fileUrl: string; fileType: string; geoReference?: unknown };
+  const utilknyttede = (alleTegninger as TegningRad[] | undefined)
+    ?.filter((t) => !t.buildingId) ?? [];
+  const tegninger = (anlegg?.drawings ?? []) as TegningRad[];
   const valgtTegning = tegninger.find((t) => t.id === valgtTegningId) ?? null;
 
   return (
@@ -231,9 +228,9 @@ function RedigerBygning({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
         <div className="flex items-center gap-3">
-          <Building2 className="h-5 w-5 text-gray-500" />
+          <MapPin className="h-5 w-5 text-gray-500" />
           <h2 className="text-lg font-semibold text-gray-900">
-            {bygning?.name ?? "Laster..."}
+            {anlegg?.name ?? "Laster..."}
           </h2>
         </div>
         <button
@@ -247,20 +244,14 @@ function RedigerBygning({
       {/* Verktøylinje */}
       <div className="flex items-center gap-1 border-b border-gray-200 px-6 py-2">
         <div className="relative">
-          <Button
-            size="sm"
-            onClick={() => setVisTilføyMeny(!visTilføyMeny)}
-          >
+          <Button size="sm" onClick={() => setVisTilføyMeny(!visTilføyMeny)}>
             <Plus className="mr-1.5 h-4 w-4" />
             Tilføy
             <ChevronDown className="ml-1 h-3 w-3" />
           </Button>
           {visTilføyMeny && (
             <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setVisTilføyMeny(false)}
-              />
+              <div className="fixed inset-0 z-10" onClick={() => setVisTilføyMeny(false)} />
               <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                 <button
                   onClick={() => {
@@ -284,7 +275,7 @@ function RedigerBygning({
                         onClick={() => {
                           tilknyttMutation.mutate({
                             drawingId: tegning.id,
-                            buildingId: bygningId,
+                            buildingId: anleggId,
                           });
                           setVisTilføyMeny(false);
                         }}
@@ -300,6 +291,21 @@ function RedigerBygning({
             </>
           )}
         </div>
+
+        {valgtTegningId && (
+          <button
+            onClick={() => setVisGeoEditor(!visGeoEditor)}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+              visGeoEditor
+                ? "bg-siteflow-primary/10 text-siteflow-primary font-medium"
+                : "text-gray-500 hover:bg-gray-100"
+            }`}
+          >
+            <MapPin className="h-4 w-4" />
+            Georeferanse
+          </button>
+        )}
+
         <div className="relative">
           <button
             onClick={() => setVisMerMeny(!visMerMeny)}
@@ -310,19 +316,13 @@ function RedigerBygning({
           </button>
           {visMerMeny && (
             <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setVisMerMeny(false)}
-              />
+              <div className="fixed inset-0 z-10" onClick={() => setVisMerMeny(false)} />
               <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                 <button
                   disabled={!valgtTegningId}
                   onClick={() => {
                     if (valgtTegningId) {
-                      tilknyttMutation.mutate({
-                        drawingId: valgtTegningId,
-                        buildingId: null,
-                      });
+                      tilknyttMutation.mutate({ drawingId: valgtTegningId, buildingId: null });
                       setValgtTegningId(null);
                     }
                     setVisMerMeny(false);
@@ -337,7 +337,7 @@ function RedigerBygning({
         </div>
       </div>
 
-      {/* Skjult filinput for opplasting */}
+      {/* Skjult filinput */}
       <input
         ref={filInputRef}
         type="file"
@@ -361,35 +361,36 @@ function RedigerBygning({
           <div className="flex-1 overflow-y-auto p-6">
             {tegninger.length > 0 ? (
               <ul className="flex flex-col gap-1">
-                {tegninger.map((tegning) => (
-                  <li key={tegning.id}>
-                    <button
-                      onClick={() =>
-                        velgTegning(
-                          valgtTegningId === tegning.id ? null : tegning.id,
-                        )
-                      }
-                      className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                        valgtTegningId === tegning.id
-                          ? "bg-siteflow-primary/10 text-siteflow-primary"
-                          : "text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                      {tegning.name}
-                    </button>
-                  </li>
-                ))}
+                {tegninger.map((tegning) => {
+                  const harGeoRef = !!(tegning as { geoReference?: unknown }).geoReference;
+                  return (
+                    <li key={tegning.id}>
+                      <button
+                        onClick={() => velgTegning(valgtTegningId === tegning.id ? null : tegning.id)}
+                        className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                          valgtTegningId === tegning.id
+                            ? "bg-siteflow-primary/10 text-siteflow-primary"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                        <span className="flex-1">{tegning.name}</span>
+                        {harGeoRef && (
+                          <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                            Georeferert
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="flex flex-col items-center pt-20">
                 <p className="mb-6 text-xl text-gray-300">
                   Ingen tegninger eller modeller
                 </p>
-                <Button
-                  variant="secondary"
-                  onClick={() => filInputRef.current?.click()}
-                >
+                <Button variant="secondary" onClick={() => filInputRef.current?.click()}>
                   <Upload className="mr-2 h-4 w-4" />
                   Last opp
                 </Button>
@@ -401,57 +402,69 @@ function RedigerBygning({
           </div>
         </div>
 
-        {/* Høyre — forhåndsvisning */}
-        <div
-          ref={forhåndsvisningRef}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onDoubleClick={nullstillVisning}
-          className="relative flex flex-1 overflow-hidden bg-gray-50"
-          style={{ cursor: valgtTegning?.fileUrl ? (erDraging ? "grabbing" : "grab") : "default" }}
-        >
-          {valgtTegning?.fileUrl ? (
-            <div
-              className="flex min-h-full min-w-full items-center justify-center transition-transform duration-100 ease-out"
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                transformOrigin: "center center",
+        {/* Høyre — forhåndsvisning eller georeferanse-editor */}
+        {visGeoEditor && valgtTegningId ? (
+          <div className="flex-1 overflow-auto bg-gray-50 p-6">
+            <GeoReferanseEditor
+              tegningId={valgtTegningId}
+              tegning={valgtTegning}
+              onLagret={() => {
+                utils.bygning.hentMedId.invalidate({ id: anleggId });
               }}
-            >
-              {["png", "jpg", "jpeg"].includes(valgtTegning.fileType ?? "") ? (
-                <img
-                  src={`/api${valgtTegning.fileUrl}`}
-                  alt={valgtTegning.name}
-                  className="max-w-full object-contain"
-                  draggable={false}
-                />
-              ) : (
-                <iframe
-                  src={`/api${valgtTegning.fileUrl}`}
-                  title={valgtTegning.name}
-                  className="h-[calc(100vh-120px)] w-[calc(100vw-480px)] border-0"
-                />
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="text-center">
-                <LayoutGrid className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-                <p className="text-lg text-gray-400">
-                  {valgtTegningId ? "Ingen fil tilgjengelig" : "Velg en tegning for forhåndsvisning"}
-                </p>
+            />
+          </div>
+        ) : (
+          <div
+            ref={forhåndsvisningRef}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onDoubleClick={nullstillVisning}
+            className="relative flex flex-1 overflow-hidden bg-gray-50"
+            style={{ cursor: valgtTegning?.fileUrl ? (erDraging ? "grabbing" : "grab") : "default" }}
+          >
+            {valgtTegning?.fileUrl ? (
+              <div
+                className="flex min-h-full min-w-full items-center justify-center transition-transform duration-100 ease-out"
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transformOrigin: "center center",
+                }}
+              >
+                {["png", "jpg", "jpeg"].includes(valgtTegning.fileType ?? "") ? (
+                  <img
+                    src={`/api${valgtTegning.fileUrl}`}
+                    alt={valgtTegning.name}
+                    className="max-w-full object-contain"
+                    draggable={false}
+                  />
+                ) : (
+                  <iframe
+                    src={`/api${valgtTegning.fileUrl}`}
+                    title={valgtTegning.name}
+                    className="h-[calc(100vh-120px)] w-[calc(100vw-480px)] border-0"
+                  />
+                )}
               </div>
-            </div>
-          )}
-          {valgtTegning?.fileUrl && zoom !== 1 && (
-            <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-black/60 px-2.5 py-1 text-xs text-white">
-              {Math.round(zoom * 100)}%
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="text-center">
+                  <LayoutGrid className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                  <p className="text-lg text-gray-400">
+                    {valgtTegningId ? "Ingen fil tilgjengelig" : "Velg en tegning for forhåndsvisning"}
+                  </p>
+                </div>
+              </div>
+            )}
+            {valgtTegning?.fileUrl && zoom !== 1 && (
+              <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-black/60 px-2.5 py-1 text-xs text-white">
+                {Math.round(zoom * 100)}%
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Metadata-modal for ny tegning */}
@@ -555,16 +568,16 @@ function RedigerBygning({
 }
 
 /* ------------------------------------------------------------------ */
-/*  PublisertBygningKort — kort med forhåndsvisning for publiserte     */
+/*  PublisertAnleggKort — kort med forhåndsvisning for publiserte       */
 /* ------------------------------------------------------------------ */
 
-function PublisertBygningKort({
-  bygning,
+function PublisertAnleggKort({
+  anlegg,
   erValgt,
   onVelg,
   onRediger,
 }: {
-  bygning: {
+  anlegg: {
     id: string;
     name: string;
     _count: { drawings: number };
@@ -583,14 +596,12 @@ function PublisertBygningKort({
           : "border-gray-200"
       }`}
     >
-      {/* Forhåndsvisning-område */}
       <div className="flex h-[140px] items-center justify-center bg-gray-50">
-        <LayoutGrid className="h-10 w-10 text-gray-300" />
+        <MapPin className="h-10 w-10 text-gray-300" />
       </div>
-      {/* Navn */}
       <div className="border-t border-gray-100 px-3 py-2.5">
         <p className="truncate text-sm font-medium text-gray-900">
-          {bygning.name}
+          {anlegg.name}
         </p>
       </div>
     </button>
@@ -601,7 +612,7 @@ function PublisertBygningKort({
 /*  Hovedside                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function BygningerSide() {
+export default function AnleggSide() {
   const { prosjektId } = useProsjekt();
   const utils = trpc.useUtils();
   const [visModal, setVisModal] = useState(false);
@@ -609,19 +620,17 @@ export default function BygningerSide() {
   const [nyNavn, setNyNavn] = useState("");
   const [endreNavn, setEndreNavn] = useState("");
   const [valgtId, setValgtId] = useState<string | null>(null);
-  const [redigerBygningId, setRedigerBygningId] = useState<string | null>(null);
+  const [redigerAnleggId, setRedigerAnleggId] = useState<string | null>(null);
   const [visMerMeny, setVisMerMeny] = useState(false);
 
-  const { data: bygninger, isLoading } = trpc.bygning.hentForProsjekt.useQuery(
-    { projectId: prosjektId!, type: "bygg" },
+  const { data: anleggListe, isLoading } = trpc.bygning.hentForProsjekt.useQuery(
+    { projectId: prosjektId!, type: "anlegg" },
     { enabled: !!prosjektId },
   );
 
   const opprettMutation = trpc.bygning.opprett.useMutation({
     onSuccess: () => {
-      utils.bygning.hentForProsjekt.invalidate({
-        projectId: prosjektId!,
-      });
+      utils.bygning.hentForProsjekt.invalidate({ projectId: prosjektId! });
       setVisModal(false);
       setNyNavn("");
     },
@@ -629,37 +638,28 @@ export default function BygningerSide() {
 
   const slettMutation = trpc.bygning.slett.useMutation({
     onSuccess: () => {
-      utils.bygning.hentForProsjekt.invalidate({
-        projectId: prosjektId!,
-      });
+      utils.bygning.hentForProsjekt.invalidate({ projectId: prosjektId! });
       setValgtId(null);
     },
   });
 
   const publiserMutation = trpc.bygning.publiser.useMutation({
     onSuccess: () => {
-      utils.bygning.hentForProsjekt.invalidate({
-        projectId: prosjektId!,
-      });
+      utils.bygning.hentForProsjekt.invalidate({ projectId: prosjektId! });
     },
   });
 
   const oppdaterMutation = trpc.bygning.oppdater.useMutation({
     onSuccess: () => {
-      utils.bygning.hentForProsjekt.invalidate({
-        projectId: prosjektId!,
-      });
+      utils.bygning.hentForProsjekt.invalidate({ projectId: prosjektId! });
       setVisEndreNavnModal(false);
       setEndreNavn("");
     },
   });
 
-  // Valgt bygning
-  const valgtBygning = bygninger?.find((b) => b.id === valgtId) ?? null;
-
-  // Del opp i publiserte og upubliserte
-  const upubliserte = bygninger?.filter((b) => b.status === "unpublished") ?? [];
-  const publiserte = bygninger?.filter((b) => b.status === "published") ?? [];
+  const valgtAnlegg = anleggListe?.find((b) => b.id === valgtId) ?? null;
+  const upubliserte = anleggListe?.filter((b) => b.status === "unpublished") ?? [];
+  const publiserte = anleggListe?.filter((b) => b.status === "published") ?? [];
 
   function handleOpprett(e: React.FormEvent) {
     e.preventDefault();
@@ -667,6 +667,7 @@ export default function BygningerSide() {
     opprettMutation.mutate({
       name: nyNavn,
       projectId: prosjektId,
+      type: "anlegg",
     });
   }
 
@@ -682,18 +683,18 @@ export default function BygningerSide() {
   }
 
   function apneEndreNavn() {
-    if (!valgtBygning) return;
-    setEndreNavn(valgtBygning.name);
+    if (!valgtAnlegg) return;
+    setEndreNavn(valgtAnlegg.name);
     setVisEndreNavnModal(true);
     setVisMerMeny(false);
   }
 
-  function hentStatus(bygning: { _count: { drawings: number } }) {
-    if (bygning._count.drawings === 0) return "Bygget er tomt";
-    return `${bygning._count.drawings} tegning${bygning._count.drawings !== 1 ? "er" : ""}`;
+  function hentStatus(anlegg: { _count: { drawings: number } }) {
+    if (anlegg._count.drawings === 0) return "Anlegget er tomt";
+    return `${anlegg._count.drawings} tegning${anlegg._count.drawings !== 1 ? "er" : ""}`;
   }
 
-  const harValgt = !!valgtBygning;
+  const harValgt = !!valgtAnlegg;
 
   if (isLoading) {
     return (
@@ -705,7 +706,7 @@ export default function BygningerSide() {
 
   return (
     <div>
-      {/* Verktøylinje — Dalux-stil */}
+      {/* Verktøylinje */}
       <div className="mb-6 flex items-center gap-1 border-b border-gray-200 pb-3">
         <Button size="sm" onClick={() => setVisModal(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
@@ -730,7 +731,7 @@ export default function BygningerSide() {
         <button
           disabled={!harValgt}
           onClick={() => {
-            if (valgtId) setRedigerBygningId(valgtId);
+            if (valgtId) setRedigerAnleggId(valgtId);
           }}
           className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -747,16 +748,13 @@ export default function BygningerSide() {
           </button>
           {visMerMeny && (
             <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setVisMerMeny(false)}
-              />
+              <div className="fixed inset-0 z-10" onClick={() => setVisMerMeny(false)} />
               <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                 <button
                   disabled={!harValgt}
                   onClick={() => {
-                    if (valgtBygning) {
-                      publiserMutation.mutate({ id: valgtBygning.id });
+                    if (valgtAnlegg) {
+                      publiserMutation.mutate({ id: valgtAnlegg.id });
                     }
                     setVisMerMeny(false);
                   }}
@@ -772,7 +770,7 @@ export default function BygningerSide() {
                   }}
                   className="flex w-full items-center px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-50 disabled:opacity-40"
                 >
-                  Slett bygg
+                  Slett anlegg
                 </button>
               </div>
             </>
@@ -781,18 +779,18 @@ export default function BygningerSide() {
       </div>
 
       {/* Innhold */}
-      {!bygninger || bygninger.length === 0 ? (
+      {!anleggListe || anleggListe.length === 0 ? (
         <EmptyState
-          title="Ingen bygg"
-          description="Opprett ditt første bygg for å begynne å organisere tegninger."
+          title="Ingen anlegg"
+          description="Opprett ditt første anlegg for å begynne å organisere utendørs tegninger med georeferering."
         />
       ) : (
         <>
-          {/* Upubliserte bygg */}
+          {/* Upubliserte anlegg */}
           {upubliserte.length > 0 && (
             <div className="mb-8">
               <h3 className="mb-3 text-lg font-bold text-gray-900">
-                Upubliserte bygg
+                Upubliserte anlegg
               </h3>
 
               <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -811,28 +809,22 @@ export default function BygningerSide() {
                     </tr>
                   </thead>
                   <tbody>
-                    {upubliserte.map((bygning) => (
+                    {upubliserte.map((anlegg) => (
                       <tr
-                        key={bygning.id}
-                        onClick={() =>
-                          setValgtId(
-                            valgtId === bygning.id ? null : bygning.id,
-                          )
-                        }
-                        onDoubleClick={() =>
-                          setRedigerBygningId(bygning.id)
-                        }
+                        key={anlegg.id}
+                        onClick={() => setValgtId(valgtId === anlegg.id ? null : anlegg.id)}
+                        onDoubleClick={() => setRedigerAnleggId(anlegg.id)}
                         className={`cursor-pointer border-b border-gray-100 last:border-0 ${
-                          valgtId === bygning.id
+                          valgtId === anlegg.id
                             ? "bg-siteflow-primary/5"
                             : "hover:bg-gray-50"
                         }`}
                       >
                         <td className="px-4 py-2.5 text-sm text-gray-900">
-                          {bygning.name}
+                          {anlegg.name}
                         </td>
                         <td className="px-4 py-2.5 text-sm text-gray-500">
-                          {hentStatus(bygning)}
+                          {hentStatus(anlegg)}
                         </td>
                         <td className="px-4 py-2.5 text-right text-sm text-gray-500">
                           &mdash;
@@ -844,30 +836,26 @@ export default function BygningerSide() {
               </div>
 
               <p className="mt-3 text-sm text-gray-500">
-                Bygg vil <strong>automatisk</strong> bli gjort
+                Anlegg vil <strong>automatisk</strong> bli gjort
                 tilgjengelige når de er blitt utarbeidet.
               </p>
             </div>
           )}
 
-          {/* Publiserte bygg */}
+          {/* Publiserte anlegg */}
           {publiserte.length > 0 && (
             <div>
               <h3 className="mb-3 text-lg font-bold text-gray-900">
-                Publiserte bygg
+                Publiserte anlegg
               </h3>
               <div className="flex flex-wrap gap-4">
-                {publiserte.map((bygning) => (
-                  <PublisertBygningKort
-                    key={bygning.id}
-                    bygning={bygning}
-                    erValgt={valgtId === bygning.id}
-                    onVelg={() =>
-                      setValgtId(
-                        valgtId === bygning.id ? null : bygning.id,
-                      )
-                    }
-                    onRediger={() => setRedigerBygningId(bygning.id)}
+                {publiserte.map((anlegg) => (
+                  <PublisertAnleggKort
+                    key={anlegg.id}
+                    anlegg={anlegg}
+                    erValgt={valgtId === anlegg.id}
+                    onVelg={() => setValgtId(valgtId === anlegg.id ? null : anlegg.id)}
+                    onRediger={() => setRedigerAnleggId(anlegg.id)}
                   />
                 ))}
               </div>
@@ -876,11 +864,11 @@ export default function BygningerSide() {
         </>
       )}
 
-      {/* Tilføy bygg modal */}
+      {/* Tilføy anlegg modal */}
       <Modal
         open={visModal}
         onClose={() => setVisModal(false)}
-        title="Tilføy bygg"
+        title="Tilføy anlegg"
       >
         {opprettMutation.isPending ? (
           <div className="flex items-center justify-center py-8">
@@ -902,7 +890,7 @@ export default function BygningerSide() {
               >
                 Avbryt
               </Button>
-              <Button type="submit">Tilføy bygg</Button>
+              <Button type="submit">Tilføy anlegg</Button>
             </div>
           </form>
         )}
@@ -937,10 +925,10 @@ export default function BygningerSide() {
       </Modal>
 
       {/* Fullskjerm redigeringsvisning */}
-      {redigerBygningId && (
-        <RedigerBygning
-          bygningId={redigerBygningId}
-          onLukk={() => setRedigerBygningId(null)}
+      {redigerAnleggId && (
+        <RedigerAnlegg
+          anleggId={redigerAnleggId}
+          onLukk={() => setRedigerAnleggId(null)}
         />
       )}
     </div>

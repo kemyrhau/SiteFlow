@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DOCUMENT_STATUSES, REPORT_OBJECT_TYPES, TEMPLATE_ZONES, GROUP_CATEGORIES, FOLDER_ACCESS_MODES, FOLDER_ACCESS_TYPES } from "../types";
+import { DOCUMENT_STATUSES, REPORT_OBJECT_TYPES, TEMPLATE_ZONES, GROUP_CATEGORIES, FOLDER_ACCESS_MODES, FOLDER_ACCESS_TYPES, BUILDING_TYPES } from "../types";
 
 // Dokumentstatus-validering
 export const documentStatusSchema = z.enum(DOCUMENT_STATUSES);
@@ -49,12 +49,33 @@ export const copyEnterpriseSchema = z.object({
   memberIds: z.array(z.string().uuid()).default([]),
 });
 
+// Bygningstype-validering
+export const buildingTypeSchema = z.enum(BUILDING_TYPES);
+
+// Georeferanse-validering
+const geoReferansePunktSchema = z.object({
+  pixel: z.object({
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100),
+  }),
+  gps: z.object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  }),
+});
+
+export const geoReferanseSchema = z.object({
+  point1: geoReferansePunktSchema,
+  point2: geoReferansePunktSchema,
+});
+
 // Bygningsvalidering
 export const createBuildingSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd").max(255),
   projectId: z.string().uuid(),
   description: z.string().optional(),
   address: z.string().optional(),
+  type: buildingTypeSchema.default("bygg"),
 });
 
 // Malkategori-validering

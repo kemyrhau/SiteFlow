@@ -228,6 +228,7 @@ model Drawing {
   fileType      String    @map("file_type")           // PDF, DWG, DXF, IFC
   fileSize      Int?      @map("file_size")           // Filstørrelse i bytes
   issuedAt      DateTime? @map("issued_at")           // Utstedelsesdato
+  geoReference  Json?     @map("geo_reference")       // Georeferanse med 2 referansepunkter
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
@@ -265,6 +266,7 @@ model Building {
   name        String
   description String?
   address     String?
+  type        String   @default("bygg")  // "bygg" | "anlegg"
   status      String   @default("unpublished")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -343,6 +345,7 @@ model Checklist {
   drawing            Drawing?           @relation(fields: [drawingId], references: [id], onDelete: SetNull)
   transfers          DocumentTransfer[]
   images             Image[]
+  tasks              Task[]
 
   @@map("checklists")
 }
@@ -363,6 +366,8 @@ model Task {
   positionX            Float?    @map("position_x")
   positionY            Float?    @map("position_y")
   workflowId           String?   @map("workflow_id")
+  checklistId          String?   @map("checklist_id")
+  checklistFieldId     String?   @map("checklist_field_id")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
@@ -372,6 +377,7 @@ model Task {
   responderEnterprise Enterprise        @relation("TaskResponderEnterprise", fields: [responderEnterpriseId], references: [id])
   drawing            Drawing?           @relation(fields: [drawingId], references: [id])
   workflow           Workflow?          @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  checklist          Checklist?         @relation(fields: [checklistId], references: [id], onDelete: SetNull)
   transfers          DocumentTransfer[]
   images             Image[]
 

@@ -5,10 +5,16 @@ import { createBuildingSchema } from "@siteflow/shared";
 export const bygningRouter = router({
   // Hent alle bygninger for et prosjekt
   hentForProsjekt: publicProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(z.object({
+      projectId: z.string().uuid(),
+      type: z.string().optional(),
+    }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.building.findMany({
-        where: { projectId: input.projectId },
+        where: {
+          projectId: input.projectId,
+          ...(input.type ? { type: input.type } : {}),
+        },
         include: {
           drawings: { select: { id: true, name: true } },
           _count: { select: { drawings: true } },

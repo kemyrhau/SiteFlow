@@ -238,7 +238,7 @@ export function TegningsVelger({
               className="flex-row items-center gap-1"
             >
               <Text className="text-sm font-semibold text-white">
-                {valgtBygning?.name ?? "Alle bygninger"}
+                {valgtBygning?.name ?? "Alle lokasjoner"}
               </Text>
               <ChevronDown size={16} color="#ffffff" />
             </Pressable>
@@ -261,7 +261,7 @@ export function TegningsVelger({
                 <Text
                   className={`flex-1 text-sm ${!valgtBygningId ? "font-semibold text-blue-700" : "text-gray-700"}`}
                 >
-                  Alle bygninger
+                  Alle lokasjoner
                 </Text>
                 {!valgtBygningId && <Check size={18} color="#1e40af" />}
               </Pressable>
