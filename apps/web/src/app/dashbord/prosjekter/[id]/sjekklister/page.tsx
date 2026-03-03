@@ -12,7 +12,6 @@ export default function SjekklisteSide() {
   const [visModal, setVisModal] = useState(false);
   const [valgtMal, setValgtMal] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
-  const [tittel, setTittel] = useState("");
 
   const { data: sjekklister, isLoading } = trpc.sjekkliste.hentForProsjekt.useQuery(
     { projectId: params.id },
@@ -27,13 +26,12 @@ export default function SjekklisteSide() {
       setVisModal(false);
       setValgtMal("");
       setValgtSvarer("");
-      setTittel("");
     },
   });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!valgtMal || !valgtSvarer || !tittel.trim()) return;
+    if (!valgtMal || !valgtSvarer) return;
 
     // Bruker første entreprise som oppretter (forenklet — forbedres med sesjonskontekst)
     const oppretterEntreprise = entrepriser?.[0];
@@ -43,7 +41,6 @@ export default function SjekklisteSide() {
       templateId: valgtMal,
       creatorEnterpriseId: oppretterEntreprise.id,
       responderEnterpriseId: valgtSvarer,
-      title: tittel.trim(),
     });
   }
 
@@ -98,16 +95,6 @@ export default function SjekklisteSide() {
 
       <Modal open={visModal} onClose={() => setVisModal(false)} title="Ny sjekkliste">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Tittel</label>
-            <input
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
-              placeholder="F.eks. Kontroll elektro - 3. etasje"
-              value={tittel}
-              onChange={(e) => setTittel(e.target.value)}
-              required
-            />
-          </div>
           <Select
             label="Rapportmal"
             options={maler?.map((m) => ({ value: m.id, label: m.name })) ?? []}

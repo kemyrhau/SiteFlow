@@ -234,7 +234,6 @@ export function OpprettDokumentModal({
         templateId: mal.id,
         creatorEnterpriseId: oppretterEntrepriseId,
         responderEnterpriseId: autoSvarerEntrepriseId,
-        title: prosjektNavn,
         workflowId: matchendeArbeidsforlop.id,
         subject: emne.trim() || undefined,
         buildingId: valgtBygningId || undefined,

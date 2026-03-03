@@ -18,7 +18,6 @@ export default function SjekklisteSide() {
   const [valgtMal, setValgtMal] = useState("");
   const [valgtOppretter, setValgtOppretter] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
-  const [tittel, setTittel] = useState("");
   const [valgte, setValgte] = useState<Set<string>>(new Set());
 
   const { data: sjekklister, isLoading } = trpc.sjekkliste.hentForProsjekt.useQuery(
@@ -38,7 +37,6 @@ export default function SjekklisteSide() {
       setValgtMal("");
       setValgtOppretter("");
       setValgtSvarer("");
-      setTittel("");
     },
   });
 
@@ -73,13 +71,12 @@ export default function SjekklisteSide() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!valgtMal || !valgtOppretter || !valgtSvarer || !tittel.trim()) return;
+    if (!valgtMal || !valgtOppretter || !valgtSvarer) return;
 
     opprettMutation.mutate({
       templateId: valgtMal,
       creatorEnterpriseId: valgtOppretter,
       responderEnterpriseId: valgtSvarer,
-      title: tittel.trim(),
     });
   }
 
@@ -184,16 +181,6 @@ export default function SjekklisteSide() {
 
       <Modal open={visModal} onClose={() => setVisModal(false)} title="Ny sjekkliste">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Tittel</label>
-            <input
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
-              placeholder="F.eks. Kontroll elektro - 3. etasje"
-              value={tittel}
-              onChange={(e) => setTittel(e.target.value)}
-              required
-            />
-          </div>
           <Select
             label="Rapportmal"
             options={maler?.map((m) => ({ value: m.id, label: m.name })) ?? []}

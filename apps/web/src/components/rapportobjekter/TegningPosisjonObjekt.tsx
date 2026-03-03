@@ -22,7 +22,7 @@ export function TegningPosisjonObjekt({
   const bygningsFilter = config.buildingFilter as string | null;
   const disiplinFilter = config.disciplineFilter as string | null;
 
-  const { data: tegninger } = trpc.tegning.hentForProsjekt.useQuery(
+  const tegningQuery = trpc.tegning.hentForProsjekt.useQuery(
     {
       projectId: prosjektId!,
       ...(bygningsFilter ? { buildingId: bygningsFilter } : {}),
@@ -30,6 +30,7 @@ export function TegningPosisjonObjekt({
     },
     { enabled: !!prosjektId },
   );
+  const tegninger = tegningQuery.data as Array<{ id: string; name: string; drawingNumber: string | null; fileUrl: string | null }> | undefined;
 
   const valgtTegning = tegninger?.find((t) => t.id === valgtTegningId);
 

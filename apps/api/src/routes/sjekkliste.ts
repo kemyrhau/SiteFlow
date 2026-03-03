@@ -79,7 +79,7 @@ export const sjekklisteRouter = router({
         templateId: z.string().uuid(),
         creatorEnterpriseId: z.string().uuid(),
         responderEnterpriseId: z.string().uuid(),
-        title: z.string().min(1).max(255),
+        title: z.string().max(255).optional(),
         workflowId: z.string().uuid().optional(),
         subject: z.string().max(500).optional(),
         buildingId: z.string().uuid().optional(),
@@ -92,10 +92,10 @@ export const sjekklisteRouter = router({
       await verifiserEntrepriseTilhorighet(ctx.userId, input.creatorEnterpriseId);
 
       return ctx.prisma.$transaction(async (tx) => {
-        // Finn malens prefix og prosjekt for autonummerering
+        // Finn malens prefix, navn og prosjekt for autonummerering
         const mal = await tx.reportTemplate.findUniqueOrThrow({
           where: { id: input.templateId },
-          select: { prefix: true, projectId: true },
+          select: { prefix: true, name: true, projectId: true },
         });
 
         let nummer: number | undefined;
@@ -111,12 +111,19 @@ export const sjekklisteRouter = router({
           nummer = (maks._max.number ?? 0) + 1;
         }
 
+        // Auto-generer tittel: "001BHO Byggelerers dagbok/kontroll"
+        const tittel = input.title?.trim() || (() => {
+          const nummerStr = nummer ? String(nummer).padStart(3, "0") : "";
+          const prefiks = mal.prefix ?? "";
+          return `${nummerStr}${prefiks} ${mal.name}`.trim();
+        })();
+
         return tx.checklist.create({
           data: {
             templateId: input.templateId,
             creatorEnterpriseId: input.creatorEnterpriseId,
             responderEnterpriseId: input.responderEnterpriseId,
-            title: input.title,
+            title: tittel,
             creatorUserId: ctx.userId,
             number: nummer,
             workflowId: input.workflowId,
