@@ -193,7 +193,7 @@ Alle routere i `apps/api/src/routes/`:
 | `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
 | `mappe` | hentForProsjekt (m/tilgangsoppføringer), hentDokumenter, opprett, oppdater, slett, hentTilgang, settTilgang |
 | `medlem` | hentForProsjekt, hentMineEntrepriser, leggTil (m/invitasjon), fjern, oppdaterRolle, sokBrukere |
-| `gruppe` | hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem, oppdaterEntrepriser, oppdaterDomener |
+| `gruppe` | hentMineTillatelser, hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem, oppdaterEntrepriser, oppdaterDomener |
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
 | `vaer` | hentVaerdata (Open-Meteo proxy: latitude, longitude, dato → temperatur, værkode, vind) |
 
