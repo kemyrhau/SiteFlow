@@ -68,6 +68,7 @@ siteflow/
 │   │       │           └── [id]/             # Prosjektdetalj med tabs (gammel)
 │   │       ├── components/
 │   │       │   ├── Toppmeny.tsx              # LEGACY: Gammel toppmeny
+│   │       │   ├── RapportObjektVisning.tsx   # Read-only renderer for alle 23 rapportobjekttyper (print)
 │   │       │   ├── layout/                   # Toppbar, HovedSidebar, SekundaertPanel, Verktoylinje, ProsjektVelger
 │   │       │   └── paneler/                  # Seksjonspaneler (Dashbord, Sjekklister, Oppgaver, Maler, Entrepriser, Tegninger, Mapper)
 │   │       ├── kontekst/                     # ProsjektKontekst, NavigasjonKontekst
@@ -134,7 +135,7 @@ siteflow/
 | `accounts` | OAuth-tilkoblinger (Google, Microsoft Entra ID) |
 | `sessions` | Database-sesjoner for Auth.js |
 | `verification_tokens` | E-postverifiseringstokens |
-| `projects` | Prosjekter med prosjektnummer (SF-YYYYMMDD-XXXX), status, valgfri lokasjon (`latitude`, `longitude`) |
+| `projects` | Prosjekter med prosjektnummer (SF-YYYYMMDD-XXXX), status, valgfri lokasjon (`latitude`, `longitude`), valgfritt eksternt prosjektnummer (`external_project_number`) |
 | `project_members` | Prosjektmedlemmer med rolle (member/admin), entrepriser via `member_enterprises` |
 | `member_enterprises` | Mange-til-mange join-tabell mellom `project_members` og `enterprises` |
 | `enterprises` | Entrepriser med `enterprise_number` (Dalux-format: "04 Tømrer, Econor"), bransje, firma, farge |
@@ -182,7 +183,7 @@ Alle routere i `apps/api/src/routes/`:
 | `bygning` | hentForProsjekt, hentMedId, opprett, oppdater, publiser, slett |
 | `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, slett |
 | `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
-| `mappe` | hentForProsjekt, opprett, oppdater, slett |
+| `mappe` | hentForProsjekt, hentDokumenter, opprett, oppdater, slett |
 | `medlem` | hentForProsjekt, hentMineEntrepriser, leggTil (m/invitasjon), fjern, oppdaterRolle, sokBrukere |
 | `gruppe` | hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem |
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
@@ -483,9 +484,9 @@ Prosjekter kan ha valgfri GPS-lokasjon (`latitude`, `longitude` på Project-mode
 - Fix Leaflet-ikon-bug: sett icon URL manuelt med `L.icon()` (unpkg CDN)
 
 **Prosjektoppsett-siden** (`/dashbord/oppsett/prosjektoppsett`):
-- Seksjon "Prosjektlokasjon" med kartvelger
-- Viser koordinater + "Fjern lokasjon"-knapp
-- Lagres via `prosjekt.oppdater` med `latitude`/`longitude`
+- Seksjon "Generell informasjon": prosjektnummer (read-only), eksternt prosjektnummer, navn, beskrivelse, adresse
+- Seksjon "Prosjektlokasjon" med kartvelger, koordinater + "Fjern lokasjon"-knapp
+- Lagres via `prosjekt.oppdater` med `latitude`/`longitude`, `externalProjectNumber`
 
 ### Automatisk værhenting
 
@@ -540,6 +541,37 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 - **Radvalg:** Enkeltklikk velger (aktiverer Rediger/Slett), dobbeltklikk åpner malbygger
 - **Opprett-modal:** Navn, Prefiks, Beskrivelse
 - **Bunnlinje:** Låsefunksjon for maler
+
+### Print-til-PDF (web)
+
+Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har utskriftsstøtte via `@media print` CSS og nettleserens "Lagre som PDF":
+
+**Print-header** (`PrintHeader`-komponent, skjult på skjerm via `.print-header`):
+- Rad 1: Prosjektnavn, prosjektnummer, eksternt prosjektnummer, dato
+- Rad 2: Sjekkliste-tittel, nummer (prefiks+løpenummer), oppretter (entreprise + bruker), svarer
+- Rad 3: Værdata (temperatur, forhold, vind) — kun hvis vær-felt har verdi
+
+**Skjerm-header** (skjult ved print via `.print-skjul`):
+- Tittel, StatusBadge, LagreIndikator, "Skriv ut"-knapp (`window.print()`)
+- Metadata: mal, oppretter, svarer, sjekkliste-nummer
+
+**Print CSS** (`apps/web/src/app/globals.css`):
+- `.print-header` — `display: none` på skjerm, `display: block` ved print
+- `.print-skjul` — `display: none` ved print
+- `.print-no-break` — `page-break-inside: avoid`
+- `header`, `aside`, `[data-panel="sekundaert"]`, `[data-toolbar]` skjules ved print
+- `main` → fullbredde uten margin
+
+**Data-attributter for print:**
+- `SekundaertPanel` → `data-panel="sekundaert"`
+- `Verktoylinje` → `data-toolbar`
+
+**RapportObjektVisning** (`apps/web/src/components/RapportObjektVisning.tsx`):
+- Read-only renderer for alle 23 rapportobjekttyper
+- Rekursiv nesting med `TreObjekt`-interface (objekt + children)
+- `FeltRad`-wrapper med label + verdi/tom-state
+- Normaliserer opsjoner via `normaliserOpsjon()` fra `typer.ts`
+- Bruker `formaterDato()` og `formaterDatoTid()` med `nb-NO`-locale
 
 ### Bildehåndtering
 
@@ -688,12 +720,12 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord                                     -> Dashbord (prosjektliste)
 /dashbord/[prosjektId]                        -> Prosjektoversikt
 /dashbord/[prosjektId]/sjekklister            -> Sjekkliste-tabell
-/dashbord/[prosjektId]/sjekklister/[id]       -> Sjekkliste-detalj
+/dashbord/[prosjektId]/sjekklister/[id]       -> Sjekkliste-detalj (utfylling + print)
 /dashbord/[prosjektId]/oppgaver               -> Oppgave-tabell
 /dashbord/[prosjektId]/maler                  -> Mal-liste
 /dashbord/[prosjektId]/maler/[id]             -> Mal-detalj / malbygger
 /dashbord/[prosjektId]/entrepriser            -> Entreprise-liste
-/dashbord/[prosjektId]/mapper                 -> Mapper (mappestruktur)
+/dashbord/[prosjektId]/mapper                 -> Mapper (read-only dokumentvisning, ?mappe=id)
 /dashbord/[prosjektId]/tegninger              -> Tegninger
 /dashbord/oppsett                             -> Innstillinger (redirect til brukere)
 /dashbord/oppsett/brukere                     -> Brukergrupper, roller, medlemmer
@@ -705,7 +737,7 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/oppsett/field/sjekklistemaler       -> Sjekklistemaler (filtrert malliste)
 /dashbord/oppsett/field/box                   -> Mappeoppsett (filstruktur/mappestruktur)
 /dashbord/oppsett/field/kontrollplaner        -> Kontrollplaner (kommer)
-/dashbord/oppsett/prosjektoppsett             -> Prosjektoppsett (navn, status, adresse)
+/dashbord/oppsett/prosjektoppsett             -> Prosjektoppsett (navn, status, adresse, eksternt prosjektnummer)
 ```
 
 **Legacy-ruter** (gamle flat-navigasjonsruter, fases ut):
@@ -745,7 +777,7 @@ Dalux-inspirert tre-kolonne layout:
 - `MalerPanel` — Malliste med søk
 - `EntrepriserPanel` — Entrepriseliste med søk
 - `TegningerPanel` — Tegninger (placeholder med søk)
-- `MapperPanel` — Mappestruktur med søk og trevisning
+- `MapperPanel` — Klikkbar mappestruktur med søk, valgt mappe markeres blå, navigerer via URL-param `?mappe=id`
 
 ### Mer-meny
 
@@ -817,7 +849,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `templateZoneSchema` — Enum for malsoner
 - `templateCategorySchema` — Enum for `oppgave` | `sjekkliste`
 - `gpsDataSchema` — GPS med lat/lng-grenser
-- `createProjectSchema` — Prosjektopprettelse (navn, beskrivelse, adresse, latitude, longitude)
+- `createProjectSchema` — Prosjektopprettelse (navn, beskrivelse, adresse, latitude, longitude, externalProjectNumber)
 - `createEnterpriseSchema` — Entrepriseopprettelse (navn, prosjektId, org.nr)
 - `createBuildingSchema` — Bygningsopprettelse (navn, prosjektId, beskrivelse, adresse)
 - `createWorkflowSchema` — Arbeidsforløp (enterpriseId, responderEnterpriseId, navn, malIder)
@@ -892,7 +924,7 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Rapportobjekt:** Byggeblokk i en mal (23 typer)
 - **Mal (template):** Gjenbrukbar oppskrift for sjekklister/rapporter bygget med drag-and-drop, med prefiks og versjon
 - **Arbeidsforløp (workflow):** Navngitt kobling mellom en oppretter-entreprise, valgfri svarer-entreprise, og et sett maler (oppgave-/sjekklistetyper)
-- **Mapper (Mappeoppsett):** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur. Tilgjengelig fra HovedSidebar (mappe-ikon under `/dashbord/[prosjektId]/mapper`) og under Innstillinger > Field > Mappeoppsett (`/dashbord/oppsett/field/box`)
+- **Mapper (Mappeoppsett):** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur. To visninger: (1) HovedSidebar → `/dashbord/[prosjektId]/mapper` — read-only dokumentvisning (velg mappe i panel, se dokumenter i hovedinnhold), (2) Innstillinger > Field > Mappeoppsett (`/dashbord/oppsett/field/box`) — redigering av mappestruktur (opprett, gi nytt navn, slett)
 - **Bygning:** Fysisk bygning i et prosjekt, med tilknyttede tegninger og publiseringsstatus
 - **Prosjektnummer:** Unikt, autogenerert nummer på format `SF-YYYYMMDD-XXXX`
 - **Prefiks:** Kort kode for en mal (f.eks. BHO, S-BET, KBO)
@@ -910,6 +942,8 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Posisjon i tegning (`drawing_position`):** Rapportobjekt der brukeren velger en tegning og markerer en posisjon (0–100% X/Y). Config-filtre: `buildingFilter`, `disciplineFilter`.
 - **Automatisk værhenting:** Sjekklister med vær-felt og dato-felt auto-henter værdata fra Open-Meteo basert på prosjektkoordinater. Kilde-sporing: `"automatisk"` (fra API) eller `"manuell"` (bruker-overstyrt).
 - **WMO-værkode:** Internasjonal standard (WMO Code Table 4677) for å beskrive værforhold som tall. Konverteres til norsk tekst via `vaerkodeTilTekst()`.
+- **Eksternt prosjektnummer:** Valgfritt felt (`externalProjectNumber`) på Project-modellen for kundens eller byggeherrens prosjektreferanse. Redigerbar i prosjektinnstillinger, vises i print-header.
+- **Print-til-PDF:** Utskriftsstøtte på sjekkliste-detaljsiden via `@media print` CSS. Print-header med prosjektinfo, oppretter/svarer og værdata vises kun ved utskrift. Nettleserens "Lagre som PDF" brukes.
 
 ## Språk
 
