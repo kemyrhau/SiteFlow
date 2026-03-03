@@ -3,7 +3,7 @@
     "name": "SiteFlow",
     "slug": "siteflow",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "scheme": "siteflow",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -19,6 +19,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-screen-orientation",
       "expo-secure-store",
       [
         "expo-location",
