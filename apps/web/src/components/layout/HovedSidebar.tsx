@@ -14,13 +14,16 @@ import {
 import { SidebarIkon } from "@siteflow/ui";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { useAktivSeksjon } from "@/hooks/useAktivSeksjon";
+import { trpc } from "@/lib/trpc";
 import type { Seksjon } from "@/kontekst/navigasjon-kontekst";
+import type { Permission } from "@siteflow/shared";
 
 interface SidebarElement {
   id: Seksjon;
   label: string;
   ikon: JSX.Element;
   kreverProsjekt: boolean;
+  tillatelse?: Permission;
 }
 
 const hovedelementer: SidebarElement[] = [
@@ -47,6 +50,7 @@ const hovedelementer: SidebarElement[] = [
     label: "Maler",
     ikon: <FileText className="h-5 w-5" />,
     kreverProsjekt: true,
+    tillatelse: "manage_field",
   },
   {
     id: "tegninger",
@@ -82,6 +86,17 @@ export function HovedSidebar() {
   const { prosjektId } = useProsjekt();
   const aktivSeksjon = useAktivSeksjon();
 
+  const { data: tillatelser } = trpc.gruppe.hentMineTillatelser.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
+  const filtrertHovedelementer = hovedelementer.filter((element) => {
+    if (!element.tillatelse) return true;
+    if (!tillatelser) return false;
+    return tillatelser.includes(element.tillatelse);
+  });
+
   function naviger(element: SidebarElement) {
     if (element.id === "dashbord") {
       router.push(prosjektId ? `/dashbord/${prosjektId}` : "/dashbord");
@@ -96,7 +111,7 @@ export function HovedSidebar() {
     <aside className="flex w-[60px] flex-col items-center bg-siteflow-primary py-3">
       {/* Hovedelementer */}
       <nav className="flex flex-1 flex-col items-center gap-1">
-        {hovedelementer.map((element) => {
+        {filtrertHovedelementer.map((element) => {
           const deaktivert = element.kreverProsjekt && !prosjektId;
           return (
             <div

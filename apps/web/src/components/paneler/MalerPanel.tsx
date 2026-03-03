@@ -16,7 +16,8 @@ export function MalerPanel() {
     { enabled: !!params.prosjektId },
   );
 
-  const filtrerte = (maler ?? []).filter((m) =>
+  type MalRad = { id: string; name: string; _count: { objects: number; checklists: number } };
+  const filtrerte = ((maler ?? []) as MalRad[]).filter((m) =>
     m.name.toLowerCase().includes(sok.toLowerCase()),
   );
 

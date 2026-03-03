@@ -12,9 +12,18 @@ import { TRPCError } from "@trpc/server";
 import {
   verifiserAdmin,
   verifiserProsjektmedlem,
+  hentBrukerTillatelser,
 } from "../trpc/tilgangskontroll";
 
 export const gruppeRouter = router({
+  // Hent innlogget brukers tillatelser i et prosjekt
+  hentMineTillatelser: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const tillatelser = await hentBrukerTillatelser(ctx.userId, input.projectId);
+      return Array.from(tillatelser);
+    }),
+
   // Hent alle grupper for et prosjekt med medlemmer
   hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))

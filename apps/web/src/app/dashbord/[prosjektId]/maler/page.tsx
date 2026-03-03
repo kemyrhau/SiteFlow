@@ -15,8 +15,14 @@ export default function MalerSide() {
   const [navn, setNavn] = useState("");
   const [beskrivelse, setBeskrivelse] = useState("");
 
+  const { data: tillatelser, isLoading: lasterTillatelser } =
+    trpc.gruppe.hentMineTillatelser.useQuery({ projectId: params.prosjektId });
+
+  const harTilgang = tillatelser?.includes("manage_field");
+
   const { data: maler, isLoading } = trpc.mal.hentForProsjekt.useQuery(
     { projectId: params.prosjektId },
+    { enabled: harTilgang },
   );
 
   const opprettMutation = trpc.mal.opprett.useMutation({
@@ -48,11 +54,20 @@ export default function MalerSide() {
     });
   }
 
-  if (isLoading) {
+  if (lasterTillatelser || isLoading) {
     return (
       <div className="flex justify-center py-12">
         <Spinner size="lg" />
       </div>
+    );
+  }
+
+  if (!harTilgang) {
+    return (
+      <EmptyState
+        title="Ingen tilgang"
+        description="Du har ikke tilgang til denne siden. Kun feltarbeid-administratorer kan se maler."
+      />
     );
   }
 
