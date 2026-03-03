@@ -15,6 +15,7 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 - **E-post:** Resend (invitasjons-e-poster ved brukeropprettelse)
 - **Bildekomprimering:** expo-image-manipulator (5:4 senter-crop + mål: 300–400 KB)
 - **GPS:** expo-location (deaktiverbar per objekt)
+- **Sensorer:** expo-sensors (akselerometer for kamera-UI-rotasjon)
 - **PDF-eksport:** react-pdf
 - **Styling:** Tailwind CSS (web), NativeWind (mobil)
 - **Drag-and-drop:** dnd-kit (malbygger på PC)
@@ -661,10 +662,25 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 
 **5:4 crop-guide (`KameraModal`):**
 - Visuell guide som viser nøyaktig hva som ender opp i det endelige bildet
-- Halvgjennomsiktige svarte felt (50% opacity) på sidene (landskapsmodus) eller topp/bunn (portrettmodus)
+- Halvgjennomsiktige svarte felt (50% opacity) topp/bunn (portrett) eller justert for landskapsformat
 - Tynne hvite guidelinjer (40% opacity) langs crop-kantene
-- Beregnes dynamisk via `onLayout` — tilpasser seg orientasjonsendring
+- Beregnes dynamisk via `onLayout` — tilpasser seg orientering
 - `pointerEvents="none"` slik at overlayet ikke blokkerer kamerainteraksjon
+
+**Sensor-basert UI-rotasjon (`KameraModal`):**
+- Akselerometer (`expo-sensors`) detekterer telefonens fysiske orientering
+- Kun UI-elementer (lukk-knapp, bildeteller, zoom-piller) roterer med `Animated.spring` — skjermen forblir i portrett
+- Samme tilnærming som iOS' innebygde kamera-app — ingen native orientasjonsendring, ingen krasj
+- Terskelverdi 0.55 for å unngå flimring mellom orienteringer
+- Akselerometer lyttes kun når kameraet er åpent (cleanup i useEffect)
+- `expo-screen-orientation` fungerer IKKE med Modal + CameraView i Expo Go — forårsaker krasj
+
+**Tidtaker (`KameraModal`):**
+- Lang-trykk (0.6s) på utløserknappen aktiverer/deaktiverer 2-sekunders tidtaker
+- Utløserknappen blir gul + timer-ikon med "2s" under når aktiv
+- Ved trykk med aktiv tidtaker: stor nedtelling (2, 1) vises midt på kameraet, deretter tas bildet
+- Nyttig for vanskelige vinkler der det er vanskelig å holde telefonen og nå utløserknappen samtidig
+- Ryddes opp ved lukking og ved `synlig`-endring
 
 **Viktig:** `InteractionManager.runAfterInteractions` MÅ brukes etter at kamera/picker lukkes, før state-oppdateringer, for å unngå React Navigation "Cannot read property 'stale' of undefined"-krasj.
 
