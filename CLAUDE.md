@@ -52,7 +52,7 @@ siteflow/
 │   │       │       ├── oppsett/              # Innstillinger
 │   │       │       │   ├── layout.tsx        # Innstillings-sidebar med navigasjon
 │   │       │       │   ├── brukere/          # Brukergrupper, roller, legg til medlemmer
-│   │       │       │   ├── lokasjoner/       # Lokasjonsoversikt + bygninger
+│   │       │       │   ├── lokasjoner/       # Samlet lokasjonsliste med redigering og georeferanse
 │   │       │       │   ├── field/            # Field-innstillinger
 │   │       │       │   │   ├── page.tsx      # Field-oversikt (kategorikort)
 │   │       │       │   │   ├── entrepriser/  # Entrepriser med arbeidsforløp
@@ -141,7 +141,7 @@ siteflow/
 | `project_members` | Prosjektmedlemmer med rolle (member/admin), entrepriser via `member_enterprises` |
 | `member_enterprises` | Mange-til-mange join-tabell mellom `project_members` og `enterprises` |
 | `enterprises` | Entrepriser med `enterprise_number` (Dalux-format: "04 Tømrer, Econor"), bransje, firma, farge |
-| `buildings` | Bygg/anlegg med `type` (`"bygg"` \| `"anlegg"`), status (unpublished/published) |
+| `buildings` | Lokasjoner med `type` (deprecated, default `"bygg"`), status (unpublished/published) |
 | `drawings` | Tegninger med metadata: tegningsnummer, fagdisiplin, revisjon, status, etasje, målestokk, opphav, valgfri `geoReference` (JSON) |
 | `drawing_revisions` | Revisjonshistorikk for tegninger med fil, status og hvem som lastet opp |
 | `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon, `domain` (bygg/hms/kvalitet, default "bygg"), `subjects` (JSON-array med forhåndsdefinerte emnetekster) |
@@ -167,7 +167,7 @@ Viktige relasjoner:
 - `workflows` tilhører en oppretter-entreprise (`enterpriseId`) med valgfri svarer-entreprise (`responderEnterpriseId`), kobler til maler via `workflow_templates`. Relasjoner er navngitte: `WorkflowCreator` / `WorkflowResponder`
 - `report_objects` bruker selvrefererande relasjon (`parent_id`) for rekursiv nesting — kontainerfelt (`list_single`/`list_multi`) kan ha barnefelt som selv kan være kontainere (Dalux-stil), CASCADE-sletting av barn
 - `report_templates` har `category` (`oppgave` | `sjekkliste`), valgfritt `prefix` og valgfri `subjects` (Json?, default `[]`) — forhåndsdefinerte emnetekster som vises som nedtrekksmeny ved opprettelse
-- `buildings` tilhører et prosjekt, med tegninger koblet via `building_id`. `type`-felt skiller mellom `"bygg"` (innendørs) og `"anlegg"` (utendørs med georeferering)
+- `buildings` tilhører et prosjekt, med tegninger koblet via `building_id`. `type`-feltet er deprecated — forskjellen mellom utomhus og innendørs styres nå av `geoReference` på tegningen
 - `drawings` har full metadata (tegningsnummer, fagdisiplin, revisjon, etasje, målestokk, status) med `drawing_revisions` for historikk. Valgfri `geoReference` (JSON) med 2 referansepunkter for similaritetstransformasjon (pixel ↔ GPS)
 - `folders` bruker selvrefererande relasjon (`parent_id`) for mappetreet i Mapper-modulen. `accessMode` styrer tilgang: `"inherit"` (arv fra forelder) eller `"custom"` (egendefinert tilgangsliste)
 - `folder_access` kobler mapper til entrepriser, grupper eller brukere via `accessType` (`"enterprise"` | `"group"` | `"user"`). Cascade-sletting fra alle sider. Unikt constraint: `[folderId, accessType, enterpriseId, groupId, userId]`
@@ -560,7 +560,7 @@ Drag-and-drop-editor for å bygge maler med rekursiv kontainer-nesting (Dalux-st
 
 Sidebaren under `/dashbord/oppsett/` er organisert i seksjoner:
 - **Brukere** — Brukergrupper, rollestyring, legg til medlemmer (med bruker-søk)
-- **Lokasjoner** — Bygninger (med publisering/status)
+- **Lokasjoner** — Samlet lokasjonsliste (alle bygninger/anlegg i én side, med redigering, georeferanse og publisering)
 - **Field** — Entrepriser (med arbeidsforløp), Oppgavemaler, Sjekklistemaler, Kontrollplan, Mappeoppsett
 - **Owners Portal** — Eierportalens brukere, Prosjektoppsett
 
@@ -866,8 +866,7 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/oppsett                             -> Innstillinger (redirect til brukere)
 /dashbord/oppsett/brukere                     -> Brukergrupper, roller, medlemmer
 /dashbord/oppsett/lokasjoner                  -> Lokasjonsoversikt
-/dashbord/oppsett/lokasjoner/bygninger        -> Byggliste med redigering
-/dashbord/oppsett/lokasjoner/anlegg           -> Anleggliste med georeferanse-kalibrering
+/dashbord/oppsett/lokasjoner                  -> Samlet lokasjonsliste med redigering og georeferanse
 /dashbord/oppsett/field                       -> Field-oversikt (kategorikort)
 /dashbord/oppsett/field/entrepriser           -> Entrepriser med arbeidsforløp
 /dashbord/oppsett/field/oppgavemaler          -> Oppgavemaler (filtrert malliste)
@@ -1082,8 +1081,9 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Arbeidsforløp (workflow):** Navngitt kobling mellom en oppretter-entreprise, valgfri svarer-entreprise, og et sett maler (oppgave-/sjekklistetyper)
 - **Mapper (Mappeoppsett):** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur og tilgangskontroll. To visninger: (1) HovedSidebar → `/dashbord/[prosjektId]/mapper` — read-only dokumentvisning med tilgangsfiltrering (velg mappe i panel, se dokumenter i hovedinnhold), (2) Innstillinger > Field > Mappeoppsett (`/dashbord/oppsett/field/box`) — redigering av mappestruktur (opprett, gi nytt navn, slett, rediger tilgang)
 - **Mappeadgangskontroll:** Fleksibel tilgangsstyring per mappe med arv. `accessMode: "inherit"` arver fra overordnet mappe (rotmappe med inherit = åpen for alle), `accessMode: "custom"` bruker en tilgangsliste med entrepriser, grupper og/eller brukere. `beregnSynligeMapper()` beregner synlige mapper klient-side. Admin ser alltid alt. Foreldre-mapper til synlige barn vises som "kun sti" (grå, lås-ikon, uten innholdstilgang)
-- **Bygg:** Innendørs lokasjon (tidligere "Bygning") i et prosjekt, med tilknyttede tegninger og publiseringsstatus. `type: "bygg"` på Building-modellen
-- **Anlegg:** Utendørs/infrastrukturlokasjon med georefererte tegninger. `type: "anlegg"` på Building-modellen. Admin kalibrerer tegninger med 2 GPS-referansepunkter, feltarbeidere får automatisk posisjon fra GPS via similaritetstransformasjon. Opprettelse åpner redigeringsvisningen direkte. Upubliserte anlegg kan redigeres (legge inn tegninger) — publisering skjer etterpå
+- **Lokasjon:** Bygning/anlegg i et prosjekt (Building-modellen), med tilknyttede tegninger og publiseringsstatus. Én samlet liste i web og mobil — ingen tabs/kategorikort. Opprettelse åpner redigeringsvisningen direkte. `building.type` er deprecated (beholdt for bakoverkompatibilitet)
+- **Utomhus-tegning:** Tegning med `geoReference` (georeferert). Vises i "Utomhus"-gruppen i tegningslisten. GPS auto-plassering i mobilappen. Admin kalibrerer med GeoReferanseEditor i redigeringsvisningen
+- **Etasje-tegning:** Tegning uten `geoReference`. Grupperes etter `floor`-feltet. Manuell trykk-plassering i mobilappen
 - **Georeferanse:** Kalibrering av en tegning med 2 referansepunkter (pixel ↔ GPS). Lagres som `geoReference` JSON på Drawing-modellen. Brukes til automatisk markørplassering fra GPS i mobilappen. Format: `{ point1: { pixel: {x,y}, gps: {lat,lng} }, point2: ... }`. GeoReferanseEditor-komponenten har zoom/pan-navigering (håndverktøy, +/- knapper, musehjul med zoom-mot-markør) og støtter koordinat-innliming fra Norgeskart (UTM33 EUREF89), Google Maps (DMS) og desimalformat. PDF-tegninger har permanent overlay som fanger alle events — viewport fyller `calc(100vh - 350px)` med `scrolling="no"` på iframe. Markører rendres utenfor transformert div for konstant størrelse (12px prikker). Bruker `transformOrigin: 0 0` for enkel koordinatmatematikk: `vx = lx * zoom + pan.x`, `lx = (vx - pan.x) / zoom`. Wheel-zoom bruker native `addEventListener` med `{ passive: false }` for å garantere `preventDefault()`. Zoom-knapper zoomer mot synlig senter. Drag-deteksjon via `harDratt`-ref forhindrer utilsiktet punktplassering etter panoring
 - **Similaritetstransformasjon:** 2D-transformasjon (skalering + rotasjon + translasjon) som mapper mellom tegningskoordinater (prosent 0-100) og GPS-koordinater. Beregnes fra 2 referansepunkter via `beregnTransformasjon()` i `@siteflow/shared`
 - **Prosjektnummer:** Unikt, autogenerert nummer på format `SF-YYYYMMDD-XXXX`

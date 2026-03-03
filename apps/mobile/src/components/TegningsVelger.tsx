@@ -14,6 +14,7 @@ import {
   Check,
   Search,
   Map,
+  MapPin,
 } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -29,6 +30,7 @@ interface Tegning {
   discipline: string | null;
   floor: string | null;
   buildingId: string | null;
+  geoReference?: unknown;
   _count: { revisions: number };
 }
 
@@ -46,6 +48,7 @@ interface TegningsVelgerProps {
 interface EtasjeGruppe {
   etasje: string;
   tegninger: Tegning[];
+  ikon: "utomhus" | "etasje" | "uten";
 }
 
 export function TegningsVelger({
@@ -84,30 +87,41 @@ export function TegningsVelger({
     return resultat;
   }, [tegninger, valgtBygningId, søkTekst]);
 
-  // Grupper tegninger etter etasje
+  // Grupper tegninger etter Utomhus (georeferert) / etasje / uten etasje
   const etasjeGrupper = useMemo(() => {
-    const grupper: Record<string, Tegning[]> = {};
+    const utomhus: Tegning[] = [];
+    const etasjeMap: Record<string, Tegning[]> = {};
+    const utenEtasje: Tegning[] = [];
 
     for (const tegning of filtreretTegninger) {
-      const etasje = tegning.floor || "Uten etasje";
-      if (!grupper[etasje]) {
-        grupper[etasje] = [];
+      if (tegning.geoReference) {
+        utomhus.push(tegning);
+      } else if (tegning.floor) {
+        if (!etasjeMap[tegning.floor]) etasjeMap[tegning.floor] = [];
+        etasjeMap[tegning.floor].push(tegning);
+      } else {
+        utenEtasje.push(tegning);
       }
-      grupper[etasje].push(tegning);
     }
 
-    const sortert: EtasjeGruppe[] = Object.entries(grupper)
-      .sort(([a], [b]) => {
-        if (a === "Uten etasje") return 1;
-        if (b === "Uten etasje") return -1;
-        return a.localeCompare(b, "nb-NO", { numeric: true });
-      })
-      .map(([etasje, tegningerIGruppe]) => ({
-        etasje,
-        tegninger: tegningerIGruppe,
-      }));
+    const grupper: EtasjeGruppe[] = [];
 
-    return sortert;
+    if (utomhus.length > 0) {
+      grupper.push({ etasje: "Utomhus", tegninger: utomhus, ikon: "utomhus" });
+    }
+
+    const sortedEtasjer = Object.entries(etasjeMap).sort(([a], [b]) =>
+      a.localeCompare(b, "nb-NO", { numeric: true }),
+    );
+    for (const [etasje, tegningerIGruppe] of sortedEtasjer) {
+      grupper.push({ etasje, tegninger: tegningerIGruppe, ikon: "etasje" });
+    }
+
+    if (utenEtasje.length > 0) {
+      grupper.push({ etasje: "Uten etasje", tegninger: utenEtasje, ikon: "uten" });
+    }
+
+    return grupper;
   }, [filtreretTegninger]);
 
   // Finn gjeldende etasje/bygningsnavn for kollapset visning
@@ -153,6 +167,9 @@ export function TegningsVelger({
           ) : (
             <ChevronRight size={16} color="#6b7280" />
           )}
+          {item.ikon === "utomhus" && (
+            <MapPin size={14} color="#16a34a" style={{ marginLeft: 4, marginRight: 2 }} />
+          )}
           <Text className="ml-2 flex-1 text-sm font-semibold text-gray-700">
             {item.etasje}
           </Text>
@@ -164,6 +181,7 @@ export function TegningsVelger({
         {erÅpen &&
           item.tegninger.map((tegning) => {
             const erValgt = tegning.id === valgtTegningId;
+            const harGeoRef = !!tegning.geoReference;
             return (
               <Pressable
                 key={tegning.id}
@@ -186,6 +204,11 @@ export function TegningsVelger({
                   </View>
                 </View>
                 <View className="flex-row items-center gap-2">
+                  {harGeoRef && (
+                    <View className="rounded bg-green-100 px-1.5 py-0.5">
+                      <Text className="text-[10px] font-medium text-green-700">GPS</Text>
+                    </View>
+                  )}
                   {erValgt && <Check size={16} color="#1e40af" />}
                   {tegning._count.revisions > 0 && (
                     <View className="rounded-full bg-gray-200 px-1.5 py-0.5">
@@ -221,7 +244,7 @@ export function TegningsVelger({
       {/* Utvidet modal med tegningsliste */}
       <Modal visible={utvidet} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView className="flex-1 bg-white">
-          {/* Grønn header med Avbryt og bygningsvelger */}
+          {/* Blå header med Avbryt og bygningsvelger */}
           <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
             <Pressable
               onPress={() => {

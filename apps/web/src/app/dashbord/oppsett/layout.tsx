@@ -36,10 +36,6 @@ const navigasjon: NavElement[] = [
     href: "/dashbord/oppsett/lokasjoner",
     ikon: <MapPin className="h-4 w-4" />,
     kreverProsjekt: true,
-    barn: [
-      { label: "Bygg", href: "/dashbord/oppsett/lokasjoner/bygninger" },
-      { label: "Anlegg", href: "/dashbord/oppsett/lokasjoner/anlegg" },
-    ],
   },
   {
     label: "Feltarbeid",
