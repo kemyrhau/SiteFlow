@@ -14,7 +14,6 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 - **Auth:** Auth.js v5 (next-auth) med Google og Microsoft Entra ID (Office 365), PrismaAdapter, database-sesjoner, `allowDangerousEmailAccountLinking` for inviterte brukere
 - **E-post:** Resend (invitasjons-e-poster ved brukeropprettelse)
 - **Bildekomprimering:** expo-image-manipulator (5:4 senter-crop + mål: 300–400 KB)
-- **Skjermrotasjon:** expo-screen-orientation (per-skjerm landskapslås for kamera)
 - **GPS:** expo-location (deaktiverbar per objekt)
 - **PDF-eksport:** react-pdf
 - **Styling:** Tailwind CSS (web), NativeWind (mobil)
@@ -666,12 +665,6 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 - Tynne hvite guidelinjer (40% opacity) langs crop-kantene
 - Beregnes dynamisk via `onLayout` — tilpasser seg orientasjonsendring
 - `pointerEvents="none"` slik at overlayet ikke blokkerer kamerainteraksjon
-
-**Landskapslås (`KameraModal`):**
-- Bruker `expo-screen-orientation` for per-skjerm orientasjonslås
-- Kameraet låses til `LANDSCAPE_RIGHT` når det åpnes, tilbake til `PORTRAIT_UP` når det lukkes
-- `app.json` forblir `"orientation": "portrait"` — resten av appen er upåvirket
-- Cleanup-funksjon i `useEffect` sikrer portrettlås ved unmount
 
 **Viktig:** `InteractionManager.runAfterInteractions` MÅ brukes etter at kamera/picker lukkes, før state-oppdateringer, for å unngå React Navigation "Cannot read property 'stale' of undefined"-krasj.
 

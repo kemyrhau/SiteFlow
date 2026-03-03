@@ -1,7 +1,6 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import { View, Text, Pressable, Modal, Animated } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import * as ScreenOrientation from "expo-screen-orientation";
 import { X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,18 +27,6 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
   const [zoom, setZoom] = useState(0);
   const [kameraLayout, setKameraLayout] = useState({ bredde: 0, hoyde: 0 });
   const flashOpacity = useRef(new Animated.Value(0)).current;
-
-  // Lås til landskapsmodus når kameraet åpnes, tilbake til portrett ved lukking
-  useEffect(() => {
-    if (synlig) {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
-    } else {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    }
-    return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-    };
-  }, [synlig]);
 
   const håndterTaBilde = useCallback(async () => {
     if (tarBilde.current || !cameraRef.current) return;
@@ -72,7 +59,7 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
   }, [onLukk]);
 
   // Beregn 5:4 crop-guide basert på kameravisningens faktiske layout
-  // I landskapsmodus: bredde > høyde, overlay på venstre/høyre side
+  // I portrett: høyde > bredde → overlay topp/bunn
   const { bredde, hoyde } = kameraLayout;
   let overlayTopp = 0;
   let overlaySide = 0;
