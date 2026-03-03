@@ -26,6 +26,7 @@ interface MalData {
   name: string;
   prefix: string | null;
   category: string;
+  subjects?: string[];
 }
 
 interface ArbeidsforlopData {
@@ -101,6 +102,13 @@ export function OpprettDokumentModal({
   const [visOppretterListe, setVisOppretterListe] = useState(false);
   const [visBygningListe, setVisBygningListe] = useState(false);
   const [visTegningListe, setVisTegningListe] = useState(false);
+  const [visEmneListe, setVisEmneListe] = useState(false);
+
+  // Forhåndsdefinerte emner fra malen
+  const malSubjects = Array.isArray(mal.subjects)
+    ? mal.subjects.filter((s) => s.trim() !== "")
+    : [];
+  const harSubjects = malSubjects.length > 0;
 
   // Hent prosjektnavn for auto-tittel
   const prosjektQuery = trpc.prosjekt.hentMine.useQuery(undefined, {
@@ -209,6 +217,7 @@ export function OpprettDokumentModal({
     setVisOppretterListe(false);
     setVisBygningListe(false);
     setVisTegningListe(false);
+    setVisEmneListe(false);
   }, []);
 
   const håndterAvbryt = useCallback(() => {
@@ -283,6 +292,7 @@ export function OpprettDokumentModal({
     setVisOppretterListe(false);
     setVisBygningListe(false);
     setVisTegningListe(false);
+    setVisEmneListe(false);
   };
 
   const valgtOppretter = mineEntrepriser.find((e) => e.id === oppretterEntrepriseId);
@@ -335,17 +345,65 @@ export function OpprettDokumentModal({
             </Text>
           </View>
 
-          {/* 3. Emne (valgfritt tekstfelt) — skjult for oppgaver */}
+          {/* 3. Emne — dropdown med forhåndsdefinerte tekster, eller fritekst som fallback */}
           {!erOppgave && (
             <View className="border-b border-gray-100 px-4 py-3">
               <Text className="mb-1 text-xs font-medium text-gray-500">Emne</Text>
-              <TextInput
-                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800"
-                placeholder="Beskriv emnet (valgfritt)…"
-                placeholderTextColor="#9ca3af"
-                value={emne}
-                onChangeText={setEmne}
-              />
+              {harSubjects ? (
+                <>
+                  <Pressable
+                    onPress={() => {
+                      lukkAlleDropdowns();
+                      setVisEmneListe(!visEmneListe);
+                    }}
+                    className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
+                  >
+                    <Text
+                      className={`text-sm ${emne ? "text-gray-800" : "text-gray-400"}`}
+                    >
+                      {emne || "Velg emne…"}
+                    </Text>
+                    <ChevronDown size={16} color="#9ca3af" />
+                  </Pressable>
+                  {visEmneListe && (
+                    <View className="mt-1 rounded-lg border border-gray-200 bg-white">
+                      <Pressable
+                        onPress={() => {
+                          setEmne("");
+                          setVisEmneListe(false);
+                        }}
+                        className="border-b border-gray-50 px-3 py-2.5"
+                      >
+                        <Text className="text-sm italic text-gray-400">Ingen emne</Text>
+                      </Pressable>
+                      {malSubjects.map((s) => (
+                        <Pressable
+                          key={s}
+                          onPress={() => {
+                            setEmne(s);
+                            setVisEmneListe(false);
+                          }}
+                          className={`border-b border-gray-50 px-3 py-2.5 ${emne === s ? "bg-blue-50" : ""}`}
+                        >
+                          <Text
+                            className={`text-sm ${emne === s ? "font-medium text-blue-700" : "text-gray-700"}`}
+                          >
+                            {s}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </>
+              ) : (
+                <TextInput
+                  className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800"
+                  placeholder="Beskriv emnet (valgfritt)…"
+                  placeholderTextColor="#9ca3af"
+                  value={emne}
+                  onChangeText={setEmne}
+                />
+              )}
             </View>
           )}
 

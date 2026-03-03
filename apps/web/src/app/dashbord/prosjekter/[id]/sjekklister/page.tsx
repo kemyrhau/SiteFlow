@@ -12,6 +12,7 @@ export default function SjekklisteSide() {
   const [visModal, setVisModal] = useState(false);
   const [valgtMal, setValgtMal] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
+  const [valgtEmne, setValgtEmne] = useState("");
 
   const { data: sjekklister, isLoading } = trpc.sjekkliste.hentForProsjekt.useQuery(
     { projectId: params.id },
@@ -26,6 +27,7 @@ export default function SjekklisteSide() {
       setVisModal(false);
       setValgtMal("");
       setValgtSvarer("");
+      setValgtEmne("");
     },
   });
 
@@ -41,6 +43,7 @@ export default function SjekklisteSide() {
       templateId: valgtMal,
       creatorEnterpriseId: oppretterEntreprise.id,
       responderEnterpriseId: valgtSvarer,
+      subject: valgtEmne || undefined,
     });
   }
 
@@ -99,9 +102,27 @@ export default function SjekklisteSide() {
             label="Rapportmal"
             options={maler?.map((m) => ({ value: m.id, label: m.name })) ?? []}
             value={valgtMal}
-            onChange={(e) => setValgtMal(e.target.value)}
+            onChange={(e) => {
+              setValgtMal(e.target.value);
+              setValgtEmne("");
+            }}
             placeholder="Velg mal..."
           />
+          {(() => {
+            const malData = maler?.find((m) => m.id === valgtMal);
+            const subjects = Array.isArray((malData as Record<string, unknown> | undefined)?.subjects)
+              ? ((malData as Record<string, unknown>).subjects as string[]).filter((s) => s.trim() !== "")
+              : [];
+            return subjects.length > 0 ? (
+              <Select
+                label="Emne"
+                options={subjects.map((s) => ({ value: s, label: s }))}
+                value={valgtEmne}
+                onChange={(e) => setValgtEmne(e.target.value)}
+                placeholder="Velg emne..."
+              />
+            ) : null;
+          })()}
           <Select
             label="Ansvarlig entreprise (svarer)"
             options={entrepriser?.map((e) => ({ value: e.id, label: e.name })) ?? []}

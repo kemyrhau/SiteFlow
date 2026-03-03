@@ -18,6 +18,7 @@ export default function SjekklisteSide() {
   const [valgtMal, setValgtMal] = useState("");
   const [valgtOppretter, setValgtOppretter] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
+  const [valgtEmne, setValgtEmne] = useState("");
   const [valgte, setValgte] = useState<Set<string>>(new Set());
 
   const { data: sjekklister, isLoading } = trpc.sjekkliste.hentForProsjekt.useQuery(
@@ -37,6 +38,7 @@ export default function SjekklisteSide() {
       setValgtMal("");
       setValgtOppretter("");
       setValgtSvarer("");
+      setValgtEmne("");
     },
   });
 
@@ -77,6 +79,7 @@ export default function SjekklisteSide() {
       templateId: valgtMal,
       creatorEnterpriseId: valgtOppretter,
       responderEnterpriseId: valgtSvarer,
+      subject: valgtEmne || undefined,
     });
   }
 
@@ -102,6 +105,14 @@ export default function SjekklisteSide() {
     template: { name: string };
     responderEnterprise: { name: string };
   };
+
+  // Forhåndsdefinerte emner fra valgt mal
+  const malSubjects = (() => {
+    if (!maler || !valgtMal) return [];
+    const malData = (maler as Array<{ id: string; subjects?: unknown }>).find((m) => m.id === valgtMal);
+    if (!malData || !Array.isArray(malData.subjects)) return [];
+    return (malData.subjects as string[]).filter((s) => s.trim() !== "");
+  })();
 
   // Oppretter-dropdown: brukerens entrepriser (eller alle for admin)
   const oppretterAlternativer = (mineEntrepriser ?? []).map((e) => ({
@@ -183,11 +194,23 @@ export default function SjekklisteSide() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Select
             label="Rapportmal"
-            options={maler?.map((m) => ({ value: m.id, label: m.name })) ?? []}
+            options={(maler as Array<{ id: string; name: string }> | undefined)?.map((m) => ({ value: m.id, label: m.name })) ?? []}
             value={valgtMal}
-            onChange={(e) => setValgtMal(e.target.value)}
+            onChange={(e) => {
+              setValgtMal(e.target.value);
+              setValgtEmne("");
+            }}
             placeholder="Velg mal..."
           />
+          {malSubjects.length > 0 && (
+            <Select
+              label="Emne"
+              options={malSubjects.map((s) => ({ value: s, label: s }))}
+              value={valgtEmne}
+              onChange={(e) => setValgtEmne(e.target.value)}
+              placeholder="Velg emne..."
+            />
+          )}
           <Select
             label="Oppretter-entreprise"
             options={oppretterAlternativer}

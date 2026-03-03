@@ -25,6 +25,7 @@ type MalRad = {
   prefix: string | null;
   category: string;
   version: number;
+  subjects: unknown;
   _count: { objects: number; checklists: number };
 };
 
@@ -123,6 +124,7 @@ export function MalListe({
   const [redigerNavn, setRedigerNavn] = useState("");
   const [redigerPrefiks, setRedigerPrefiks] = useState("");
   const [redigerBeskrivelse, setRedigerBeskrivelse] = useState("");
+  const [redigerSubjects, setRedigerSubjects] = useState<string[]>([]);
 
   const { data: alleMaler, isLoading } = trpc.mal.hentForProsjekt.useQuery(
     { projectId: prosjektId! },
@@ -190,6 +192,7 @@ export function MalListe({
       name: redigerNavn.trim(),
       prefix: redigerPrefiks.trim() || undefined,
       description: redigerBeskrivelse.trim() || undefined,
+      subjects: redigerSubjects.filter((s) => s.trim() !== ""),
     });
   }
 
@@ -204,6 +207,8 @@ export function MalListe({
     setRedigerNavn(mal.name);
     setRedigerPrefiks(mal.prefix ?? "");
     setRedigerBeskrivelse(mal.description ?? "");
+    const subjects = Array.isArray(mal.subjects) ? (mal.subjects as string[]) : [];
+    setRedigerSubjects(subjects);
     setVisRedigerModal(true);
   }
 
@@ -541,6 +546,52 @@ export function MalListe({
             value={redigerBeskrivelse}
             onChange={(e) => setRedigerBeskrivelse(e.target.value)}
           />
+
+          {/* Forhåndsdefinerte emner */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">
+              Forhåndsdefinerte emner
+            </label>
+            <p className="text-xs text-gray-500 mb-1">
+              Vises som nedtrekksmeny ved opprettelse av {kategori === "sjekkliste" ? "sjekkliste" : "oppgave"}
+            </p>
+            <div className="flex flex-col gap-2">
+              {redigerSubjects.map((emne, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={emne}
+                    onChange={(e) => {
+                      const oppdatert = [...redigerSubjects];
+                      oppdatert[index] = e.target.value;
+                      setRedigerSubjects(oppdatert);
+                    }}
+                    placeholder="Skriv emne..."
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRedigerSubjects(redigerSubjects.filter((_, i) => i !== index));
+                    }}
+                    className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    title="Fjern emne"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setRedigerSubjects([...redigerSubjects, ""])}
+                className="inline-flex items-center gap-1.5 self-start rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 hover:text-gray-800 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Legg til emne
+              </button>
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <Button type="submit" loading={oppdaterMutation.isPending}>
               Lagre

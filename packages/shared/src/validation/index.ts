@@ -99,6 +99,7 @@ export const createTemplateSchema = z.object({
   description: z.string().optional(),
   category: templateCategorySchema.default("sjekkliste"),
   domain: templateDomainSchema.default("bygg"),
+  subjects: z.array(z.string().max(255)).default([]),
   workflowIds: z.array(z.string().uuid()).default([]),
 });
 

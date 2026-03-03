@@ -303,6 +303,7 @@ model ReportTemplate {
   prefix      String?
   category    String   @default("sjekkliste") // "oppgave" | "sjekkliste"
   domain      String   @default("bygg")      // "bygg" | "hms" | "kvalitet"
+  subjects    Json?    @default("[]")         // Forhåndsdefinerte emnetekster ["3. etasje", "Kjeller", ...]
   version     Int      @default(1)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
