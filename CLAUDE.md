@@ -80,7 +80,7 @@ siteflow/
 │   ├── mobile/           # Expo React Native app
 │   │   └── src/
 │   │       ├── db/                           # SQLite lokal database (Drizzle ORM)
-│   │       │   ├── schema.ts                 # Drizzle-skjema (sjekkliste_feltdata, opplastings_ko)
+│   │       │   ├── schema.ts                 # Drizzle-skjema (sjekkliste_feltdata, oppgave_feltdata, opplastings_ko)
 │   │       │   ├── database.ts               # Singleton database-instans
 │   │       │   ├── migreringer.ts            # Idempotent CREATE TABLE + indekser
 │   │       │   └── opprydding.ts             # Rydd fullførte opplastinger og foreldreløse bilder
@@ -146,7 +146,7 @@ siteflow/
 | `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon, `domain` (bygg/hms/kvalitet, default "bygg") |
 | `report_objects` | Rapportobjekter i maler (23 typer, JSON-konfig), rekursiv nesting via `parent_id` |
 | `checklists` | Sjekklister med oppretter/svarer-entreprise, status, data (JSON) |
-| `tasks` | Oppgaver med mal-tilknytning (`template_id`), prefiks+løpenummer (`number`), prioritet, frist, oppretter/svarer, utfylt data (JSON), valgfri tegningsposisjon og sjekkliste-kobling (`checklist_id`, `checklist_field_id`) |
+| `tasks` | Oppgaver med påkrevd mal (`template_id`), prefiks+løpenummer (`number`), prioritet, frist, oppretter/svarer, utfylt data (`data` JSON), valgfri tegningsposisjon og sjekkliste-kobling (`checklist_id`, `checklist_field_id`) |
 | `document_transfers` | Sporbarhet: all sending mellom entrepriser |
 | `images` | Bilder med valgfri GPS-data |
 | `folders` | Rekursiv mappestruktur (Mapper-modul) med parent_id, `access_mode` (inherit/custom) |
@@ -186,7 +186,7 @@ Alle routere i `apps/api/src/routes/`:
 | `prosjekt` | hentAlle, hentMedId, opprett, oppdater |
 | `entreprise` | hentForProsjekt, hentMedId, opprett, oppdater, slett |
 | `sjekkliste` | hentForProsjekt (m/statusfilter), hentMedId, opprett, oppdaterData, endreStatus |
-| `oppgave` | hentForProsjekt (m/statusfilter), hentMedId, opprett (m/tegningsposisjon), oppdater, endreStatus |
+| `oppgave` | hentForProsjekt (m/statusfilter), hentMedId (m/template.objects), opprett (m/tegningsposisjon, templateId påkrevd), oppdater, oppdaterData, endreStatus |
 | `mal` | hentForProsjekt, hentMedId, opprett, oppdaterMal, slettMal, leggTilObjekt, oppdaterObjekt, oppdaterRekkefølge, slettObjekt |
 | `bygning` | hentForProsjekt (m/valgfri type-filter), hentMedId, opprett (m/type), oppdater, publiser, slett |
 | `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, settGeoReferanse, fjernGeoReferanse, slett |
@@ -262,7 +262,7 @@ En bruker kan tilhøre flere entrepriser i samme prosjekt via `MemberEnterprise`
 
 ### Statusendring (mobil)
 
-Sjekkliste-detaljskjermen (`apps/mobile/app/sjekkliste/[id].tsx`) har kontekstuelle statusknapper i bunnpanelet, over lagre-knappen. Knappene viser neste gyldige handling basert på nåværende status:
+Sjekkliste-detaljskjermen (`apps/mobile/app/sjekkliste/[id].tsx`) og oppgave-detaljskjermen (`apps/mobile/app/oppgave/[id].tsx`) har kontekstuelle statusknapper i bunnpanelet, over lagre-knappen. Knappene viser neste gyldige handling basert på nåværende status:
 
 | Status | Knapp(er) | Neste status | Farge |
 |--------|-----------|--------------|-------|
@@ -280,7 +280,7 @@ Sjekkliste-detaljskjermen (`apps/mobile/app/sjekkliste/[id].tsx`) har kontekstue
 
 - For `responded`-status vises to knapper side om side (flex-row)
 - Bekreftelsesdialog (`Alert.alert`) før hver statusendring
-- Bruker `trpc.sjekkliste.endreStatus.useMutation()` med `senderId` fra `useAuth().bruker.id`
+- Bruker `trpc.sjekkliste.endreStatus` / `trpc.oppgave.endreStatus` med `senderId` fra `useAuth().bruker.id`
 - Cache-invalidering etter suksess: `hentMedId` + `hentForProsjekt`
 - `StatusMerkelapp` i metadata-bar oppdateres automatisk etter endring
 - Overgang logges i `document_transfers` og vises i historikk-seksjonen
@@ -352,8 +352,6 @@ Komponenter:
 - Kvalitetssikring av alle 23 rapportobjekttyper (mobil-renderere)
 - TegningPosisjonObjekt (mobil): full implementasjon med tegningsvelger og TegningsVisning-markering
 - Oppgave-fra-felt i sjekkliste-utfylling (knapp per rapportobjekt + visning av oppgavenummer)
-- Oppgave-utfylling med maler (tilsvarende sjekkliste-utfylling, med samme 23 rapportobjekttyper)
-- Databasemigrering: nye felter på Task-modellen (`number`, `templateId`, `data`, `checklistId`, `checklistFieldId`)
 - Adgangskontroll: Håndheve tillatelsesbasert opprettelse (verifiserTillatelse i opprett-prosedyrer), arbeidsforløp-begrensning per brukergruppe
 - Videresending av sjekklister/oppgaver til annen entreprise (svarer og oppretter)
 - TrafikklysObjekt (mobil): legge til 4. farge grå/"Ikke relevant" i mobilrenderer
@@ -361,14 +359,17 @@ Komponenter:
 ### Oppgave fra tegning (mobil)
 
 Brukeren kan opprette oppgaver direkte fra tegningsvisningen i Lokasjoner-taben:
-- Trykk på tegningen plasserer en markør og åpner OppgaveModal
+1. Trykk på tegningen plasserer en markør
+2. `MalVelger` åpnes — bruker velger oppgavemal (kategori `"oppgave"`)
+3. `OppgaveModal` åpnes med valgt mal, posisjon, tegningsnavn, entreprisevalg og prioritet
+4. Etter opprettelse navigeres bruker til oppgave-detaljskjermen (`/oppgave/${id}`) for utfylling
 - Oppgaven lagres med `drawingId`, `positionX` og `positionY` (prosent 0-100)
 - Task-modellen har valgfrie felter: `drawingId`, `positionX`, `positionY`
 - Implementert for iOS/web. Android-tilpasning gjøres ved behov.
 
 ### Oppgavesystem
 
-Oppgaver bruker samme malsystem som sjekklister. Oppgavemaler bygges i malbyggeren på PC med `report_templates` der `category: "oppgave"` — alle 23 rapportobjekttyper er tilgjengelige.
+Oppgaver bruker NØYAKTIG samme rapportobjekt-system som sjekklister (23 typer), med lokal-first lagring og auto-synkronisering. En mal er ALLTID påkrevd for oppgaver (`templateId` er required i API).
 
 **Oppgavenummerering:**
 - Format: `mal.prefix + "-" + løpenummer` (f.eks. `BHO-001`, `S-BET-042`)
@@ -382,18 +383,63 @@ Oppgaver bruker samme malsystem som sjekklister. Oppgavemaler bygges i malbygger
 
 **Opprettelsespunkter:**
 - Fra sjekklistefelt (med sporbarhet til sjekkliste og felt)
-- Fra tegninger (med markørposisjon)
-- Fra oppgavelisten (frittstående)
+- Fra tegninger (med markørposisjon, via MalVelger → OppgaveModal)
+- Fra oppgavelisten (frittstående, med malvelger)
 
-**Planlagte databaseendringer på Task-modellen:**
+**Oppgave-utfylling (mobil):**
+
+Oppgave-detaljskjermen (`apps/mobile/app/oppgave/[id].tsx`) bruker `useOppgaveSkjema`-hooken og rendrer malobjekter identisk med sjekkliste-utfylling:
+
+```
+[Header: ← | nummer Oppgave | kø-teller synk lagre]
+[Metadata-bar: prefix | malnavn | StatusMerkelapp]
+[Entrepriser: Oppretter → Svarer]
+─── ScrollView ───
+  [Tittel (redigerbar via modal)]
+  [Prioritet (4 knapper)]
+  [Beskrivelse (redigerbar via modal)]
+  [Sjekkliste-kobling (hvis fra sjekkliste)]
+  [Tegning-kobling (hvis fra tegning)]
+  ── Malobjekter ──
+  Alle rapportobjekter fra malen med:
+  - RapportObjektRenderer + FeltWrapper
+  - Rekursiv synlighet og nesting-nivå
+  ──────────────────
+  [Historikk]
+─── Bunnpanel ───
+  [Statusknapper + Lagre]
+```
+
+**Auto-fill ved ny oppgave:**
+
+| Rapportobjekttype | Auto-fill verdi |
+|------------------|----------------|
+| `date` | Dagens dato (ISO-streng) |
+| `date_time` | Nåværende dato+tid (ISO-streng) |
+| `person` | Innlogget brukers ID |
+| `company` | Oppretter-entreprisens ID |
+| `drawing_position` | `{ drawingId, positionX, positionY, drawingName }` fra oppgavens tegning |
+
+**`useOppgaveSkjema`-hook** (`apps/mobile/src/hooks/useOppgaveSkjema.ts`):
+- Tilpasset kopi av `useSjekklisteSkjema.ts` med oppgave-spesifikk logikk
+- Bruker `oppgaveFeltdata` SQLite-tabell, `trpc.oppgave.hentMedId` og `trpc.oppgave.oppdaterData`
+- Auto-fill av kjente felter ved initialisering (kun for nye oppgaver uten eksisterende data)
+- Callback-filter: `dokumentType === "oppgave"` for opplastingskø-oppdateringer
+- Returnerer samme interface som sjekkliste-hooken: `hentFeltVerdi`, `settVerdi`, `settKommentar`, `leggTilVedlegg`, `fjernVedlegg`, `erSynlig`, `valider`, `lagre`, `harEndringer`, `erRedigerbar`, `lagreStatus`, `synkStatus`
+
+**Generaliserte komponenter:**
+- `FeltWrapper` — `sjekklisteId` er nå valgfri, ny `oppgaveIdForKo`-prop for opplastingskø-routing. Skjuler oppgave-opprettelses-UI når `oppgaveIdForKo` er satt
+- `FeltDokumentasjon` — `sjekklisteId` er nå valgfri, ny `oppgaveIdForKo`-prop. Sender riktig ID til `leggIKo()`
+
+**Task-modellens feltert (implementert):**
 
 | Felt | Type | Beskrivelse |
 |------|------|-------------|
 | `number` | Int | Løpenummer per prosjekt (auto-generert) |
-| `templateId` | String (valgfri) | Kobling til oppgavemal (`report_templates`) |
-| `data` | Json | Utfylte rapportobjekter (likt `checklists.data`) |
-| `checklistId` | String (valgfri) | Sporbarhet til sjekkliste oppgaven ble opprettet fra |
-| `checklistFieldId` | String (valgfri) | Sporbarhet til spesifikt felt i sjekklisten |
+| `templateId` | String (påkrevd) | Kobling til oppgavemal (`report_templates`) |
+| `data` | Json? | Utfylte rapportobjekter (likt `checklists.data`) |
+| `checklistId` | String? | Sporbarhet til sjekkliste oppgaven ble opprettet fra |
+| `checklistFieldId` | String? | Sporbarhet til spesifikt felt i sjekklisten |
 
 ### Tegninger (drawings)
 
@@ -737,7 +783,8 @@ Mobil-appen bruker SQLite (expo-sqlite + Drizzle ORM) for lokal-first lagring. F
 | Tabell | Kolonner | Formål |
 |--------|----------|--------|
 | `sjekkliste_feltdata` | `id`, `sjekklisteId`, `feltVerdier` (JSON), `erSynkronisert`, `sistEndretLokalt`, `sistSynkronisert` | Lokal kopi av sjekkliste-utfylling |
-| `opplastings_ko` | `id`, `sjekklisteId`, `objektId`, `vedleggId`, `lokalSti`, `filnavn`, `mimeType`, `filstorrelse`, GPS-felter, `status`, `forsok`, `serverUrl`, `feilmelding`, `opprettet` | Bakgrunnskø for filopplasting |
+| `oppgave_feltdata` | `id`, `oppgaveId`, `feltVerdier` (JSON), `erSynkronisert`, `sistEndretLokalt`, `sistSynkronisert` | Lokal kopi av oppgave-utfylling |
+| `opplastings_ko` | `id`, `sjekklisteId` (nullable), `oppgaveId` (nullable), `objektId`, `vedleggId`, `lokalSti`, `filnavn`, `mimeType`, `filstorrelse`, GPS-felter, `status`, `forsok`, `serverUrl`, `feilmelding`, `opprettet` | Bakgrunnskø for filopplasting (sjekklister + oppgaver) |
 
 **Lagringsstrategi:**
 - All data skrives til SQLite først (instant, <10ms), deretter synkroniseres til server
@@ -751,7 +798,8 @@ Mobil-appen bruker SQLite (expo-sqlite + Drizzle ORM) for lokal-first lagring. F
 - Ved suksess: server-URL erstatter lokal URL i feltdata, lokal fil slettes
 - Ved nettverksovergang: køen starter automatisk når nett kommer tilbake
 - Ved krasj: `status = "laster_opp"` resettes til `"venter"` ved app-oppstart
-- Callback-system: `registrerCallback()` lar `useSjekklisteSkjema` lytte på URL-oppdateringer i sanntid
+- Callback-system: `registrerCallback()` lar `useSjekklisteSkjema` og `useOppgaveSkjema` lytte på URL-oppdateringer i sanntid
+- Generalisert for sjekklister og oppgaver: `dokumentType` (`"sjekkliste"` | `"oppgave"`) identifiserer kilde i callback
 
 **Provider-hierarki:**
 ```
@@ -762,7 +810,7 @@ DatabaseProvider → trpc.Provider → QueryClientProvider → NettverkProvider 
 **Opprydding:**
 - Fullførte køoppføringer slettes ved app-oppstart
 - Foreldreløse lokale bilder (uten køoppføring) slettes i bakgrunnen
-- `ryddOppForProsjekt(sjekklisteIder)` sletter feltdata og køoppføringer for avsluttede prosjekter
+- `ryddOppForProsjekt(sjekklisteIder, oppgaveIder)` sletter feltdata og køoppføringer for avsluttede prosjekter (både sjekklister og oppgaver)
 
 **expo-file-system:** Bruk `expo-file-system/legacy`-importen (IKKE `expo-file-system`) for å få tilgang til `documentDirectory`, `cacheDirectory` osv.
 
