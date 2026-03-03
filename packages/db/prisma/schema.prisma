@@ -280,6 +280,7 @@ model DrawingRevision {
 model Building {
   id          String   @id @default(uuid())
   projectId   String   @map("project_id")
+  number      Int?     @map("number")
   name        String
   description String?
   address     String?

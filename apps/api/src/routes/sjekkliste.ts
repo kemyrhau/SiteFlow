@@ -17,6 +17,7 @@ export const sjekklisteRouter = router({
       z.object({
         projectId: z.string().uuid(),
         status: documentStatusSchema.optional(),
+        buildingId: z.string().uuid().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -26,6 +27,7 @@ export const sjekklisteRouter = router({
         where: {
           template: { projectId: input.projectId },
           ...(input.status ? { status: input.status } : {}),
+          ...(input.buildingId ? { buildingId: input.buildingId } : {}),
           ...(tilgangsFilter ?? {}),
         },
         include: {
@@ -33,6 +35,7 @@ export const sjekklisteRouter = router({
           creatorEnterprise: true,
           responderEnterprise: true,
           creator: true,
+          building: { select: { id: true, name: true, number: true } },
           _count: { select: { images: true, transfers: true } },
         },
         orderBy: { updatedAt: "desc" },

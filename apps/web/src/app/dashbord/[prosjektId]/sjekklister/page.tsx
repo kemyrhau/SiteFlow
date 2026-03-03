@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { Button, Select, Modal, Spinner, EmptyState, StatusBadge, Table } from "@siteflow/ui";
 import { useVerktoylinje } from "@/hooks/useVerktoylinje";
+import { useBygning } from "@/kontekst/bygning-kontekst";
 import type { VerktoylinjeHandling } from "@/kontekst/navigasjon-kontekst";
 import { Plus, Printer } from "lucide-react";
 
@@ -14,20 +15,28 @@ export default function SjekklisteSide() {
   const searchParams = useSearchParams();
   const statusFilter = searchParams.get("status");
   const utils = trpc.useUtils();
+  const { aktivBygning } = useBygning();
   const [visModal, setVisModal] = useState(false);
   const [valgtMal, setValgtMal] = useState("");
   const [valgtOppretter, setValgtOppretter] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
   const [valgtEmne, setValgtEmne] = useState("");
+  const [valgtBygning, setValgtBygning] = useState("");
   const [valgte, setValgte] = useState<Set<string>>(new Set());
 
   const { data: sjekklister, isLoading } = trpc.sjekkliste.hentForProsjekt.useQuery(
-    { projectId: params.prosjektId },
+    {
+      projectId: params.prosjektId,
+      buildingId: aktivBygning?.id,
+    },
   );
 
   const { data: maler } = trpc.mal.hentForProsjekt.useQuery({ projectId: params.prosjektId });
   const { data: entrepriser } = trpc.entreprise.hentForProsjekt.useQuery({ projectId: params.prosjektId });
   const { data: mineEntrepriser } = trpc.medlem.hentMineEntrepriser.useQuery(
+    { projectId: params.prosjektId },
+  );
+  const { data: bygninger } = trpc.bygning.hentForProsjekt.useQuery(
     { projectId: params.prosjektId },
   );
 
@@ -39,8 +48,15 @@ export default function SjekklisteSide() {
       setValgtOppretter("");
       setValgtSvarer("");
       setValgtEmne("");
+      setValgtBygning("");
     },
   });
+
+  // Forvalt bygning fra kontekst når modal åpnes
+  function apneModal() {
+    setValgtBygning(aktivBygning?.id ?? "");
+    setVisModal(true);
+  }
 
   const verktoylinjeHandlinger = useMemo((): VerktoylinjeHandling[] => {
     const handlinger: VerktoylinjeHandling[] = [
@@ -48,7 +64,7 @@ export default function SjekklisteSide() {
         id: "ny-sjekkliste",
         label: "Ny sjekkliste",
         ikon: <Plus className="h-4 w-4" />,
-        onClick: () => setVisModal(true),
+        onClick: apneModal,
         variant: "primary",
       },
     ];
@@ -67,9 +83,10 @@ export default function SjekklisteSide() {
     }
 
     return handlinger;
-  }, [valgte, params.prosjektId, router]);
+    // eslint-disable-next-line
+  }, [valgte, params.prosjektId, router, aktivBygning?.id]);
 
-  useVerktoylinje(verktoylinjeHandlinger, [valgte.size]);
+  useVerktoylinje(verktoylinjeHandlinger, [valgte.size, aktivBygning?.id]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +97,7 @@ export default function SjekklisteSide() {
       creatorEnterpriseId: valgtOppretter,
       responderEnterpriseId: valgtSvarer,
       subject: valgtEmne || undefined,
+      buildingId: valgtBygning || undefined,
     });
   }
 
@@ -104,6 +122,7 @@ export default function SjekklisteSide() {
     dueDate: string | null;
     template: { name: string };
     responderEnterprise: { name: string };
+    building: { id: string; name: string; number: number | null } | null;
   };
 
   // Forhåndsdefinerte emner fra valgt mal
@@ -126,13 +145,19 @@ export default function SjekklisteSide() {
     label: e.name,
   }));
 
+  // Lokasjon-dropdown
+  const bygningAlternativer = (bygninger ?? []).map((b) => ({
+    value: b.id,
+    label: b.number ? `${b.number}. ${b.name}` : b.name,
+  }));
+
   return (
     <div>
       {!sjekklister?.length ? (
         <EmptyState
           title="Ingen sjekklister"
           description="Opprett en sjekkliste basert på en rapportmal."
-          action={<Button onClick={() => setVisModal(true)}>Opprett sjekkliste</Button>}
+          action={<Button onClick={apneModal}>Opprett sjekkliste</Button>}
         />
       ) : (
         <Table<SjekklisteRad>
@@ -150,6 +175,17 @@ export default function SjekklisteSide() {
               celle: (rad) => (
                 <span className="text-gray-600">{rad.template.name}</span>
               ),
+            },
+            {
+              id: "building",
+              header: "Lokasjon",
+              celle: (rad) =>
+                rad.building ? (
+                  <span className="text-gray-600">{rad.building.name}</span>
+                ) : (
+                  <span className="text-gray-300">—</span>
+                ),
+              bredde: "150px",
             },
             {
               id: "responder",
@@ -211,6 +247,13 @@ export default function SjekklisteSide() {
               placeholder="Velg emne..."
             />
           )}
+          <Select
+            label="Lokasjon"
+            options={bygningAlternativer}
+            value={valgtBygning}
+            onChange={(e) => setValgtBygning(e.target.value)}
+            placeholder="Ingen lokasjon"
+          />
           <Select
             label="Oppretter-entreprise"
             options={oppretterAlternativer}

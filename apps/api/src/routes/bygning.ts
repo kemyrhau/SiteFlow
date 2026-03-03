@@ -19,7 +19,7 @@ export const bygningRouter = router({
           drawings: { select: { id: true, name: true } },
           _count: { select: { drawings: true } },
         },
-        orderBy: { name: "asc" },
+        orderBy: { number: "asc" },
       });
     }),
 
@@ -40,7 +40,16 @@ export const bygningRouter = router({
   opprett: publicProcedure
     .input(createBuildingSchema)
     .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.building.create({ data: input });
+      // Auto-generer nummer per prosjekt
+      const maks = await ctx.prisma.building.aggregate({
+        where: { projectId: input.projectId },
+        _max: { number: true },
+      });
+      const nesteNummer = (maks._max.number ?? 0) + 1;
+
+      return ctx.prisma.building.create({
+        data: { ...input, number: nesteNummer },
+      });
     }),
 
   // Oppdater bygning
