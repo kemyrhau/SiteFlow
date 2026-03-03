@@ -1,16 +1,20 @@
 "use client";
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
 import { SearchInput, Spinner } from "@siteflow/ui";
-import { useState } from "react";
-import { FolderOpen, ChevronDown, ChevronRight, File } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FolderOpen, ChevronDown, ChevronRight, File, Lock } from "lucide-react";
+import { beregnSynligeMapper } from "@siteflow/shared/utils";
+import type { MappeTilgangInput, BrukerTilgangInfo } from "@siteflow/shared/utils";
 
 interface MappeTreData {
   id: string;
   name: string;
   children: MappeTreData[];
   _count?: { documents: number };
+  kunSti?: boolean;
 }
 
 function MappeRad({
@@ -28,6 +32,7 @@ function MappeRad({
   const harBarn = mappe.children.length > 0;
   const antallDokumenter = mappe._count?.documents ?? 0;
   const erValgt = mappe.id === valgtId;
+  const erKunSti = mappe.kunSti === true;
 
   return (
     <div>
@@ -36,7 +41,9 @@ function MappeRad({
         className={`flex cursor-pointer items-center gap-1 rounded-md py-1.5 pr-2 text-sm ${
           erValgt
             ? "bg-siteflow-primary/10 text-siteflow-primary"
-            : "hover:bg-gray-50"
+            : erKunSti
+              ? "text-gray-400 hover:bg-gray-50"
+              : "hover:bg-gray-50"
         }`}
         style={{ paddingLeft: `${dybde * 16 + 4}px` }}
       >
@@ -57,11 +64,15 @@ function MappeRad({
             <span className="inline-block h-3 w-3" />
           )}
         </button>
-        <FolderOpen className={`h-3.5 w-3.5 flex-shrink-0 ${erValgt ? "text-siteflow-primary" : "text-amber-500"}`} />
-        <span className={`flex-1 truncate ${erValgt ? "font-medium" : "text-gray-700"}`}>
+        {erKunSti ? (
+          <Lock className="h-3.5 w-3.5 flex-shrink-0 text-gray-300" />
+        ) : (
+          <FolderOpen className={`h-3.5 w-3.5 flex-shrink-0 ${erValgt ? "text-siteflow-primary" : "text-amber-500"}`} />
+        )}
+        <span className={`flex-1 truncate ${erValgt ? "font-medium" : erKunSti ? "text-gray-400" : "text-gray-700"}`}>
           {mappe.name}
         </span>
-        {antallDokumenter > 0 && (
+        {!erKunSti && antallDokumenter > 0 && (
           <span className="text-xs text-gray-400">
             {antallDokumenter} <File className="mb-px inline h-2.5 w-2.5" />
           </span>
@@ -82,13 +93,14 @@ function byggTre(
     name: string;
     parentId: string | null;
     _count?: { documents: number };
+    kunSti?: boolean;
   }>,
 ): MappeTreData[] {
   const map = new Map<string, MappeTreData>();
   const roots: MappeTreData[] = [];
 
   for (const m of flat) {
-    map.set(m.id, { id: m.id, name: m.name, children: [], _count: m._count });
+    map.set(m.id, { id: m.id, name: m.name, children: [], _count: m._count, kunSti: m.kunSti });
   }
 
   for (const m of flat) {
@@ -109,6 +121,7 @@ export function MapperPanel() {
   const params = useParams<{ prosjektId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const [sok, setSok] = useState("");
 
   const valgtMappeId = searchParams.get("mappe");
@@ -117,6 +130,74 @@ export function MapperPanel() {
     { projectId: params.prosjektId },
     { enabled: !!params.prosjektId },
   );
+
+  // Hent brukerens entrepriser og grupper for tilgangsfiltrering
+  const { data: medlemmer } = trpc.medlem.hentForProsjekt.useQuery(
+    { projectId: params.prosjektId },
+    { enabled: !!params.prosjektId },
+  );
+
+  const { data: grupper } = trpc.gruppe.hentForProsjekt.useQuery(
+    { projectId: params.prosjektId },
+    { enabled: !!params.prosjektId },
+  );
+
+  // Beregn synlige mapper
+  const { filtrertMapper, kunStiIder } = useMemo(() => {
+    if (!mapper || !session?.user) {
+      return { filtrertMapper: mapper ?? [], kunStiIder: new Set<string>() };
+    }
+
+    // Finn brukerens prosjektmedlemskap
+    const brukerMedlem = medlemmer?.find(
+      (m) => m.user.email === session.user?.email,
+    );
+
+    if (!brukerMedlem) {
+      return { filtrertMapper: mapper, kunStiIder: new Set<string>() };
+    }
+
+    const erAdmin = brukerMedlem.role === "admin";
+
+    // Finn brukerens entreprise-IDer
+    const entrepriseIder = brukerMedlem.enterprises.map(
+      (me) => me.enterprise.id,
+    );
+
+    // Finn brukerens gruppe-IDer
+    const alleGrupper = grupper ?? [];
+    const gruppeIder = alleGrupper
+      .filter((g: { id: string; members: Array<{ projectMember: { user: { id: string } } }> }) =>
+        g.members.some(
+          (m: { projectMember: { user: { id: string } } }) => m.projectMember.user.id === brukerMedlem.user.id,
+        ),
+      )
+      .map((g: { id: string }) => g.id);
+
+    const brukerInfo: BrukerTilgangInfo = {
+      userId: brukerMedlem.user.id,
+      erAdmin,
+      entrepriseIder,
+      gruppeIder,
+    };
+
+    const mapperInput: MappeTilgangInput[] = mapper.map((m) => ({
+      id: m.id,
+      parentId: m.parentId,
+      accessMode: m.accessMode,
+      accessEntries: m.accessEntries.map((e) => ({
+        accessType: e.accessType,
+        enterpriseId: e.enterprise?.id ?? null,
+        groupId: e.group?.id ?? null,
+        userId: e.user?.id ?? null,
+      })),
+    }));
+
+    const resultat = beregnSynligeMapper(mapperInput, brukerInfo);
+
+    const filtrert = mapper.filter((m) => resultat.synlige.has(m.id));
+    return { filtrertMapper: filtrert, kunStiIder: resultat.kunSti };
+  }, [mapper, session, medlemmer, grupper]);
 
   function velgMappe(mappeId: string) {
     router.push(`/dashbord/${params.prosjektId}/mapper?mappe=${mappeId}`);
@@ -130,16 +211,15 @@ export function MapperPanel() {
     );
   }
 
-  const mappeTre = mapper
-    ? byggTre(
-        mapper as Array<{
-          id: string;
-          name: string;
-          parentId: string | null;
-          _count?: { documents: number };
-        }>,
-      )
-    : [];
+  const mappeTre = byggTre(
+    filtrertMapper.map((m) => ({
+      id: m.id,
+      name: m.name,
+      parentId: m.parentId,
+      _count: m._count,
+      kunSti: kunStiIder.has(m.id),
+    })),
+  );
 
   function filtrerTre(noder: MappeTreData[], sokeord: string): MappeTreData[] {
     if (!sokeord) return noder;

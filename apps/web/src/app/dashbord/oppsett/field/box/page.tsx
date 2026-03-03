@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
-import { Button, Modal, Input, Spinner } from "@siteflow/ui";
+import { Button, Modal, Input, Spinner, Select } from "@siteflow/ui";
 import {
   FolderOpen,
   ChevronDown,
@@ -14,7 +14,26 @@ import {
   MoreVertical,
   FolderPlus,
   File,
+  Shield,
+  X,
+  Building2,
+  Users,
+  User,
 } from "lucide-react";
+
+/* ------------------------------------------------------------------ */
+/*  Typer                                                              */
+/* ------------------------------------------------------------------ */
+
+interface TilgangEntry {
+  accessType: "enterprise" | "group" | "user";
+  enterpriseId?: string;
+  groupId?: string;
+  userId?: string;
+  // Visningsdata
+  navn: string;
+  farge?: string | null;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Treprikk-meny                                                      */
@@ -47,7 +66,7 @@ function TreprikkMeny({
       {apen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setApen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
             {handlinger.map((h) => (
               <button
                 key={h.label}
@@ -73,12 +92,302 @@ function TreprikkMeny({
 }
 
 /* ------------------------------------------------------------------ */
+/*  TilgangModal                                                       */
+/* ------------------------------------------------------------------ */
+
+function TilgangModal({
+  mappeId,
+  mappeNavn,
+  prosjektId,
+  onLukk,
+}: {
+  mappeId: string;
+  mappeNavn: string;
+  prosjektId: string;
+  onLukk: () => void;
+}) {
+  const utils = trpc.useUtils();
+
+  // Hent gjeldende tilgang
+  const { data: tilgang, isLoading: lasterTilgang } = trpc.mappe.hentTilgang.useQuery(
+    { folderId: mappeId },
+  );
+
+  // Hent tilgjengelige entrepriser, grupper og medlemmer
+  const { data: entrepriser } = trpc.entreprise.hentForProsjekt.useQuery(
+    { projectId: prosjektId },
+    { enabled: !!prosjektId },
+  );
+  const { data: grupper } = trpc.gruppe.hentForProsjekt.useQuery(
+    { projectId: prosjektId },
+    { enabled: !!prosjektId },
+  );
+  const { data: medlemmer } = trpc.medlem.hentForProsjekt.useQuery(
+    { projectId: prosjektId },
+    { enabled: !!prosjektId },
+  );
+
+  // Lokal state
+  const [modus, setModus] = useState<"inherit" | "custom">("inherit");
+  const [oppforinger, setOppforinger] = useState<TilgangEntry[]>([]);
+  const [initialisert, setInitialisert] = useState(false);
+
+  // Ny oppføring-state
+  const [nyType, setNyType] = useState<"enterprise" | "group" | "user">("enterprise");
+  const [nyId, setNyId] = useState("");
+
+  // Initialiser fra server-data
+  if (tilgang && !initialisert) {
+    setModus(tilgang.accessMode as "inherit" | "custom");
+    setOppforinger(
+      tilgang.accessEntries.map((e) => ({
+        accessType: e.accessType as "enterprise" | "group" | "user",
+        enterpriseId: e.enterprise?.id,
+        groupId: e.group?.id,
+        userId: e.user?.id,
+        navn:
+          e.enterprise?.name ??
+          e.group?.name ??
+          e.user?.name ??
+          e.user?.email ??
+          "Ukjent",
+        farge: e.enterprise?.color ?? null,
+      })),
+    );
+    setInitialisert(true);
+  }
+
+  const settTilgangMutation = trpc.mappe.settTilgang.useMutation({
+    onSuccess: () => {
+      utils.mappe.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.mappe.hentTilgang.invalidate({ folderId: mappeId });
+      onLukk();
+    },
+  });
+
+  // Tilgjengelige alternativer for dropdown (filtrer ut allerede lagt til)
+  const tilgjengeligeAlternativer = useMemo(() => {
+    if (nyType === "enterprise") {
+      return (entrepriser ?? [] as Array<{ id: string; name: string }>)
+        .filter((e: { id: string }) => !oppforinger.some((o) => o.enterpriseId === e.id))
+        .map((e: { id: string; name: string }) => ({ value: e.id, label: e.name }));
+    }
+    if (nyType === "group") {
+      return (grupper ?? [] as Array<{ id: string; name: string }>)
+        .filter((g: { id: string }) => !oppforinger.some((o) => o.groupId === g.id))
+        .map((g: { id: string; name: string }) => ({ value: g.id, label: g.name }));
+    }
+    // user
+    return (medlemmer ?? [] as Array<{ user: { id: string; name: string | null; email: string } }>)
+      .filter((m: { user: { id: string } }) => !oppforinger.some((o) => o.userId === m.user.id))
+      .map((m: { user: { id: string; name: string | null; email: string } }) => ({
+        value: m.user.id,
+        label: m.user.name ?? m.user.email,
+      }));
+  }, [nyType, entrepriser, grupper, medlemmer, oppforinger]);
+
+  function leggTil() {
+    if (!nyId) return;
+
+    let navn = "";
+    let farge: string | null = null;
+
+    if (nyType === "enterprise") {
+      const e = (entrepriser as Array<{ id: string; name: string; color?: string | null }> | undefined)?.find((e) => e.id === nyId);
+      navn = e?.name ?? "";
+      farge = e?.color ?? null;
+    } else if (nyType === "group") {
+      const g = (grupper as Array<{ id: string; name: string }> | undefined)?.find((g) => g.id === nyId);
+      navn = g?.name ?? "";
+    } else {
+      const m = (medlemmer as Array<{ user: { id: string; name: string | null; email: string } }> | undefined)?.find((m) => m.user.id === nyId);
+      navn = m?.user.name ?? m?.user.email ?? "";
+    }
+
+    setOppforinger([
+      ...oppforinger,
+      {
+        accessType: nyType,
+        enterpriseId: nyType === "enterprise" ? nyId : undefined,
+        groupId: nyType === "group" ? nyId : undefined,
+        userId: nyType === "user" ? nyId : undefined,
+        navn,
+        farge,
+      },
+    ]);
+    setNyId("");
+  }
+
+  function fjern(index: number) {
+    setOppforinger(oppforinger.filter((_, i) => i !== index));
+  }
+
+  function lagre() {
+    settTilgangMutation.mutate({
+      folderId: mappeId,
+      accessMode: modus,
+      entries: oppforinger.map((o) => ({
+        accessType: o.accessType,
+        enterpriseId: o.enterpriseId,
+        groupId: o.groupId,
+        userId: o.userId,
+      })),
+    });
+  }
+
+  const typeBadgeFarge: Record<string, string> = {
+    enterprise: "bg-amber-100 text-amber-700",
+    group: "bg-blue-100 text-blue-700",
+    user: "bg-emerald-100 text-emerald-700",
+  };
+
+  const typeIkon: Record<string, JSX.Element> = {
+    enterprise: <Building2 className="h-3 w-3" />,
+    group: <Users className="h-3 w-3" />,
+    user: <User className="h-3 w-3" />,
+  };
+
+  const typeLabel: Record<string, string> = {
+    enterprise: "Entreprise",
+    group: "Gruppe",
+    user: "Bruker",
+  };
+
+  if (lasterTilgang) {
+    return (
+      <div className="flex justify-center py-8">
+        <Spinner size="md" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Tilgangsmodus */}
+      <div>
+        <p className="mb-2 text-sm font-medium text-gray-700">Tilgangsmodus</p>
+        <div className="flex flex-col gap-2">
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+            <input
+              type="radio"
+              name="modus"
+              checked={modus === "inherit"}
+              onChange={() => setModus("inherit")}
+              className="text-siteflow-primary"
+            />
+            Arv fra overordnet mappe
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+            <input
+              type="radio"
+              name="modus"
+              checked={modus === "custom"}
+              onChange={() => setModus("custom")}
+              className="text-siteflow-primary"
+            />
+            Egendefinert tilgang
+          </label>
+        </div>
+      </div>
+
+      {/* Tilgangsliste (kun synlig for custom) */}
+      {modus === "custom" && (
+        <div>
+          <p className="mb-2 text-sm font-medium text-gray-700">Tilgangsliste</p>
+
+          {oppforinger.length === 0 ? (
+            <p className="mb-3 text-sm text-gray-400">
+              Ingen har tilgang ennå. Legg til entrepriser, grupper eller brukere.
+            </p>
+          ) : (
+            <div className="mb-3 flex flex-col gap-1.5">
+              {oppforinger.map((o, i) => (
+                <div
+                  key={`${o.accessType}-${o.enterpriseId ?? o.groupId ?? o.userId}`}
+                  className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2"
+                >
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${typeBadgeFarge[o.accessType]}`}
+                  >
+                    {typeIkon[o.accessType]}
+                    {typeLabel[o.accessType]}
+                  </span>
+                  <span className="flex-1 truncate text-sm text-gray-800">
+                    {o.navn}
+                  </span>
+                  <button
+                    onClick={() => fjern(i)}
+                    className="rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Legg til ny oppføring */}
+          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-3">
+            <p className="mb-2 text-xs font-medium text-gray-500">
+              Legg til tilgang
+            </p>
+            <div className="flex items-end gap-2">
+              <div className="w-36">
+                <Select
+                  label="Type"
+                  value={nyType}
+                  onChange={(e) => {
+                    setNyType(e.target.value as "enterprise" | "group" | "user");
+                    setNyId("");
+                  }}
+                  options={[
+                    { value: "enterprise", label: "Entreprise" },
+                    { value: "group", label: "Gruppe" },
+                    { value: "user", label: "Bruker" },
+                  ]}
+                />
+              </div>
+              <div className="flex-1">
+                <Select
+                  label="Velg"
+                  value={nyId}
+                  onChange={(e) => setNyId(e.target.value)}
+                  options={[
+                    { value: "", label: "Velg..." },
+                    ...tilgjengeligeAlternativer,
+                  ]}
+                />
+              </div>
+              <Button size="sm" onClick={leggTil} disabled={!nyId}>
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Legg til
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Handlinger */}
+      <div className="flex gap-3 pt-2">
+        <Button onClick={lagre} loading={settTilgangMutation.isPending}>
+          Lagre
+        </Button>
+        <Button variant="secondary" onClick={onLukk}>
+          Avbryt
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Mappe-tre komponent (rekursiv)                                     */
 /* ------------------------------------------------------------------ */
 
 interface MappeTreData {
   id: string;
   name: string;
+  accessMode: string;
   children: MappeTreData[];
   _count?: { documents: number };
 }
@@ -89,16 +398,19 @@ function MappeTreRad({
   onLeggTilUndermappe,
   onGiNyttNavn,
   onSlett,
+  onRedigerTilgang,
 }: {
   mappe: MappeTreData;
   dybde: number;
   onLeggTilUndermappe: (parentId: string) => void;
   onGiNyttNavn: (id: string, navn: string) => void;
   onSlett: (id: string) => void;
+  onRedigerTilgang: (id: string, navn: string) => void;
 }) {
   const [ekspandert, setEkspandert] = useState(dybde < 2);
   const harBarn = mappe.children.length > 0;
   const antallDokumenter = mappe._count?.documents ?? 0;
+  const harEgenTilgang = mappe.accessMode === "custom";
 
   return (
     <div>
@@ -125,6 +437,9 @@ function MappeTreRad({
         <span className="flex-1 truncate text-sm text-gray-800">
           {mappe.name}
         </span>
+        {harEgenTilgang && (
+          <Shield className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
+        )}
         {antallDokumenter > 0 && (
           <span className="mr-2 text-xs text-gray-400">
             {antallDokumenter} <File className="mb-px inline h-3 w-3" />
@@ -138,6 +453,11 @@ function MappeTreRad({
                 label: "Ny undermappe",
                 ikon: <FolderPlus className="h-4 w-4 text-gray-400" />,
                 onClick: () => onLeggTilUndermappe(mappe.id),
+              },
+              {
+                label: "Rediger tilgang",
+                ikon: <Shield className="h-4 w-4 text-blue-400" />,
+                onClick: () => onRedigerTilgang(mappe.id, mappe.name),
               },
               {
                 label: "Gi nytt navn",
@@ -164,6 +484,7 @@ function MappeTreRad({
             onLeggTilUndermappe={onLeggTilUndermappe}
             onGiNyttNavn={onGiNyttNavn}
             onSlett={onSlett}
+            onRedigerTilgang={onRedigerTilgang}
           />
         ))}
     </div>
@@ -184,6 +505,7 @@ export default function BoxSide() {
   const [giNyttNavnId, setGiNyttNavnId] = useState<string | null>(null);
   const [giNyttNavnVerdi, setGiNyttNavnVerdi] = useState("");
   const [slettMappeId, setSlettMappeId] = useState<string | null>(null);
+  const [tilgangMappe, setTilgangMappe] = useState<{ id: string; navn: string } | null>(null);
 
   // Hent mappestruktur
   const { data: mapper, isLoading } = trpc.mappe.hentForProsjekt.useQuery(
@@ -227,12 +549,17 @@ export default function BoxSide() {
     setGiNyttNavnVerdi(navn);
   }
 
+  function handleRedigerTilgang(id: string, navn: string) {
+    setTilgangMappe({ id, navn });
+  }
+
   // Bygg tre fra flat liste
   function byggTre(
     flat: Array<{
       id: string;
       name: string;
       parentId: string | null;
+      accessMode: string;
       _count?: { documents: number };
     }>,
   ): MappeTreData[] {
@@ -240,7 +567,7 @@ export default function BoxSide() {
     const roots: MappeTreData[] = [];
 
     for (const m of flat) {
-      map.set(m.id, { id: m.id, name: m.name, children: [], _count: m._count });
+      map.set(m.id, { id: m.id, name: m.name, accessMode: m.accessMode, children: [], _count: m._count });
     }
 
     for (const m of flat) {
@@ -257,7 +584,7 @@ export default function BoxSide() {
     return roots;
   }
 
-  const mappeTre = mapper ? byggTre(mapper as Array<{ id: string; name: string; parentId: string | null; _count?: { documents: number } }>) : [];
+  const mappeTre = mapper ? byggTre(mapper as Array<{ id: string; name: string; parentId: string | null; accessMode: string; _count?: { documents: number } }>) : [];
 
   return (
     <div>
@@ -316,6 +643,7 @@ export default function BoxSide() {
                 onLeggTilUndermappe={handleLeggTilUndermappe}
                 onGiNyttNavn={handleGiNyttNavn}
                 onSlett={setSlettMappeId}
+                onRedigerTilgang={handleRedigerTilgang}
               />
             ))}
           </div>
@@ -430,6 +758,22 @@ export default function BoxSide() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Tilgangsmodal */}
+      <Modal
+        open={tilgangMappe !== null}
+        onClose={() => setTilgangMappe(null)}
+        title={`Rediger tilgang – ${tilgangMappe?.navn ?? ""}`}
+      >
+        {tilgangMappe && prosjektId && (
+          <TilgangModal
+            mappeId={tilgangMappe.id}
+            mappeNavn={tilgangMappe.navn}
+            prosjektId={prosjektId}
+            onLukk={() => setTilgangMappe(null)}
+          />
+        )}
       </Modal>
     </div>
   );

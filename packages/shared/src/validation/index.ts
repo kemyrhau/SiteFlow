@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DOCUMENT_STATUSES, REPORT_OBJECT_TYPES, TEMPLATE_ZONES, GROUP_CATEGORIES } from "../types";
+import { DOCUMENT_STATUSES, REPORT_OBJECT_TYPES, TEMPLATE_ZONES, GROUP_CATEGORIES, FOLDER_ACCESS_MODES, FOLDER_ACCESS_TYPES } from "../types";
 
 // Dokumentstatus-validering
 export const documentStatusSchema = z.enum(DOCUMENT_STATUSES);
@@ -156,6 +156,21 @@ export const createProjectGroupSchema = z.object({
 export const updateProjectGroupSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(255).optional(),
+});
+
+// Mappeadgangskontroll
+export const folderAccessModeSchema = z.enum(FOLDER_ACCESS_MODES);
+export const folderAccessTypeSchema = z.enum(FOLDER_ACCESS_TYPES);
+
+export const settMappeTilgangSchema = z.object({
+  folderId: z.string().uuid(),
+  accessMode: folderAccessModeSchema,
+  entries: z.array(z.object({
+    accessType: folderAccessTypeSchema,
+    enterpriseId: z.string().uuid().optional(),
+    groupId: z.string().uuid().optional(),
+    userId: z.string().uuid().optional(),
+  })).default([]),
 });
 
 // Legg til gruppemedlem via e-post

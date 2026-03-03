@@ -1,4 +1,6 @@
 export { vaerkodeTilTekst } from "./vaer";
+export { beregnSynligeMapper } from "./mappeTilgang";
+export type { MappeTilgangInput, BrukerTilgangInfo, SynligeMapperResultat } from "./mappeTilgang";
 
 /**
  * Generer et unikt prosjektnummer med prefiks og sekvensielt nummer.

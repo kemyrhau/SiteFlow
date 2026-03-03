@@ -357,6 +357,12 @@ export interface VaerVerdi {
   kilde?: "manuell" | "automatisk";
 }
 
+// Mappeadgangskontroll
+export const FOLDER_ACCESS_MODES = ["inherit", "custom"] as const;
+export type FolderAccessMode = (typeof FOLDER_ACCESS_MODES)[number];
+export const FOLDER_ACCESS_TYPES = ["enterprise", "group", "user"] as const;
+export type FolderAccessType = (typeof FOLDER_ACCESS_TYPES)[number];
+
 // Grunnleggende entitetsgrensesnitt
 export interface BaseEntity {
   id: string;

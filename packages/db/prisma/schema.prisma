@@ -26,6 +26,7 @@ model User {
   sentTransfers        DocumentTransfer[] @relation("TransferSender")
   drawingRevisions     DrawingRevision[]  @relation("DrawingRevisionUploader")
   sentInvitations      ProjectInvitation[] @relation("InvitationSender")
+  folderAccess         FolderAccess[]
 
   @@map("users")
 }
@@ -140,6 +141,7 @@ model ProjectGroup {
   project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   members     ProjectGroupMember[]
   invitations ProjectInvitation[]
+  folderAccess FolderAccess[]
 
   @@unique([projectId, slug])
   @@map("project_groups")
@@ -202,6 +204,7 @@ model Enterprise {
   createdWorkflows   Workflow[]       @relation("WorkflowCreator")
   respondWorkflows   Workflow[]       @relation("WorkflowResponder")
   invitations        ProjectInvitation[]
+  folderAccess       FolderAccess[]
 
   @@map("enterprises")
 }
@@ -411,19 +414,39 @@ model Image {
 }
 
 model Folder {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  parentId  String?  @map("parent_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid())
+  projectId  String   @map("project_id")
+  parentId   String?  @map("parent_id")
+  name       String
+  accessMode String   @default("inherit") @map("access_mode") // "inherit" | "custom"
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parent   Folder?   @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children Folder[]  @relation("FolderHierarchy")
-  documents Document[]
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent        Folder?        @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children      Folder[]       @relation("FolderHierarchy")
+  documents     Document[]
+  accessEntries FolderAccess[]
 
   @@map("folders")
+}
+
+model FolderAccess {
+  id           String   @id @default(uuid())
+  folderId     String   @map("folder_id")
+  accessType   String   @map("access_type") // "enterprise" | "group" | "user"
+  enterpriseId String?  @map("enterprise_id")
+  groupId      String?  @map("group_id")
+  userId       String?  @map("user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  folder     Folder        @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  enterprise Enterprise?   @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  group      ProjectGroup? @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user       User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, accessType, enterpriseId, groupId, userId])
+  @@map("folder_access")
 }
 
 model Document {

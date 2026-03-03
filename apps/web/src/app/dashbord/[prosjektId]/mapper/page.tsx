@@ -1,17 +1,22 @@
 "use client";
 
+import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
 import { Spinner, Table } from "@siteflow/ui";
-import { FolderOpen, FileText, Download } from "lucide-react";
+import { FolderOpen, FileText, Download, Lock } from "lucide-react";
+import { beregnSynligeMapper } from "@siteflow/shared/utils";
+import type { MappeTilgangInput, BrukerTilgangInfo } from "@siteflow/shared/utils";
 
 export default function MapperSide() {
   const { prosjektId } = useProsjekt();
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const valgtMappeId = searchParams.get("mappe");
 
-  // Hent alle mapper for å finne valgt mappes navn
+  // Hent alle mapper for å finne valgt mappes navn + tilgangsdata
   const { data: mapper } = trpc.mappe.hentForProsjekt.useQuery(
     { projectId: prosjektId! },
     { enabled: !!prosjektId },
@@ -24,7 +29,64 @@ export default function MapperSide() {
       { enabled: !!valgtMappeId },
     );
 
+  // Hent brukerens medlemskap og grupper for tilgangskontroll
+  const { data: medlemmer } = trpc.medlem.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
+  const { data: grupper } = trpc.gruppe.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
   const valgtMappe = mapper?.find((m) => m.id === valgtMappeId);
+
+  // Sjekk om bruker kun har sti-tilgang (ikke innholdstilgang)
+  const erKunSti = useMemo(() => {
+    if (!valgtMappeId || !mapper || !session?.user || !medlemmer) return false;
+
+    const brukerMedlem = medlemmer.find(
+      (m) => m.user.email === session.user?.email,
+    );
+
+    if (!brukerMedlem) return false;
+    if (brukerMedlem.role === "admin") return false;
+
+    const entrepriseIder = brukerMedlem.enterprises.map(
+      (me) => me.enterprise.id,
+    );
+
+    const gruppeIder = (grupper ?? [])
+      .filter((g) =>
+        g.members.some(
+          (m) => m.projectMember.user.id === brukerMedlem.user.id,
+        ),
+      )
+      .map((g) => g.id);
+
+    const brukerInfo: BrukerTilgangInfo = {
+      userId: brukerMedlem.user.id,
+      erAdmin: false,
+      entrepriseIder,
+      gruppeIder,
+    };
+
+    const mapperInput: MappeTilgangInput[] = mapper.map((m) => ({
+      id: m.id,
+      parentId: m.parentId,
+      accessMode: m.accessMode,
+      accessEntries: m.accessEntries.map((e) => ({
+        accessType: e.accessType,
+        enterpriseId: e.enterprise?.id ?? null,
+        groupId: e.group?.id ?? null,
+        userId: e.user?.id ?? null,
+      })),
+    }));
+
+    const resultat = beregnSynligeMapper(mapperInput, brukerInfo);
+    return resultat.kunSti.has(valgtMappeId);
+  }, [valgtMappeId, mapper, session, medlemmer, grupper]);
 
   // Ingen mappe valgt — vis velkomstmelding
   if (!valgtMappeId) {
@@ -34,6 +96,21 @@ export default function MapperSide() {
         <h2 className="mb-1 text-lg font-semibold text-gray-700">Mapper</h2>
         <p className="text-sm text-gray-400">
           Velg en mappe i panelet til venstre for å se innholdet.
+        </p>
+      </div>
+    );
+  }
+
+  // Kun sti-tilgang — vis begrenset melding
+  if (erKunSti) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center py-20">
+        <Lock className="mb-3 h-12 w-12 text-gray-300" />
+        <h2 className="mb-1 text-lg font-semibold text-gray-700">
+          {valgtMappe?.name ?? "Mappe"}
+        </h2>
+        <p className="text-sm text-gray-400">
+          Du har ikke tilgang til innholdet i denne mappen.
         </p>
       </div>
     );

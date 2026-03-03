@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc/trpc";
+import { settMappeTilgangSchema } from "@siteflow/shared/validation";
 
 export const mappeRouter = router({
-  // Hent alle mapper for et prosjekt (flat liste med parentId)
+  // Hent alle mapper for et prosjekt (flat liste med parentId + tilgangsoppføringer)
   hentForProsjekt: publicProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
@@ -10,6 +11,13 @@ export const mappeRouter = router({
         where: { projectId: input.projectId },
         include: {
           _count: { select: { documents: true } },
+          accessEntries: {
+            include: {
+              enterprise: { select: { id: true, name: true, color: true } },
+              group: { select: { id: true, name: true } },
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
         },
         orderBy: { name: "asc" },
       });
@@ -63,6 +71,72 @@ export const mappeRouter = router({
       return ctx.prisma.document.findMany({
         where: { folderId: input.folderId },
         orderBy: { name: "asc" },
+      });
+    }),
+
+  // Hent tilgangskonfigurasjon for én mappe
+  hentTilgang: publicProcedure
+    .input(z.object({ folderId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const mappe = await ctx.prisma.folder.findUniqueOrThrow({
+        where: { id: input.folderId },
+        select: {
+          id: true,
+          accessMode: true,
+          accessEntries: {
+            include: {
+              enterprise: { select: { id: true, name: true, color: true } },
+              group: { select: { id: true, name: true } },
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+      });
+      return mappe;
+    }),
+
+  // Sett tilgang for en mappe (erstatter alle oppføringer)
+  settTilgang: publicProcedure
+    .input(settMappeTilgangSchema)
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.$transaction(async (tx) => {
+        // Oppdater accessMode
+        await tx.folder.update({
+          where: { id: input.folderId },
+          data: { accessMode: input.accessMode },
+        });
+
+        // Slett alle eksisterende oppføringer
+        await tx.folderAccess.deleteMany({
+          where: { folderId: input.folderId },
+        });
+
+        // Opprett nye oppføringer (kun for custom-modus)
+        if (input.accessMode === "custom" && input.entries.length > 0) {
+          await tx.folderAccess.createMany({
+            data: input.entries.map((entry) => ({
+              folderId: input.folderId,
+              accessType: entry.accessType,
+              enterpriseId: entry.enterpriseId ?? null,
+              groupId: entry.groupId ?? null,
+              userId: entry.userId ?? null,
+            })),
+          });
+        }
+
+        // Returner oppdatert mappe med tilgangsoppføringer
+        return tx.folder.findUniqueOrThrow({
+          where: { id: input.folderId },
+          include: {
+            accessEntries: {
+              include: {
+                enterprise: { select: { id: true, name: true, color: true } },
+                group: { select: { id: true, name: true } },
+                user: { select: { id: true, name: true, email: true } },
+              },
+            },
+          },
+        });
       });
     }),
 });
