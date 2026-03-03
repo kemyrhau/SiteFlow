@@ -14,6 +14,7 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 - **Auth:** Auth.js v5 (next-auth) med Google og Microsoft Entra ID (Office 365), PrismaAdapter, database-sesjoner, `allowDangerousEmailAccountLinking` for inviterte brukere
 - **E-post:** Resend (invitasjons-e-poster ved brukeropprettelse)
 - **Bildekomprimering:** expo-image-manipulator (5:4 senter-crop + mål: 300–400 KB)
+- **Skjermrotasjon:** expo-screen-orientation (per-skjerm landskapslås for kamera)
 - **GPS:** expo-location (deaktiverbar per objekt)
 - **PDF-eksport:** react-pdf
 - **Styling:** Tailwind CSS (web), NativeWind (mobil)
@@ -148,7 +149,8 @@ siteflow/
 | `tasks` | Oppgaver med mal-tilknytning (`template_id`), prefiks+løpenummer (`number`), prioritet, frist, oppretter/svarer, utfylt data (JSON), valgfri tegningsposisjon og sjekkliste-kobling (`checklist_id`, `checklist_field_id`) |
 | `document_transfers` | Sporbarhet: all sending mellom entrepriser |
 | `images` | Bilder med valgfri GPS-data |
-| `folders` | Rekursiv mappestruktur (Mapper-modul) med parent_id |
+| `folders` | Rekursiv mappestruktur (Mapper-modul) med parent_id, `access_mode` (inherit/custom) |
+| `folder_access` | Tilgangsoppføringer per mappe: entreprise, gruppe eller bruker (mange-til-mange) |
 | `documents` | Dokumenter i mapper med fil-URL og versjon |
 | `workflows` | Arbeidsforløp med oppretter-entreprise og valgfri svarer-entreprise (`responder_enterprise_id`) |
 | `workflow_templates` | Kobling mellom arbeidsforløp og maler (mange-til-mange) |
@@ -165,7 +167,8 @@ Viktige relasjoner:
 - `report_templates` har `category` (`oppgave` | `sjekkliste`) og valgfritt `prefix`
 - `buildings` tilhører et prosjekt, med tegninger koblet via `building_id`
 - `drawings` har full metadata (tegningsnummer, fagdisiplin, revisjon, etasje, målestokk, status) med `drawing_revisions` for historikk
-- `folders` bruker selvrefererande relasjon (`parent_id`) for mappetreet i Mapper-modulen
+- `folders` bruker selvrefererande relasjon (`parent_id`) for mappetreet i Mapper-modulen. `accessMode` styrer tilgang: `"inherit"` (arv fra forelder) eller `"custom"` (egendefinert tilgangsliste)
+- `folder_access` kobler mapper til entrepriser, grupper eller brukere via `accessType` (`"enterprise"` | `"group"` | `"user"`). Cascade-sletting fra alle sider. Unikt constraint: `[folderId, accessType, enterpriseId, groupId, userId]`
 - `project_invitations` kobles til project, enterprise (valgfri), group (valgfri) og invitedBy (User)
 - `projects` har valgfri `latitude`/`longitude` (Float?) — brukes til kartvisning og automatisk værhenting i sjekklister
 
@@ -183,7 +186,7 @@ Alle routere i `apps/api/src/routes/`:
 | `bygning` | hentForProsjekt, hentMedId, opprett, oppdater, publiser, slett |
 | `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, slett |
 | `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
-| `mappe` | hentForProsjekt, hentDokumenter, opprett, oppdater, slett |
+| `mappe` | hentForProsjekt (m/tilgangsoppføringer), hentDokumenter, opprett, oppdater, slett, hentTilgang, settTilgang |
 | `medlem` | hentForProsjekt, hentMineEntrepriser, leggTil (m/invitasjon), fjern, oppdaterRolle, sokBrukere |
 | `gruppe` | hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem |
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
@@ -659,10 +662,16 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 
 **5:4 crop-guide (`KameraModal`):**
 - Visuell guide som viser nøyaktig hva som ender opp i det endelige bildet
-- Halvgjennomsiktige svarte felt (50% opacity) over/under 5:4-sonen
+- Halvgjennomsiktige svarte felt (50% opacity) på sidene (landskapsmodus) eller topp/bunn (portrettmodus)
 - Tynne hvite guidelinjer (40% opacity) langs crop-kantene
-- Beregnes dynamisk via `onLayout` + `useWindowDimensions` — tilpasser seg orientasjonsendring
+- Beregnes dynamisk via `onLayout` — tilpasser seg orientasjonsendring
 - `pointerEvents="none"` slik at overlayet ikke blokkerer kamerainteraksjon
+
+**Landskapslås (`KameraModal`):**
+- Bruker `expo-screen-orientation` for per-skjerm orientasjonslås
+- Kameraet låses til `LANDSCAPE_RIGHT` når det åpnes, tilbake til `PORTRAIT_UP` når det lukkes
+- `app.json` forblir `"orientation": "portrait"` — resten av appen er upåvirket
+- Cleanup-funksjon i `useEffect` sikrer portrettlås ved unmount
 
 **Viktig:** `InteractionManager.runAfterInteractions` MÅ brukes etter at kamera/picker lukkes, før state-oppdateringer, for å unngå React Navigation "Cannot read property 'stale' of undefined"-krasj.
 
@@ -858,6 +867,8 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `StandardProjectGroup` — Interface for standardgrupper med slug, navn, kategori, tillatelser
 - `STANDARD_PROJECT_GROUPS` — Konstantarray med 4 standardgrupper
 - `CONTAINER_TYPES` — Kontainertyper som kan ha barn: `["list_single", "list_multi"]`
+- `FOLDER_ACCESS_MODES` — `["inherit", "custom"]`, `FolderAccessMode` type
+- `FOLDER_ACCESS_TYPES` — `["enterprise", "group", "user"]`, `FolderAccessType` type
 - `TreObjekt` — Interface for rekursivt objekttre (id, type, label, parentId, children)
 - `erKontainerType(type)` — Sjekker om en type kan ha barnefelt
 - `harForelderObjekt(obj)` — Sjekker `obj.parentId != null`
@@ -887,6 +898,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `createProjectGroupSchema` — Prosjektgruppe-opprettelse (prosjektId, navn, slug, kategori)
 - `updateProjectGroupSchema` — Prosjektgruppe-oppdatering (id, navn)
 - `addGroupMemberByEmailSchema` — Legg til gruppemedlem via e-post (groupId, prosjektId, e-post, fornavn, etternavn, telefon)
+- `settMappeTilgangSchema` — Sett mappeadgangskontroll (folderId, accessMode, entries med accessType/enterpriseId/groupId/userId)
 
 **Konstanter og typer:**
 - `DRAWING_DISCIPLINES`, `DRAWING_TYPES`, `DRAWING_STATUSES` — Konstantarrayer
@@ -897,6 +909,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `generateProjectNumber(sekvens)` — Format: `SF-YYYYMMDD-XXXX`
 - `isValidStatusTransition(current, next)` — Validerer lovlige statusoverganger
 - `vaerkodeTilTekst(code)` — WMO-værkode → norsk tekst (Klart, Overskyet, Lett regn, osv.)
+- `beregnSynligeMapper(mapper, bruker)` — Beregner synlige mapper basert på tilgangsregler med arv. Returnerer `{ synlige: Set<string>, kunSti: Set<string> }`. Admin ser alt, `inherit` gir arv oppover, `custom` sjekker entreprise/gruppe/bruker-match
 
 ## Kodestil
 
@@ -948,7 +961,8 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Rapportobjekt:** Byggeblokk i en mal (23 typer)
 - **Mal (template):** Gjenbrukbar oppskrift for sjekklister/rapporter bygget med drag-and-drop, med prefiks og versjon
 - **Arbeidsforløp (workflow):** Navngitt kobling mellom en oppretter-entreprise, valgfri svarer-entreprise, og et sett maler (oppgave-/sjekklistetyper)
-- **Mapper (Mappeoppsett):** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur. To visninger: (1) HovedSidebar → `/dashbord/[prosjektId]/mapper` — read-only dokumentvisning (velg mappe i panel, se dokumenter i hovedinnhold), (2) Innstillinger > Field > Mappeoppsett (`/dashbord/oppsett/field/box`) — redigering av mappestruktur (opprett, gi nytt navn, slett)
+- **Mapper (Mappeoppsett):** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur og tilgangskontroll. To visninger: (1) HovedSidebar → `/dashbord/[prosjektId]/mapper` — read-only dokumentvisning med tilgangsfiltrering (velg mappe i panel, se dokumenter i hovedinnhold), (2) Innstillinger > Field > Mappeoppsett (`/dashbord/oppsett/field/box`) — redigering av mappestruktur (opprett, gi nytt navn, slett, rediger tilgang)
+- **Mappeadgangskontroll:** Fleksibel tilgangsstyring per mappe med arv. `accessMode: "inherit"` arver fra overordnet mappe (rotmappe med inherit = åpen for alle), `accessMode: "custom"` bruker en tilgangsliste med entrepriser, grupper og/eller brukere. `beregnSynligeMapper()` beregner synlige mapper klient-side. Admin ser alltid alt. Foreldre-mapper til synlige barn vises som "kun sti" (grå, lås-ikon, uten innholdstilgang)
 - **Bygning:** Fysisk bygning i et prosjekt, med tilknyttede tegninger og publiseringsstatus
 - **Prosjektnummer:** Unikt, autogenerert nummer på format `SF-YYYYMMDD-XXXX`
 - **Prefiks:** Kort kode for en mal (f.eks. BHO, S-BET, KBO)

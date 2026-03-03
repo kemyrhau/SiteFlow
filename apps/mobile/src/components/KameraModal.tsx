@@ -1,6 +1,7 @@
-import { useRef, useState, useCallback } from "react";
-import { View, Text, Pressable, Modal, Animated, useWindowDimensions } from "react-native";
+import { useRef, useState, useCallback, useEffect } from "react";
+import { View, Text, Pressable, Modal, Animated } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -16,26 +17,34 @@ const ZOOM_NIVÅER = [
   { label: "3x", verdi: 0.15 },
 ] as const;
 
-/** Kamerasensoren produserer 4:3 bilde, crop til 5:4 */
-const SENSOR_FORHOLD = 4 / 3;
-const MAL_FORHOLD = 5 / 4;
+const MAL_FORHOLD = 5 / 4; // bredde:høyde
 
 export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
   const cameraRef = useRef<CameraView>(null);
   const insets = useSafeAreaInsets();
-  const { width: skjermBredde } = useWindowDimensions();
   const [tillatelse, spørOmTillatelse] = useCameraPermissions();
   const tarBilde = useRef(false);
   const [antallTatt, settAntallTatt] = useState(0);
   const [zoom, setZoom] = useState(0);
-  const [kameraHøyde, setKameraHøyde] = useState(0);
+  const [kameraLayout, setKameraLayout] = useState({ bredde: 0, hoyde: 0 });
   const flashOpacity = useRef(new Animated.Value(0)).current;
+
+  // Lås til landskapsmodus når kameraet åpnes, tilbake til portrett ved lukking
+  useEffect(() => {
+    if (synlig) {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+    } else {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    }
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    };
+  }, [synlig]);
 
   const håndterTaBilde = useCallback(async () => {
     if (tarBilde.current || !cameraRef.current) return;
     tarBilde.current = true;
     try {
-      // Kort hvit flash som visuell bekreftelse
       flashOpacity.setValue(1);
       Animated.timing(flashOpacity, {
         toValue: 0,
@@ -62,16 +71,23 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
     onLukk();
   }, [onLukk]);
 
-  // Beregn 5:4 crop-guide dimensjoner
-  // Kamerasensoren gir 4:3 bilde (i landskapsmodus: 4 bred × 3 høy)
-  // I portrettmodus: sensoren gir bredde × (bredde × 4/3) høyde
-  // 5:4 crop av dette: bredde × (bredde / (5/4)) = bredde × (bredde × 4/5)
-  const sensorHøyde = skjermBredde * SENSOR_FORHOLD; // Faktisk bildeinnhold i kameravisningen
-  const cropHøyde = skjermBredde / MAL_FORHOLD; // Høyden på 5:4 utsnittet
-  // Halvparten av det som croppes bort (per side)
-  const overlayHøyde = kameraHøyde > 0
-    ? Math.max(0, (kameraHøyde - cropHøyde) / 2)
-    : Math.max(0, (sensorHøyde - cropHøyde) / 2);
+  // Beregn 5:4 crop-guide basert på kameravisningens faktiske layout
+  // I landskapsmodus: bredde > høyde, overlay på venstre/høyre side
+  const { bredde, hoyde } = kameraLayout;
+  let overlayTopp = 0;
+  let overlaySide = 0;
+  if (bredde > 0 && hoyde > 0) {
+    const visningsForhold = bredde / hoyde;
+    if (visningsForhold >= MAL_FORHOLD) {
+      // Bredere enn 5:4 — crop sidene
+      const cropBredde = hoyde * MAL_FORHOLD;
+      overlaySide = Math.max(0, (bredde - cropBredde) / 2);
+    } else {
+      // Smalere enn 5:4 — crop topp/bunn
+      const cropHoyde = bredde / MAL_FORHOLD;
+      overlayTopp = Math.max(0, (hoyde - cropHoyde) / 2);
+    }
+  }
 
   if (!synlig) return null;
 
@@ -102,56 +118,42 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
           style={{ flex: 1 }}
           facing="back"
           zoom={zoom}
-          onLayout={(e) => setKameraHøyde(e.nativeEvent.layout.height)}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            setKameraLayout((prev) =>
+              prev.bredde === width && prev.hoyde === height
+                ? prev
+                : { bredde: width, hoyde: height },
+            );
+          }}
         >
-          {/* 5:4 crop-guide — mørke overlay over/under */}
-          {overlayHøyde > 0 && (
+          {/* 5:4 crop-guide — mørke overlay */}
+          {overlayTopp > 0 && (
             <>
               <View
                 pointerEvents="none"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: overlayHøyde,
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
-                }}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, height: overlayTopp, backgroundColor: "rgba(0,0,0,0.5)" }}
               />
               <View
                 pointerEvents="none"
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: overlayHøyde,
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
-                }}
+                style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: overlayTopp, backgroundColor: "rgba(0,0,0,0.5)" }}
               />
-              {/* Tynne hvite guidelinjer */}
+              <View pointerEvents="none" style={{ position: "absolute", top: overlayTopp, left: 0, right: 0, height: 1, backgroundColor: "rgba(255,255,255,0.4)" }} />
+              <View pointerEvents="none" style={{ position: "absolute", bottom: overlayTopp, left: 0, right: 0, height: 1, backgroundColor: "rgba(255,255,255,0.4)" }} />
+            </>
+          )}
+          {overlaySide > 0 && (
+            <>
               <View
                 pointerEvents="none"
-                style={{
-                  position: "absolute",
-                  top: overlayHøyde,
-                  left: 0,
-                  right: 0,
-                  height: 1,
-                  backgroundColor: "rgba(255, 255, 255, 0.4)",
-                }}
+                style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: overlaySide, backgroundColor: "rgba(0,0,0,0.5)" }}
               />
               <View
                 pointerEvents="none"
-                style={{
-                  position: "absolute",
-                  bottom: overlayHøyde,
-                  left: 0,
-                  right: 0,
-                  height: 1,
-                  backgroundColor: "rgba(255, 255, 255, 0.4)",
-                }}
+                style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: overlaySide, backgroundColor: "rgba(0,0,0,0.5)" }}
               />
+              <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: overlaySide, width: 1, backgroundColor: "rgba(255,255,255,0.4)" }} />
+              <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, right: overlaySide, width: 1, backgroundColor: "rgba(255,255,255,0.4)" }} />
             </>
           )}
 
@@ -184,11 +186,11 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
 
         {/* Zoomknapper + Utløserknapp */}
         <View
-          className="items-center bg-black"
-          style={{ paddingBottom: insets.bottom + 12 }}
+          className="items-center justify-center bg-black px-4"
+          style={{ paddingBottom: insets.bottom + 4, paddingTop: 4 }}
         >
           {/* Zoomknapper */}
-          <View className="mb-4 mt-3 flex-row items-center gap-2">
+          <View className="mb-3 flex-row items-center gap-2">
             {ZOOM_NIVÅER.map((nivå) => {
               const erAktiv = zoom === nivå.verdi;
               return (
