@@ -529,7 +529,7 @@ Drag-and-drop-editor for å bygge maler med rekursiv kontainer-nesting (Dalux-st
 | `FeltPalett` | Venstre panel med draggbare felttyper (23 typer) |
 | `DropSone` | Droppbar sone (topptekst/datafelter) med rekursiv `RekursivtFelt`-rendering |
 | `DraggbartFelt` | Individuelt sorterbart felt med `nestingNivå`, `parentId` og `children`-prop for inline barn |
-| `FeltKonfigurasjon` | Høyre panel for å redigere valgt felts label, påkrevd-status og type-spesifikk config |
+| `FeltKonfigurasjon` | Høyre panel for å redigere valgt felts label, påkrevd-status og type-spesifikk config. Valgalternativer (list_single/list_multi) er redigerbare inline |
 | `DragOverlay_` | Visuell overlay under drag-operasjoner |
 | `BetingelseBjelke` | Blå betingelsesbar inne i kontainerfelt: "Vis felter hvis verdien er en av følgende: [chips]" |
 | `TreprikkMeny` | Kontekstmeny per felt: Rediger, Tilføy/Fjern betingelse, Slett |
