@@ -1,12 +1,17 @@
 import { z } from "zod";
-import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { documentStatusSchema } from "@siteflow/shared";
 import { isValidStatusTransition } from "@siteflow/shared";
 import { TRPCError } from "@trpc/server";
+import {
+  byggTilgangsFilter,
+  verifiserEntrepriseTilhorighet,
+  verifiserDokumentTilgang,
+} from "../trpc/tilgangskontroll";
 
 export const oppgaveRouter = router({
   // Hent alle oppgaver for et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(
       z.object({
         projectId: z.string().uuid(),
@@ -14,10 +19,13 @@ export const oppgaveRouter = router({
       }),
     )
     .query(async ({ ctx, input }) => {
+      const tilgangsFilter = await byggTilgangsFilter(ctx.userId, input.projectId);
+
       return ctx.prisma.task.findMany({
         where: {
           creatorEnterprise: { projectId: input.projectId },
           ...(input.status ? { status: input.status } : {}),
+          ...(tilgangsFilter ?? {}),
         },
         include: {
           template: true,
@@ -31,22 +39,69 @@ export const oppgaveRouter = router({
     }),
 
   // Hent én oppgave med alle detaljer
-  hentMedId: publicProcedure
+  hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.task.findUniqueOrThrow({
+      const oppgave = await ctx.prisma.task.findUniqueOrThrow({
         where: { id: input.id },
         include: {
+          template: true,
           creator: true,
           creatorEnterprise: true,
           responderEnterprise: true,
           drawing: true,
+          checklist: {
+            include: {
+              template: { select: { prefix: true, name: true } },
+            },
+          },
           images: true,
           transfers: {
             include: { sender: true },
             orderBy: { createdAt: "desc" },
           },
         },
+      });
+
+      // Tilgangssjekk via oppretter-entreprisens prosjekt
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        oppgave.creatorEnterprise.projectId,
+        oppgave.creatorEnterpriseId,
+        oppgave.responderEnterpriseId,
+        oppgave.template?.domain,
+      );
+
+      return oppgave;
+    }),
+
+  // Hent oppgaver knyttet til en sjekkliste
+  hentForSjekkliste: protectedProcedure
+    .input(z.object({ checklistId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      // Verifiser tilgang til sjekklisten
+      const sjekkliste = await ctx.prisma.checklist.findUniqueOrThrow({
+        where: { id: input.checklistId },
+        include: { template: { select: { projectId: true } } },
+      });
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        sjekkliste.template.projectId,
+        sjekkliste.creatorEnterpriseId,
+        sjekkliste.responderEnterpriseId,
+      );
+
+      return ctx.prisma.task.findMany({
+        where: { checklistId: input.checklistId },
+        select: {
+          id: true,
+          number: true,
+          checklistFieldId: true,
+          title: true,
+          status: true,
+          template: { select: { prefix: true } },
+        },
+        orderBy: { createdAt: "asc" },
       });
     }),
 
@@ -64,9 +119,15 @@ export const oppgaveRouter = router({
         drawingId: z.string().uuid().optional(),
         positionX: z.number().min(0).max(100).optional(),
         positionY: z.number().min(0).max(100).optional(),
+        workflowId: z.string().uuid().optional(),
+        checklistId: z.string().uuid().optional(),
+        checklistFieldId: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Verifiser at bruker tilhører oppretter-entreprisen
+      await verifiserEntrepriseTilhorighet(ctx.userId, input.creatorEnterpriseId);
+
       return ctx.prisma.$transaction(async (tx) => {
         let nummer: number | undefined;
 
@@ -89,12 +150,24 @@ export const oppgaveRouter = router({
           }
         }
 
+        // Utled svarer-entreprise fra arbeidsforløp hvis oppgitt
+        let svarerEntrepriseId = input.responderEnterpriseId;
+        if (input.workflowId) {
+          const arbeidsforlop = await tx.workflow.findUnique({
+            where: { id: input.workflowId },
+            select: { responderEnterpriseId: true, enterpriseId: true },
+          });
+          if (arbeidsforlop) {
+            svarerEntrepriseId = arbeidsforlop.responderEnterpriseId ?? arbeidsforlop.enterpriseId;
+          }
+        }
+
         return tx.task.create({
           data: {
             templateId: input.templateId,
             creatorUserId: ctx.userId,
             creatorEnterpriseId: input.creatorEnterpriseId,
-            responderEnterpriseId: input.responderEnterpriseId,
+            responderEnterpriseId: svarerEntrepriseId,
             title: input.title,
             description: input.description,
             priority: input.priority,
@@ -103,6 +176,9 @@ export const oppgaveRouter = router({
             drawingId: input.drawingId,
             positionX: input.positionX,
             positionY: input.positionY,
+            workflowId: input.workflowId,
+            checklistId: input.checklistId,
+            checklistFieldId: input.checklistFieldId,
             status: "draft",
           },
         });
@@ -110,7 +186,7 @@ export const oppgaveRouter = router({
     }),
 
   // Oppdater oppgave
-  oppdater: publicProcedure
+  oppdater: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -121,6 +197,22 @@ export const oppgaveRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Tilgangssjekk
+      const oppgave = await ctx.prisma.task.findUniqueOrThrow({
+        where: { id: input.id },
+        include: {
+          creatorEnterprise: { select: { projectId: true } },
+          template: { select: { domain: true } },
+        },
+      });
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        oppgave.creatorEnterprise.projectId,
+        oppgave.creatorEnterpriseId,
+        oppgave.responderEnterpriseId,
+        oppgave.template?.domain,
+      );
+
       const { id, ...data } = input;
       return ctx.prisma.task.update({
         where: { id },
@@ -132,7 +224,7 @@ export const oppgaveRouter = router({
     }),
 
   // Endre status
-  endreStatus: publicProcedure
+  endreStatus: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -144,7 +236,20 @@ export const oppgaveRouter = router({
     .mutation(async ({ ctx, input }) => {
       const oppgave = await ctx.prisma.task.findUniqueOrThrow({
         where: { id: input.id },
+        include: {
+          creatorEnterprise: { select: { projectId: true } },
+          template: { select: { domain: true } },
+        },
       });
+
+      // Tilgangssjekk
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        oppgave.creatorEnterprise.projectId,
+        oppgave.creatorEnterpriseId,
+        oppgave.responderEnterpriseId,
+        oppgave.template?.domain,
+      );
 
       if (!isValidStatusTransition(oppgave.status, input.nyStatus)) {
         throw new TRPCError({

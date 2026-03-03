@@ -1,0 +1,334 @@
+import { TRPCError } from "@trpc/server";
+import { prisma } from "@siteflow/db";
+import type { Permission } from "@siteflow/shared";
+
+/**
+ * Hent brukerens entreprise-IDer i et prosjekt.
+ * Returnerer null for admin (ser alt), string[] for vanlige brukere.
+ */
+export async function hentBrukerEntrepriseIder(
+  userId: string,
+  projectId: string,
+): Promise<string[] | null> {
+  const medlem = await prisma.projectMember.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+    include: {
+      enterprises: { select: { enterpriseId: true } },
+    },
+  });
+
+  if (!medlem) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Du er ikke medlem av dette prosjektet",
+    });
+  }
+
+  // Admin ser alt
+  if (medlem.role === "admin") return null;
+
+  return medlem.enterprises.map((e) => e.enterpriseId);
+}
+
+/**
+ * Bygg Prisma WHERE-filter for entreprise-basert tilgang.
+ * Returnerer null for admin (ingen filtrering nødvendig).
+ */
+export function byggEntrepriseFilter(entreIder: string[] | null) {
+  if (entreIder === null) return null;
+
+  return {
+    OR: [
+      { creatorEnterpriseId: { in: entreIder } },
+      { responderEnterpriseId: { in: entreIder } },
+    ],
+  };
+}
+
+/**
+ * Verifiser at bruker tilhører den angitte entreprisen.
+ */
+export async function verifiserEntrepriseTilhorighet(
+  userId: string,
+  enterpriseId: string,
+): Promise<void> {
+  const kobling = await prisma.memberEnterprise.findFirst({
+    where: {
+      enterpriseId,
+      projectMember: { userId },
+    },
+  });
+
+  if (!kobling) {
+    // Sjekk om bruker er admin (admin kan opprette for alle entrepriser)
+    const enterprise = await prisma.enterprise.findUnique({
+      where: { id: enterpriseId },
+      select: { projectId: true },
+    });
+    if (enterprise) {
+      const medlem = await prisma.projectMember.findUnique({
+        where: {
+          userId_projectId: {
+            userId,
+            projectId: enterprise.projectId,
+          },
+        },
+      });
+      if (medlem?.role === "admin") return;
+    }
+
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Du tilhører ikke denne entreprisen",
+    });
+  }
+}
+
+/**
+ * Verifiser at bruker er admin i prosjektet.
+ */
+export async function verifiserAdmin(
+  userId: string,
+  projectId: string,
+): Promise<void> {
+  const medlem = await prisma.projectMember.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+  });
+
+  if (!medlem || medlem.role !== "admin") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Kun administratorer kan utføre denne handlingen",
+    });
+  }
+}
+
+/**
+ * Verifiser at bruker er medlem av prosjektet.
+ */
+export async function verifiserProsjektmedlem(
+  userId: string,
+  projectId: string,
+): Promise<void> {
+  const medlem = await prisma.projectMember.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+  });
+
+  if (!medlem) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Du er ikke medlem av dette prosjektet",
+    });
+  }
+}
+
+/**
+ * Verifiser at bruker har tilgang til et dokument (sjekkliste/oppgave).
+ * Admin ser alt. Vanlige brukere ser kun dokumenter der egen entreprise er oppretter/svarer,
+ * eller via fagområde-tilgang fra brukergrupper.
+ */
+export async function verifiserDokumentTilgang(
+  userId: string,
+  projectId: string,
+  creatorEnterpriseId: string | null,
+  responderEnterpriseId: string | null,
+  templateDomain?: string | null,
+): Promise<void> {
+  const medlem = await prisma.projectMember.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+    include: {
+      enterprises: { select: { enterpriseId: true } },
+      groupMemberships: {
+        include: {
+          group: {
+            include: {
+              groupEnterprises: { select: { enterpriseId: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!medlem) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Du er ikke medlem av dette prosjektet",
+    });
+  }
+
+  // Admin ser alt
+  if (medlem.role === "admin") return;
+
+  // Direkte entreprise-tilgang
+  const direkteEntreIder = medlem.enterprises.map((e) => e.enterpriseId);
+  const harDirekteTilgang =
+    (creatorEnterpriseId && direkteEntreIder.includes(creatorEnterpriseId)) ||
+    (responderEnterpriseId && direkteEntreIder.includes(responderEnterpriseId));
+
+  if (harDirekteTilgang) return;
+
+  // Fagområde-tilgang via grupper
+  if (templateDomain) {
+    for (const gm of medlem.groupMemberships) {
+      const gruppeDomener = gm.group.domains as string[];
+      if (!gruppeDomener.includes(templateDomain)) continue;
+
+      // Tverrgående tilgang: gruppe uten entrepriser
+      if (gm.group.groupEnterprises.length === 0) return;
+
+      // Entreprise-begrenset: sjekk om dokumentets entrepriser matcher gruppens
+      const gruppeEntreIder = gm.group.groupEnterprises.map((ge) => ge.enterpriseId);
+      const matcherEntreprise =
+        (creatorEnterpriseId && gruppeEntreIder.includes(creatorEnterpriseId)) ||
+        (responderEnterpriseId && gruppeEntreIder.includes(responderEnterpriseId));
+      if (matcherEntreprise) return;
+    }
+  }
+
+  throw new TRPCError({
+    code: "FORBIDDEN",
+    message: "Du har ikke tilgang til dette dokumentet",
+  });
+}
+
+/**
+ * Bygg Prisma WHERE-filter som kombinerer entreprise-tilgang og fagområde-tilgang.
+ * Returnerer null for admin (ingen filtrering nødvendig).
+ */
+export async function byggTilgangsFilter(
+  userId: string,
+  projectId: string,
+) {
+  const medlem = await prisma.projectMember.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+    include: {
+      enterprises: { select: { enterpriseId: true } },
+      groupMemberships: {
+        include: {
+          group: {
+            include: {
+              groupEnterprises: { select: { enterpriseId: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!medlem) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Du er ikke medlem av dette prosjektet",
+    });
+  }
+
+  // Admin ser alt
+  if (medlem.role === "admin") return null;
+
+  // Samle alle OR-betingelser
+  const orBetingelser: Record<string, unknown>[] = [];
+
+  // Direkte entreprise-tilgang (alle domener)
+  const direkteEntreIder = medlem.enterprises.map((e) => e.enterpriseId);
+  if (direkteEntreIder.length > 0) {
+    orBetingelser.push({ creatorEnterpriseId: { in: direkteEntreIder } });
+    orBetingelser.push({ responderEnterpriseId: { in: direkteEntreIder } });
+  }
+
+  // Fagområde-tilgang via grupper
+  for (const gm of medlem.groupMemberships) {
+    const gruppeDomener = gm.group.domains as string[];
+    if (gruppeDomener.length === 0) continue;
+
+    if (gm.group.groupEnterprises.length === 0) {
+      // Tverrgående tilgang: alle dokumenter med matchende domain
+      orBetingelser.push({
+        template: { domain: { in: gruppeDomener } },
+      });
+    } else {
+      // Entreprise-begrenset: kun dokumenter med matchende domain OG entreprise
+      const gruppeEntreIder = gm.group.groupEnterprises.map((ge) => ge.enterpriseId);
+      for (const domain of gruppeDomener) {
+        orBetingelser.push({
+          AND: [
+            { template: { domain } },
+            {
+              OR: [
+                { creatorEnterpriseId: { in: gruppeEntreIder } },
+                { responderEnterpriseId: { in: gruppeEntreIder } },
+              ],
+            },
+          ],
+        });
+      }
+    }
+  }
+
+  if (orBetingelser.length === 0) {
+    // Bruker har ingen tilganger — returner et filter som aldri matcher
+    return { id: "__ingen_tilgang__" };
+  }
+
+  return { OR: orBetingelser };
+}
+
+/**
+ * Hent brukerens samlede tillatelser fra alle grupper.
+ * Admin får alle tillatelser.
+ */
+export async function hentBrukerTillatelser(
+  userId: string,
+  projectId: string,
+): Promise<Set<Permission>> {
+  const medlem = await prisma.projectMember.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+    include: {
+      groupMemberships: {
+        include: {
+          group: { select: { permissions: true } },
+        },
+      },
+    },
+  });
+
+  if (!medlem) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Du er ikke medlem av dette prosjektet",
+    });
+  }
+
+  // Admin har alle tillatelser
+  if (medlem.role === "admin") {
+    return new Set(["manage_field", "create_tasks", "create_checklists", "view_field"] as Permission[]);
+  }
+
+  const tillatelser = new Set<Permission>();
+  for (const gm of medlem.groupMemberships) {
+    const perms = gm.group.permissions as string[];
+    for (const p of perms) {
+      tillatelser.add(p as Permission);
+    }
+  }
+
+  return tillatelser;
+}
+
+/**
+ * Verifiser at bruker har en spesifikk tillatelse.
+ */
+export async function verifiserTillatelse(
+  userId: string,
+  projectId: string,
+  permission: Permission,
+): Promise<void> {
+  const tillatelser = await hentBrukerTillatelser(userId, projectId);
+
+  if (!tillatelser.has(permission)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `Du mangler tillatelsen "${permission}" for å utføre denne handlingen`,
+    });
+  }
+}

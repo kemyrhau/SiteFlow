@@ -1,5 +1,6 @@
-import { View, Text } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import type { ReactNode } from "react";
+import { Plus } from "lucide-react-native";
 import type { Vedlegg } from "../../hooks/useSjekklisteSkjema";
 import { FeltDokumentasjon } from "./FeltDokumentasjon";
 
@@ -22,6 +23,10 @@ interface FeltWrapperProps {
   erBetinget?: boolean;
   nestingNivå?: number;
   valideringsfeil?: string;
+  oppgaveNummer?: string;
+  oppgaveId?: string;
+  onOpprettOppgave?: () => void;
+  onNavigerTilOppgave?: (id: string) => void;
   children: ReactNode;
 }
 
@@ -37,6 +42,10 @@ export function FeltWrapper({
   erBetinget,
   nestingNivå = 0,
   valideringsfeil,
+  oppgaveNummer,
+  oppgaveId,
+  onOpprettOppgave,
+  onNavigerTilOppgave,
   children,
 }: FeltWrapperProps) {
   // Bakoverkompatibilitet: erBetinget → nestingNivå=1
@@ -82,6 +91,24 @@ export function FeltWrapper({
         objektId={objekt.id}
         skjulKommentar={objekt.type === "text_field"}
       />
+
+      {/* Oppgave-badge og opprett-knapp */}
+      {oppgaveNummer && oppgaveId ? (
+        <Pressable
+          onPress={() => onNavigerTilOppgave?.(oppgaveId)}
+          className="mt-2 self-start rounded-full bg-blue-100 px-3 py-1"
+        >
+          <Text className="text-xs font-medium text-blue-700">{oppgaveNummer}</Text>
+        </Pressable>
+      ) : !leseModus && onOpprettOppgave && !oppgaveNummer ? (
+        <Pressable
+          onPress={onOpprettOppgave}
+          className="mt-2 flex-row items-center gap-1 self-start rounded-full bg-gray-100 px-2.5 py-1"
+        >
+          <Plus size={12} color="#6b7280" />
+          <Text className="text-xs font-medium text-gray-600">Oppgave</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -57,6 +57,11 @@ interface DbGruppe {
   name: string;
   slug: string;
   category: string;
+  domains?: unknown;
+  groupEnterprises?: {
+    id: string;
+    enterprise: { id: string; name: string };
+  }[];
   members: {
     id: string;
     projectMember: {
@@ -86,11 +91,15 @@ function RedigerGruppeModal({
   onClose,
   gruppe,
   prosjektId,
+  dbGruppe,
+  alleEntrepriser,
 }: {
   open: boolean;
   onClose: () => void;
   gruppe: BrukerGruppe;
   prosjektId: string;
+  dbGruppe?: DbGruppe | null;
+  alleEntrepriser?: { id: string; name: string }[];
 }) {
   const [sok, setSok] = useState("");
   const [valgtMedlemId, setValgtMedlemId] = useState<string | null>(null);
@@ -160,6 +169,18 @@ function RedigerGruppeModal({
   });
 
   const oppdaterGruppe = trpc.gruppe.oppdater.useMutation({
+    onSuccess: () => {
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  const oppdaterDomener = trpc.gruppe.oppdaterDomener.useMutation({
+    onSuccess: () => {
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  const oppdaterEntrepriser = trpc.gruppe.oppdaterEntrepriser.useMutation({
     onSuccess: () => {
       utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
     },
@@ -265,16 +286,16 @@ function RedigerGruppeModal({
     const id = medlemId ?? valgtMedlemId;
     if (!id) return;
     if (erDbGruppe) {
-      fjernGruppeMedlem.mutate({ id });
+      fjernGruppeMedlem.mutate({ id, projectId: prosjektId });
     } else {
-      fjernMedlem.mutate({ id });
+      fjernMedlem.mutate({ id, projectId: prosjektId });
     }
   }
 
   function handleNavnLagre() {
     setRedigererNavn(false);
     if (erDbGruppe && nyttGruppeNavn !== gruppe.navn && nyttGruppeNavn.trim()) {
-      oppdaterGruppe.mutate({ id: gruppe.id, name: nyttGruppeNavn.trim() });
+      oppdaterGruppe.mutate({ id: gruppe.id, name: nyttGruppeNavn.trim(), projectId: prosjektId });
     }
   }
 
@@ -538,7 +559,7 @@ function RedigerGruppeModal({
                   <Button
                     size="sm"
                     onClick={() => {
-                      oppdaterRolle.mutate({ id: valgtMedlemId, role: redigerRolle });
+                      oppdaterRolle.mutate({ id: valgtMedlemId, role: redigerRolle, projectId: prosjektId });
                     }}
                     disabled={oppdaterRolle.isPending}
                   >
@@ -656,6 +677,84 @@ function RedigerGruppeModal({
             <p className="mt-1 text-sm text-red-600">{feilmelding}</p>
           )}
         </div>
+
+        {/* Fagområder-seksjon (kun for DB-grupper) */}
+        {erDbGruppe && dbGruppe && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h4 className="mb-3 text-sm font-semibold text-gray-900">
+              Fagområder
+            </h4>
+            <p className="mb-2 text-xs text-gray-500">
+              Velg hvilke fagområder denne gruppen har tilgang til
+            </p>
+            <div className="flex flex-col gap-2">
+              {(["bygg", "hms", "kvalitet"] as const).map((d) => {
+                const domener = (dbGruppe.domains ?? []) as string[];
+                const erValgt = domener.includes(d);
+                return (
+                  <label key={d} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={erValgt}
+                      onChange={() => {
+                        const nyeDomener = erValgt
+                          ? domener.filter((x) => x !== d)
+                          : [...domener, d];
+                        oppdaterDomener.mutate({
+                          groupId: dbGruppe.id,
+                          projectId: prosjektId,
+                          domains: nyeDomener as ("bygg" | "hms" | "kvalitet")[],
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-siteflow-primary focus:ring-siteflow-primary"
+                    />
+                    <span className="text-sm text-gray-700">
+                      {d === "bygg" ? "Bygg" : d === "hms" ? "HMS" : "Kvalitet"}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Tilknyttede entrepriser (kun for DB-grupper) */}
+        {erDbGruppe && dbGruppe && alleEntrepriser && alleEntrepriser.length > 0 && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h4 className="mb-3 text-sm font-semibold text-gray-900">
+              Tilknyttede entrepriser
+            </h4>
+            <p className="mb-2 text-xs text-gray-500">
+              Gruppe uten entrepriser gir tverrgående tilgang til valgte fagområder
+            </p>
+            <div className="flex flex-col gap-2">
+              {alleEntrepriser.map((ent) => {
+                const gruppeEntreIder = (dbGruppe.groupEnterprises ?? []).map((ge) => ge.enterprise.id);
+                const erValgt = gruppeEntreIder.includes(ent.id);
+                return (
+                  <label key={ent.id} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={erValgt}
+                      onChange={() => {
+                        const nyeIder = erValgt
+                          ? gruppeEntreIder.filter((id) => id !== ent.id)
+                          : [...gruppeEntreIder, ent.id];
+                        oppdaterEntrepriser.mutate({
+                          groupId: dbGruppe.id,
+                          projectId: prosjektId,
+                          enterpriseIds: nyeIder,
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-siteflow-primary focus:ring-siteflow-primary"
+                    />
+                    <span className="text-sm text-gray-700">{ent.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Rettigheter-seksjon */}
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -1079,6 +1178,8 @@ export default function BrukereSide() {
           onClose={() => setRedigerGruppe(null)}
           gruppe={redigerGruppe}
           prosjektId={prosjektId}
+          dbGruppe={(dbGrupper as DbGruppe[] | undefined)?.find((g) => g.id === redigerGruppe.id)}
+          alleEntrepriser={(entrepriser as { id: string; name: string }[] | undefined) ?? []}
         />
       )}
 

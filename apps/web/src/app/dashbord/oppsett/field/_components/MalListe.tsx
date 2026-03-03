@@ -114,6 +114,7 @@ export function MalListe({
   const [prefiks, setPrefiks] = useState("");
   const [beskrivelse, setBeskrivelse] = useState("");
   const [prefiksFeil, setPrefiksFeil] = useState<string | null>(null);
+  const [domain, setDomain] = useState<"bygg" | "hms" | "kvalitet">("bygg");
   const [valgteWorkflowIds, setValgteWorkflowIds] = useState<Set<string>>(new Set());
   const [visEntrepriseTilknytning, setVisEntrepriseTilknytning] = useState(false);
   const [aktiverOppretting, _setAktiverOppretting] = useState(true);
@@ -137,6 +138,7 @@ export function MalListe({
       setPrefiks("");
       setBeskrivelse("");
       setPrefiksFeil(null);
+      setDomain("bygg");
       setValgteWorkflowIds(new Set());
     },
   });
@@ -175,6 +177,7 @@ export function MalListe({
       prefix: prefiks.trim() || undefined,
       description: beskrivelse.trim() || undefined,
       category: kategori,
+      domain,
       workflowIds: Array.from(valgteWorkflowIds),
     });
   }
@@ -444,6 +447,22 @@ export function MalListe({
                 Velg
               </button>
             </div>
+          </div>
+
+          {/* Fagområde */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">
+              Fagområde
+            </label>
+            <select
+              value={domain}
+              onChange={(e) => setDomain(e.target.value as "bygg" | "hms" | "kvalitet")}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+            >
+              <option value="bygg">Bygg</option>
+              <option value="hms">HMS</option>
+              <option value="kvalitet">Kvalitet</option>
+            </select>
           </div>
 
           {/* Innstillinger */}

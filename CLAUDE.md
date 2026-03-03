@@ -136,14 +136,14 @@ siteflow/
 | `accounts` | OAuth-tilkoblinger (Google, Microsoft Entra ID) |
 | `sessions` | Database-sesjoner for Auth.js |
 | `verification_tokens` | E-postverifiseringstokens |
-| `projects` | Prosjekter med prosjektnummer (SF-YYYYMMDD-XXXX), status, valgfri lokasjon (`latitude`, `longitude`), valgfritt eksternt prosjektnummer (`external_project_number`), valgfri firmalogo (`logo_url`) |
+| `projects` | Prosjekter med prosjektnummer (SF-YYYYMMDD-XXXX), status, valgfri lokasjon (`latitude`, `longitude`), valgfritt eksternt prosjektnummer (`external_project_number`), valgfri firmalogo (`logo_url`), `show_internal_project_number` (Boolean, default true) |
 | `project_members` | Prosjektmedlemmer med rolle (member/admin), entrepriser via `member_enterprises` |
 | `member_enterprises` | Mange-til-mange join-tabell mellom `project_members` og `enterprises` |
 | `enterprises` | Entrepriser med `enterprise_number` (Dalux-format: "04 Tømrer, Econor"), bransje, firma, farge |
 | `buildings` | Bygg/anlegg med `type` (`"bygg"` \| `"anlegg"`), status (unpublished/published) |
 | `drawings` | Tegninger med metadata: tegningsnummer, fagdisiplin, revisjon, status, etasje, målestokk, opphav, valgfri `geoReference` (JSON) |
 | `drawing_revisions` | Revisjonshistorikk for tegninger med fil, status og hvem som lastet opp |
-| `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon |
+| `report_templates` | Maler med category (oppgave/sjekkliste), prefix, versjon, `domain` (bygg/hms/kvalitet, default "bygg") |
 | `report_objects` | Rapportobjekter i maler (23 typer, JSON-konfig), rekursiv nesting via `parent_id` |
 | `checklists` | Sjekklister med oppretter/svarer-entreprise, status, data (JSON) |
 | `tasks` | Oppgaver med mal-tilknytning (`template_id`), prefiks+løpenummer (`number`), prioritet, frist, oppretter/svarer, utfylt data (JSON), valgfri tegningsposisjon og sjekkliste-kobling (`checklist_id`, `checklist_field_id`) |
@@ -155,6 +155,7 @@ siteflow/
 | `workflows` | Arbeidsforløp med oppretter-entreprise og valgfri svarer-entreprise (`responder_enterprise_id`) |
 | `workflow_templates` | Kobling mellom arbeidsforløp og maler (mange-til-mange) |
 | `project_invitations` | E-postinvitasjoner med token, status (pending/accepted/expired), utløpsdato |
+| `group_enterprises` | Mange-til-mange kobling mellom `project_groups` og `enterprises` — styrer entreprise-begrenset fagområde-tilgang |
 
 Viktige relasjoner:
 - `member_enterprises` er mange-til-mange join-tabell: en bruker kan tilhøre flere entrepriser i samme prosjekt via `MemberEnterprise(projectMemberId, enterpriseId)`
@@ -171,6 +172,10 @@ Viktige relasjoner:
 - `folder_access` kobler mapper til entrepriser, grupper eller brukere via `accessType` (`"enterprise"` | `"group"` | `"user"`). Cascade-sletting fra alle sider. Unikt constraint: `[folderId, accessType, enterpriseId, groupId, userId]`
 - `project_invitations` kobles til project, enterprise (valgfri), group (valgfri) og invitedBy (User)
 - `projects` har valgfri `latitude`/`longitude` (Float?) — brukes til kartvisning og automatisk værhenting i sjekklister
+- `projects` har `showInternalProjectNumber` (Boolean, default true) — styrer om SF-prosjektnummeret vises i print-header
+- `report_templates` har `domain` (String, default "bygg") — fagområde for tilgangskontroll
+- `project_groups` har `domains` (JSON-array, default []) — gruppens fagområder, og `groupEnterprises` relasjon for entreprise-begrenset tilgang
+- `group_enterprises` er mange-til-mange join-tabell mellom `project_groups` og `enterprises` med unikt constraint `[groupId, enterpriseId]`, cascade-sletting fra begge sider
 
 ### API-routere (tRPC)
 
@@ -188,11 +193,42 @@ Alle routere i `apps/api/src/routes/`:
 | `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
 | `mappe` | hentForProsjekt (m/tilgangsoppføringer), hentDokumenter, opprett, oppdater, slett, hentTilgang, settTilgang |
 | `medlem` | hentForProsjekt, hentMineEntrepriser, leggTil (m/invitasjon), fjern, oppdaterRolle, sokBrukere |
-| `gruppe` | hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem |
+| `gruppe` | hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem, oppdaterEntrepriser, oppdaterDomener |
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
 | `vaer` | hentVaerdata (Open-Meteo proxy: latitude, longitude, dato → temperatur, værkode, vind) |
 
-**Auth-nivåer:** `publicProcedure` (åpen) og `protectedProcedure` (krever autentisert userId i context). Context bygges i `context.ts` som verifiserer Auth.js-sesjonstokens.
+**Auth-nivåer:** `publicProcedure` (åpen) og `protectedProcedure` (krever autentisert userId i context). Context bygges i `context.ts` som verifiserer Auth.js-sesjonstokens. De fleste routere bruker `protectedProcedure` med tilleggs-sjekker fra `tilgangskontroll.ts`.
+
+### Tilgangskontroll
+
+Hjelpemodul i `apps/api/src/trpc/tilgangskontroll.ts` med følgende funksjoner:
+
+| Funksjon | Beskrivelse |
+|----------|-------------|
+| `hentBrukerEntrepriseIder(userId, projectId)` | Returnerer `string[]` (entreprise-IDer) eller `null` (admin, ser alt) |
+| `byggTilgangsFilter(userId, projectId)` | Returnerer Prisma WHERE-filter som kombinerer entreprise-tilgang og fagområde-tilgang fra grupper. `null` for admin |
+| `verifiserEntrepriseTilhorighet(userId, enterpriseId)` | Kaster FORBIDDEN hvis bruker ikke tilhører entreprisen (admin-bypass) |
+| `verifiserAdmin(userId, projectId)` | Kaster FORBIDDEN hvis ikke admin |
+| `verifiserProsjektmedlem(userId, projectId)` | Kaster FORBIDDEN hvis ikke medlem |
+| `verifiserDokumentTilgang(userId, projectId, creatorId, responderId, domain?)` | Sjekker entreprise-tilgang + fagområde-tilgang via grupper |
+| `hentBrukerTillatelser(userId, projectId)` | Samler `Permission`-set fra alle brukerens grupper. Admin har alle |
+| `verifiserTillatelse(userId, projectId, permission)` | Kaster FORBIDDEN hvis tillatelse mangler |
+
+**Tilgangslogikk for dokumentvisning:**
+- Admin ser alltid alt
+- Direkte entreprise-tilgang: bruker ser dokumenter der egen entreprise er oppretter/svarer (alle domener)
+- Fagområde-tilgang via grupper:
+  - Gruppe uten entrepriser → tverrgående: ser ALLE dokumenter med matchende domain (f.eks. HMS-gruppen ser alle HMS-sjekklister)
+  - Gruppe med entrepriser → entreprise-begrenset: ser kun dokumenter med matchende domain OG entreprise
+- Samlet: bruker ser union av alle sine gruppers tilganger + direkte MemberEnterprise-tilgang
+
+### Fagområder (domain)
+
+Maler har et `domain`-felt (`"bygg"` | `"hms"` | `"kvalitet"`, default `"bygg"`). Brukergrupper har `domains` (JSON-array) og valgfri tilknytning til entrepriser via `group_enterprises`.
+
+**Konsept:** HMS-gruppen (domains=["hms"], ingen entrepriser) ser **alle** HMS-dokumenter i prosjektet tverrgående. Bygg-grupper (domains=["bygg"], med entrepriser) ser kun egne entreprisers bygg-dokumenter.
+
+**Tillatelsestyper:** `Permission` = `"manage_field"` | `"create_tasks"` | `"create_checklists"` | `"view_field"`. Definert i `@siteflow/shared`.
 
 **Statusoverganger** valideres via `isValidStatusTransition()` fra `@siteflow/shared`:
 ```
@@ -318,7 +354,7 @@ Komponenter:
 - Oppgave-fra-felt i sjekkliste-utfylling (knapp per rapportobjekt + visning av oppgavenummer)
 - Oppgave-utfylling med maler (tilsvarende sjekkliste-utfylling, med samme 23 rapportobjekttyper)
 - Databasemigrering: nye felter på Task-modellen (`number`, `templateId`, `data`, `checklistId`, `checklistFieldId`)
-- Adgangskontroll: Field-admin kan sende kryssentreprise, brukergruppe-brukere kun til eget arbeidsforløp
+- Adgangskontroll: Håndheve tillatelsesbasert opprettelse (verifiserTillatelse i opprett-prosedyrer), arbeidsforløp-begrensning per brukergruppe
 - Videresending av sjekklister/oppgaver til annen entreprise (svarer og oppretter)
 - TrafikklysObjekt (mobil): legge til 4. farge grå/"Ikke relevant" i mobilrenderer
 
@@ -551,10 +587,10 @@ Oppgavemaler og Sjekklistemaler deler `MalListe`-komponenten med:
 Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har utskriftsstøtte via `@media print` CSS og nettleserens "Lagre som PDF":
 
 **Print-header** (`PrintHeader`-komponent, skjult på skjerm via `.print-header`):
-- Rad 1: Firmalogo (venstre, `max-h-[60px] max-w-[120px]`), prosjektnavn, prosjektnr + eksternt nr, adresse, dato (høyrejustert, dd.mm.yyyy)
+- Rad 1: Firmalogo (venstre, `max-h-[60px] max-w-[120px]`), prosjektnavn, prosjektnr (betinget via `visInterntNummer`) + eksternt nr, adresse, lokasjon/tegning, dato (høyrejustert, dd.mm.yyyy)
 - Rad 2: Sjekkliste-tittel, nummer (prefiks+løpenummer), oppretter (entreprise + bruker) + svarer på samme linje
 - Rad 3: Værdata (temperatur, forhold, vind) — kun hvis vær-felt har verdi
-- Props: `logoUrl`, `prosjektAdresse`, `status` (nye), URL-konvertering for `/uploads/...` → `/api/uploads/...`
+- Props: `logoUrl`, `prosjektAdresse`, `status`, `bygningNavn`, `tegningNavn`, `visInterntNummer` (default true), URL-konvertering for `/uploads/...` → `/api/uploads/...`
 
 **Skjerm-header** (skjult ved print via `.print-skjul`):
 - Tittel, StatusBadge, LagreIndikator, "Skriv ut"-knapp (`window.print()`)
@@ -877,8 +913,11 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `TemplateZone` — Malsoner: `topptekst` | `datafelter`
 - `EnterpriseRole` — `creator` | `responder`
 - `GroupCategory` — 3 gruppekategorier (`generelt`, `field`, `brukergrupper`)
-- `StandardProjectGroup` — Interface for standardgrupper med slug, navn, kategori, tillatelser
-- `STANDARD_PROJECT_GROUPS` — Konstantarray med 4 standardgrupper
+- `StandardProjectGroup` — Interface for standardgrupper med slug, navn, kategori, tillatelser, fagområder (`domains`)
+- `STANDARD_PROJECT_GROUPS` — Konstantarray med 4 standardgrupper (inkl. `domains`-felt)
+- `PERMISSIONS` — Konstantarray: `["manage_field", "create_tasks", "create_checklists", "view_field"]`, `Permission` type
+- `DOMAINS` — Konstantarray: `["bygg", "hms", "kvalitet"]`, `Domain` type
+- `DOMAIN_LABELS` — Record som mapper domain til norsk label: `{ bygg: "Bygg", hms: "HMS", kvalitet: "Kvalitet" }`
 - `CONTAINER_TYPES` — Kontainertyper som kan ha barn: `["list_single", "list_multi"]`
 - `FOLDER_ACCESS_MODES` — `["inherit", "custom"]`, `FolderAccessMode` type
 - `FOLDER_ACCESS_TYPES` — `["enterprise", "group", "user"]`, `FolderAccessType` type
@@ -896,6 +935,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `enterpriseRoleSchema` — Enum for entrepriserolle
 - `templateZoneSchema` — Enum for malsoner
 - `templateCategorySchema` — Enum for `oppgave` | `sjekkliste`
+- `templateDomainSchema` — Enum for `"bygg"` | `"hms"` | `"kvalitet"`
 - `gpsDataSchema` — GPS med lat/lng-grenser
 - `createProjectSchema` — Prosjektopprettelse (navn, beskrivelse, adresse, latitude, longitude, externalProjectNumber)
 - `createEnterpriseSchema` — Entrepriseopprettelse (navn, prosjektId, org.nr)
@@ -989,7 +1029,11 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Prosjektnummer:** Unikt, autogenerert nummer på format `SF-YYYYMMDD-XXXX`
 - **Prefiks:** Kort kode for en mal (f.eks. BHO, S-BET, KBO)
 - **Invitasjon (ProjectInvitation):** E-postinvitasjon til et prosjekt med unik token, utløpsdato og status (pending/accepted/expired)
-- **Prosjektgruppe (ProjectGroup):** Navngitt gruppe med kategori og tillatelser, brukes for rollestyring (f.eks. Field-admin, HMS-ledere)
+- **Prosjektgruppe (ProjectGroup):** Navngitt gruppe med kategori, tillatelser, fagområder (`domains`) og valgfri entreprise-tilknytning (`groupEnterprises`). Brukes for rollestyring (f.eks. Field-admin, HMS-ledere). Grupper uten entrepriser gir tverrgående tilgang til sine fagområder
+- **Fagområde (domain):** Klassifisering av maler som `"bygg"`, `"hms"` eller `"kvalitet"`. Styrer hvem som ser dokumenter basert på gruppemedlemskap. Definert i `@siteflow/shared` som `DOMAINS`
+- **Tverrgående tilgang:** Gruppe uten entrepriser ser ALLE dokumenter med matchende fagområde, uavhengig av oppretter/svarer-entreprise. F.eks. HMS-gruppen ser alle HMS-sjekklister
+- **GroupEnterprise:** Mange-til-mange kobling mellom `ProjectGroup` og `Enterprise`. Begrenser gruppens tilgang til kun dokumenter der tilknyttede entrepriser er oppretter/svarer
+- **Tillatelse (Permission):** Rettighet tildelt via prosjektgrupper: `manage_field`, `create_tasks`, `create_checklists`, `view_field`. Admin har alle tillatelser implisitt
 - **Tegningsmarkør:** Posisjon (0–100% X/Y) på en tegning der en oppgave er opprettet fra mobilappen
 - **Enkeltvalg (`list_single`):** Rapportobjekt der brukeren velger én verdi fra en liste med alternativer (radioknapper). Kan brukes som kontainer med betingelse.
 - **Flervalg (`list_multi`):** Rapportobjekt der brukeren kan velge flere verdier (avkrysningsbokser). Kan brukes som kontainer med betingelse.

@@ -38,7 +38,7 @@ export default function MapperSide() {
   const { data: grupper } = trpc.gruppe.hentForProsjekt.useQuery(
     { projectId: prosjektId! },
     { enabled: !!prosjektId },
-  );
+  ) as { data: Array<{ id: string; members: Array<{ projectMember: { user: { id: string } } }> }> | undefined };
 
   const valgtMappe = mapper?.find((m) => m.id === valgtMappeId);
 

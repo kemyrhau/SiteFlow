@@ -695,6 +695,7 @@ export default function AnleggSide() {
   }
 
   const harValgt = !!valgtAnlegg;
+  const erPublisert = valgtAnlegg?.status === "published";
 
   if (isLoading) {
     return (
@@ -729,7 +730,7 @@ export default function AnleggSide() {
           Slett
         </button>
         <button
-          disabled={!harValgt}
+          disabled={!harValgt || !erPublisert}
           onClick={() => {
             if (valgtId) setRedigerAnleggId(valgtId);
           }}
@@ -750,18 +751,19 @@ export default function AnleggSide() {
             <>
               <div className="fixed inset-0 z-10" onClick={() => setVisMerMeny(false)} />
               <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                <button
-                  disabled={!harValgt}
-                  onClick={() => {
-                    if (valgtAnlegg) {
-                      publiserMutation.mutate({ id: valgtAnlegg.id });
-                    }
-                    setVisMerMeny(false);
-                  }}
-                  className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                >
-                  Publiser
-                </button>
+                {harValgt && !erPublisert && (
+                  <button
+                    onClick={() => {
+                      if (valgtAnlegg) {
+                        publiserMutation.mutate({ id: valgtAnlegg.id });
+                      }
+                      setVisMerMeny(false);
+                    }}
+                    className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Publiser
+                  </button>
+                )}
                 <button
                   disabled={!harValgt}
                   onClick={() => {
@@ -813,7 +815,9 @@ export default function AnleggSide() {
                       <tr
                         key={anlegg.id}
                         onClick={() => setValgtId(valgtId === anlegg.id ? null : anlegg.id)}
-                        onDoubleClick={() => setRedigerAnleggId(anlegg.id)}
+                        onDoubleClick={() => {
+                          // Kun publiserte anlegg kan redigeres (tegninger)
+                        }}
                         className={`cursor-pointer border-b border-gray-100 last:border-0 ${
                           valgtId === anlegg.id
                             ? "bg-siteflow-primary/5"
@@ -824,7 +828,7 @@ export default function AnleggSide() {
                           {anlegg.name}
                         </td>
                         <td className="px-4 py-2.5 text-sm text-gray-500">
-                          {hentStatus(anlegg)}
+                          Upublisert
                         </td>
                         <td className="px-4 py-2.5 text-right text-sm text-gray-500">
                           &mdash;

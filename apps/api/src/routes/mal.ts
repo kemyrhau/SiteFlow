@@ -58,7 +58,7 @@ export const malRouter = router({
       });
     }),
 
-  // Oppdater mal (navn, beskrivelse, prefiks)
+  // Oppdater mal (navn, beskrivelse, prefiks, fagområde)
   oppdaterMal: publicProcedure
     .input(
       z.object({
@@ -66,6 +66,7 @@ export const malRouter = router({
         name: z.string().min(1).max(255).optional(),
         description: z.string().optional(),
         prefix: z.string().max(20).optional(),
+        domain: z.enum(["bygg", "hms", "kvalitet"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

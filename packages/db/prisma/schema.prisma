@@ -82,6 +82,7 @@ model Project {
   longitude             Float?   @map("longitude")
   externalProjectNumber String?  @map("external_project_number")
   logoUrl               String?  @map("logo_url")
+  showInternalProjectNumber Boolean @default(true) @map("show_internal_project_number")
   status                String   @default("active")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -134,14 +135,16 @@ model ProjectGroup {
   slug        String
   category    String   @default("field") // generelt, field, brukergrupper
   permissions Json     @default("[]")
+  domains     Json     @default("[]")  // ["bygg"], ["hms"], ["bygg","hms"], etc.
   isDefault   Boolean  @default(false) @map("is_default")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  members     ProjectGroupMember[]
-  invitations ProjectInvitation[]
-  folderAccess FolderAccess[]
+  project          Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  members          ProjectGroupMember[]
+  invitations      ProjectInvitation[]
+  folderAccess     FolderAccess[]
+  groupEnterprises GroupEnterprise[]
 
   @@unique([projectId, slug])
   @@map("project_groups")
@@ -158,6 +161,19 @@ model ProjectGroupMember {
 
   @@unique([groupId, projectMemberId])
   @@map("project_group_members")
+}
+
+model GroupEnterprise {
+  id           String   @id @default(uuid())
+  groupId      String   @map("group_id")
+  enterpriseId String   @map("enterprise_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  group      ProjectGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  enterprise Enterprise   @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, enterpriseId])
+  @@map("group_enterprises")
 }
 
 model ProjectInvitation {
@@ -205,6 +221,7 @@ model Enterprise {
   respondWorkflows   Workflow[]       @relation("WorkflowResponder")
   invitations        ProjectInvitation[]
   folderAccess       FolderAccess[]
+  groupEnterprises   GroupEnterprise[]
 
   @@map("enterprises")
 }
@@ -285,6 +302,7 @@ model ReportTemplate {
   description String?
   prefix      String?
   category    String   @default("sjekkliste") // "oppgave" | "sjekkliste"
+  domain      String   @default("bygg")      // "bygg" | "hms" | "kvalitet"
   version     Int      @default(1)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,13 +11,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Save, Check, AlertTriangle, Clock, CloudOff, Cloud } from "lucide-react-native";
 import { harBetingelse, harForelderObjekt } from "@siteflow/shared";
-import type { DocumentStatus } from "@siteflow/shared";
+import { hentStatusHandlinger } from "@siteflow/shared";
+import type { StatusHandling } from "@siteflow/shared";
 import { useSjekklisteSkjema } from "../../src/hooks/useSjekklisteSkjema";
 import { useOpplastingsKo } from "../../src/providers/OpplastingsKoProvider";
 import { useAuth } from "../../src/providers/AuthProvider";
 import { StatusMerkelapp } from "../../src/components/StatusMerkelapp";
 import { RapportObjektRenderer, DISPLAY_TYPER } from "../../src/components/rapportobjekter";
 import { FeltWrapper } from "../../src/components/rapportobjekter/FeltWrapper";
+import { MalVelger } from "../../src/components/MalVelger";
+import { OpprettDokumentModal } from "../../src/components/OpprettDokumentModal";
 import { trpc } from "../../src/lib/trpc";
 
 interface Transfer {
@@ -40,39 +43,20 @@ function formaterHistorikkDato(dato: Date | string): string {
   });
 }
 
-interface StatusHandling {
-  tekst: string;
-  nyStatus: DocumentStatus;
-  farge: string;
-  aktivFarge: string;
+interface MalData {
+  id: string;
+  name: string;
+  prefix: string | null;
+  category: string;
 }
 
-function hentStatusHandlinger(status: string): StatusHandling[] {
-  const handlinger: Record<string, StatusHandling[]> = {
-    draft: [
-      { tekst: "Send", nyStatus: "sent", farge: "bg-blue-600", aktivFarge: "bg-blue-400" },
-      { tekst: "Avbryt", nyStatus: "cancelled", farge: "bg-red-600", aktivFarge: "bg-red-400" },
-    ],
-    sent: [
-      { tekst: "Motta", nyStatus: "received", farge: "bg-blue-600", aktivFarge: "bg-blue-400" },
-      { tekst: "Avbryt", nyStatus: "cancelled", farge: "bg-red-600", aktivFarge: "bg-red-400" },
-    ],
-    received: [
-      { tekst: "Start arbeid", nyStatus: "in_progress", farge: "bg-amber-500", aktivFarge: "bg-amber-400" },
-      { tekst: "Avbryt", nyStatus: "cancelled", farge: "bg-red-600", aktivFarge: "bg-red-400" },
-    ],
-    in_progress: [
-      { tekst: "Besvar", nyStatus: "responded", farge: "bg-purple-600", aktivFarge: "bg-purple-400" },
-      { tekst: "Avbryt", nyStatus: "cancelled", farge: "bg-red-600", aktivFarge: "bg-red-400" },
-    ],
-    responded: [
-      { tekst: "Godkjenn", nyStatus: "approved", farge: "bg-green-600", aktivFarge: "bg-green-400" },
-      { tekst: "Avvis", nyStatus: "rejected", farge: "bg-red-600", aktivFarge: "bg-red-400" },
-    ],
-    rejected: [{ tekst: "Start arbeid igjen", nyStatus: "in_progress", farge: "bg-amber-500", aktivFarge: "bg-amber-400" }],
-    approved: [{ tekst: "Lukk", nyStatus: "closed", farge: "bg-gray-500", aktivFarge: "bg-gray-400" }],
-  };
-  return handlinger[status] ?? [];
+interface SjekklisteOppgave {
+  id: string;
+  number: number | null;
+  checklistFieldId: string | null;
+  title: string;
+  status: string;
+  template: { prefix: string | null } | null;
 }
 
 export default function SjekklisteUtfylling() {
@@ -81,12 +65,38 @@ export default function SjekklisteUtfylling() {
   const { bruker } = useAuth();
   const utils = trpc.useUtils();
 
+  // State for oppgave-fra-felt
+  const [opprettOppgaveKategori, setOpprettOppgaveKategori] = useState<"oppgave" | null>(null);
+  const [opprettOppgaveFeltId, setOpprettOppgaveFeltId] = useState<string | null>(null);
+  const [opprettOppgaveFeltLabel, setOpprettOppgaveFeltLabel] = useState<string | null>(null);
+  const [valgtOppgaveMal, setValgtOppgaveMal] = useState<MalData | null>(null);
+
   // Hent overføringer for historikk
   const detaljQuery = trpc.sjekkliste.hentMedId.useQuery(
     { id: id! },
     { enabled: !!id },
   );
-  const overforinger = (detaljQuery.data as { transfers?: Transfer[] } | undefined)?.transfers;
+  const sjekklisteDetalj = detaljQuery.data as { number?: number | null; transfers?: Transfer[] } | undefined;
+  const overforinger = sjekklisteDetalj?.transfers;
+  const sjekklisteNummer = sjekklisteDetalj?.number;
+
+  // Hent oppgaver knyttet til denne sjekklisten
+  const oppgaverQuery = trpc.oppgave.hentForSjekkliste.useQuery(
+    { checklistId: id! },
+    { enabled: !!id },
+  );
+  const sjekklisteOppgaver = (oppgaverQuery.data ?? []) as SjekklisteOppgave[];
+
+  // Mapping: feltId → oppgave (for badge-visning)
+  const feltOppgaveMap = useMemo(() => {
+    const map = new Map<string, SjekklisteOppgave>();
+    for (const oppgave of sjekklisteOppgaver) {
+      if (oppgave.checklistFieldId) {
+        map.set(oppgave.checklistFieldId, oppgave);
+      }
+    }
+    return map;
+  }, [sjekklisteOppgaver]);
 
   const { ventende, erAktiv } = useOpplastingsKo();
 
@@ -309,6 +319,12 @@ export default function SjekklisteUtfylling() {
           // Utfyllbare felt med FeltWrapper
           const feltVerdi = hentFeltVerdi(objekt.id);
 
+          // Oppgave-kobling for dette feltet
+          const feltOppgave = feltOppgaveMap.get(objekt.id);
+          const oppgaveNummer = feltOppgave
+            ? `${feltOppgave.template?.prefix ?? ""}${feltOppgave.number ?? ""}`
+            : undefined;
+
           return (
             <FeltWrapper
               key={objekt.id}
@@ -322,6 +338,14 @@ export default function SjekklisteUtfylling() {
               sjekklisteId={sjekkliste.id}
               nestingNivå={nestingNivå}
               valideringsfeil={valideringsfeil[objekt.id]}
+              oppgaveNummer={oppgaveNummer && oppgaveNummer.trim() ? oppgaveNummer : undefined}
+              oppgaveId={feltOppgave?.id}
+              onOpprettOppgave={() => {
+                setOpprettOppgaveFeltId(objekt.id);
+                setOpprettOppgaveFeltLabel(objekt.label);
+                setOpprettOppgaveKategori("oppgave");
+              }}
+              onNavigerTilOppgave={(oppgaveId) => router.push(`/oppgave/${oppgaveId}`)}
             >
               <RapportObjektRenderer
                 objekt={objekt}
@@ -408,6 +432,49 @@ export default function SjekklisteUtfylling() {
           </Pressable>
         )}
       </View>
+
+      {/* Malvelger for oppgave fra felt */}
+      <MalVelger
+        synlig={opprettOppgaveKategori === "oppgave" && !valgtOppgaveMal}
+        kategori="oppgave"
+        onVelg={(mal) => setValgtOppgaveMal(mal)}
+        onLukk={() => {
+          setOpprettOppgaveKategori(null);
+          setOpprettOppgaveFeltId(null);
+          setOpprettOppgaveFeltLabel(null);
+        }}
+      />
+
+      {/* Opprett oppgave fra felt-modal */}
+      <OpprettDokumentModal
+        synlig={opprettOppgaveKategori === "oppgave" && !!valgtOppgaveMal}
+        kategori="oppgave"
+        mal={valgtOppgaveMal ?? { id: "", name: "", prefix: null, category: "" }}
+        sjekklisteId={sjekkliste?.id}
+        sjekklisteFeltId={opprettOppgaveFeltId ?? undefined}
+        sjekklisteNummer={
+          sjekkliste?.template.prefix && sjekklisteNummer != null
+            ? `${sjekkliste.template.prefix}${sjekklisteNummer}`
+            : undefined
+        }
+        feltLabel={opprettOppgaveFeltLabel ?? undefined}
+        onOpprettet={(oppgaveId) => {
+          setValgtOppgaveMal(null);
+          setOpprettOppgaveKategori(null);
+          setOpprettOppgaveFeltId(null);
+          setOpprettOppgaveFeltLabel(null);
+          // Oppdater oppgavelisten for denne sjekklisten
+          utils.oppgave.hentForSjekkliste.invalidate({ checklistId: id! });
+          // Naviger til oppgave-detaljskjerm
+          router.push(`/oppgave/${oppgaveId}`);
+        }}
+        onLukk={() => {
+          setValgtOppgaveMal(null);
+          setOpprettOppgaveKategori(null);
+          setOpprettOppgaveFeltId(null);
+          setOpprettOppgaveFeltLabel(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

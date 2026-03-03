@@ -76,6 +76,7 @@ export const prosjektRouter = router({
         longitude: z.number().min(-180).max(180).nullable().optional(),
         externalProjectNumber: z.string().max(100).nullable().optional(),
         logoUrl: z.string().max(500).nullable().optional(),
+        showInternalProjectNumber: z.boolean().optional(),
         status: z.enum(["active", "archived", "completed"]).optional(),
       }),
     )

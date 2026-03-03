@@ -216,6 +216,20 @@ export type TemplateZone = (typeof TEMPLATE_ZONES)[number];
 // Entreprisevelger-roller
 export type EnterpriseRole = "creator" | "responder";
 
+// Tillatelser
+export const PERMISSIONS = ["manage_field", "create_tasks", "create_checklists", "view_field"] as const;
+export type Permission = (typeof PERMISSIONS)[number];
+
+// Fagområder
+export const DOMAINS = ["bygg", "hms", "kvalitet"] as const;
+export type Domain = (typeof DOMAINS)[number];
+
+export const DOMAIN_LABELS: Record<Domain, string> = {
+  bygg: "Bygg",
+  hms: "HMS",
+  kvalitet: "Kvalitet",
+};
+
 // Gruppekategorier
 export const GROUP_CATEGORIES = ["generelt", "field", "brukergrupper"] as const;
 export type GroupCategory = (typeof GROUP_CATEGORIES)[number];
@@ -225,7 +239,8 @@ export interface StandardProjectGroup {
   slug: string;
   name: string;
   category: GroupCategory;
-  permissions: string[];
+  permissions: Permission[];
+  domains: Domain[];
 }
 
 export const STANDARD_PROJECT_GROUPS: StandardProjectGroup[] = [
@@ -234,24 +249,28 @@ export const STANDARD_PROJECT_GROUPS: StandardProjectGroup[] = [
     name: "Feltarbeid-administratorer",
     category: "field",
     permissions: ["manage_field", "create_tasks", "create_checklists"],
+    domains: ["bygg"],
   },
   {
     slug: "oppgave-sjekkliste-koord",
     name: "Oppgave- og sjekklisteregistratorer",
     category: "field",
     permissions: ["create_tasks", "create_checklists"],
+    domains: ["bygg"],
   },
   {
     slug: "field-observatorer",
     name: "Feltarbeid-registrator",
     category: "field",
     permissions: ["view_field"],
+    domains: ["bygg"],
   },
   {
     slug: "hms-ledere",
     name: "HMS",
     category: "field",
     permissions: ["create_tasks", "create_checklists"],
+    domains: ["hms"],
   },
 ];
 

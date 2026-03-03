@@ -11,6 +11,9 @@ export interface PrintHeaderProps {
   logoUrl?: string | null;
   prosjektAdresse?: string | null;
   status?: string | null;
+  bygningNavn?: string | null;
+  tegningNavn?: string | null;
+  visInterntNummer?: boolean;
 }
 
 function logoSrc(url: string): string {
@@ -30,6 +33,9 @@ export function PrintHeader({
   vaerTekst,
   logoUrl,
   prosjektAdresse,
+  bygningNavn,
+  tegningNavn,
+  visInterntNummer = true,
 }: PrintHeaderProps) {
   const dato = new Date().toLocaleDateString("nb-NO", {
     day: "2-digit",
@@ -52,11 +58,19 @@ export function PrintHeader({
           <div>
             <p className="text-base font-bold text-gray-900">{prosjektnavn}</p>
             <p className="text-xs text-gray-600">
-              Prosjektnr: {prosjektnummer}
-              {eksterntNummer && <> &middot; Ekst: {eksterntNummer}</>}
+              {visInterntNummer && <>Prosjektnr: {prosjektnummer}</>}
+              {visInterntNummer && eksterntNummer && <> &middot; </>}
+              {eksterntNummer && <>Ekst: {eksterntNummer}</>}
             </p>
             {prosjektAdresse && (
               <p className="text-xs text-gray-500">Adresse: {prosjektAdresse}</p>
+            )}
+            {(bygningNavn || tegningNavn) && (
+              <p className="text-xs text-gray-500">
+                {bygningNavn && <>Lokasjon: {bygningNavn}</>}
+                {bygningNavn && tegningNavn && <> &middot; </>}
+                {tegningNavn && <>Tegning: {tegningNavn}</>}
+              </p>
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import crypto from "crypto";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import {
   STANDARD_PROJECT_GROUPS,
   createProjectGroupSchema,
@@ -8,12 +8,19 @@ import {
   addGroupMemberByEmailSchema,
 } from "@siteflow/shared";
 import { sendInvitasjonsEpost } from "../services/epost";
+import { TRPCError } from "@trpc/server";
+import {
+  verifiserAdmin,
+  verifiserProsjektmedlem,
+} from "../trpc/tilgangskontroll";
 
 export const gruppeRouter = router({
   // Hent alle grupper for et prosjekt med medlemmer
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      await verifiserProsjektmedlem(ctx.userId, input.projectId);
+
       return ctx.prisma.projectGroup.findMany({
         where: { projectId: input.projectId },
         include: {
@@ -27,15 +34,20 @@ export const gruppeRouter = router({
               },
             },
           },
+          groupEnterprises: {
+            include: { enterprise: true },
+          },
         },
         orderBy: { createdAt: "asc" },
       });
     }),
 
-  // Idempotent opprettelse av standardgrupper
-  opprettStandardgrupper: publicProcedure
+  // Idempotent opprettelse av standardgrupper (krever admin)
+  opprettStandardgrupper: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       const opprettet = [];
 
       for (const gruppe of STANDARD_PROJECT_GROUPS) {
@@ -56,6 +68,7 @@ export const gruppeRouter = router({
               slug: gruppe.slug,
               category: gruppe.category,
               permissions: gruppe.permissions,
+              domains: gruppe.domains,
               isDefault: true,
             },
           });
@@ -66,10 +79,12 @@ export const gruppeRouter = router({
       return opprettet;
     }),
 
-  // Opprett egendefinert gruppe
-  opprett: publicProcedure
+  // Opprett egendefinert gruppe (krever admin)
+  opprett: protectedProcedure
     .input(createProjectGroupSchema)
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       const slug =
         input.slug ??
         input.name
@@ -101,26 +116,33 @@ export const gruppeRouter = router({
       });
     }),
 
-  // Oppdater gruppenavn
-  oppdater: publicProcedure
-    .input(updateProjectGroupSchema)
+  // Oppdater gruppenavn (krever admin)
+  oppdater: protectedProcedure
+    .input(updateProjectGroupSchema.extend({ projectId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       return ctx.prisma.projectGroup.update({
         where: { id: input.id },
         data: { name: input.name },
       });
     }),
 
-  // Slett gruppe (kun egendefinerte, ikke isDefault)
-  slett: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+  // Slett gruppe (kun egendefinerte, ikke isDefault) — krever admin
+  slett: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), projectId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       const gruppe = await ctx.prisma.projectGroup.findUniqueOrThrow({
         where: { id: input.id },
       });
 
       if (gruppe.isDefault) {
-        throw new Error("Kan ikke slette standardgrupper");
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Kan ikke slette standardgrupper",
+        });
       }
 
       return ctx.prisma.projectGroup.delete({
@@ -128,10 +150,12 @@ export const gruppeRouter = router({
       });
     }),
 
-  // Legg til medlem: finn/opprett bruker → finn/opprett ProjectMember → upsert GroupMember
-  leggTilMedlem: publicProcedure
+  // Legg til medlem: finn/opprett bruker → finn/opprett ProjectMember → upsert GroupMember (krever admin)
+  leggTilMedlem: protectedProcedure
     .input(addGroupMemberByEmailSchema)
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       // Finn eller opprett bruker
       let user = await ctx.prisma.user.findUnique({
         where: { email: input.email },
@@ -203,7 +227,7 @@ export const gruppeRouter = router({
         where: { userId: user.id },
       });
 
-      if (!harKonto && ctx.userId) {
+      if (!harKonto) {
         try {
           const token = crypto.randomBytes(32).toString("base64url");
           const utloper = new Date();
@@ -256,12 +280,66 @@ export const gruppeRouter = router({
       return gruppeMedlem;
     }),
 
-  // Fjern medlem fra gruppe
-  fjernMedlem: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+  // Fjern medlem fra gruppe (krever admin)
+  fjernMedlem: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), projectId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       return ctx.prisma.projectGroupMember.delete({
         where: { id: input.id },
+      });
+    }),
+
+  // Oppdater gruppens tilknyttede entrepriser (krever admin)
+  oppdaterEntrepriser: protectedProcedure
+    .input(
+      z.object({
+        groupId: z.string().uuid(),
+        projectId: z.string().uuid(),
+        enterpriseIds: z.array(z.string().uuid()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
+      // Slett eksisterende, opprett nye
+      await ctx.prisma.groupEnterprise.deleteMany({
+        where: { groupId: input.groupId },
+      });
+
+      if (input.enterpriseIds.length > 0) {
+        await ctx.prisma.groupEnterprise.createMany({
+          data: input.enterpriseIds.map((enterpriseId) => ({
+            groupId: input.groupId,
+            enterpriseId,
+          })),
+        });
+      }
+
+      return ctx.prisma.projectGroup.findUniqueOrThrow({
+        where: { id: input.groupId },
+        include: {
+          groupEnterprises: { include: { enterprise: true } },
+        },
+      });
+    }),
+
+  // Oppdater gruppens fagområder (krever admin)
+  oppdaterDomener: protectedProcedure
+    .input(
+      z.object({
+        groupId: z.string().uuid(),
+        projectId: z.string().uuid(),
+        domains: z.array(z.enum(["bygg", "hms", "kvalitet"])),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
+      return ctx.prisma.projectGroup.update({
+        where: { id: input.groupId },
+        data: { domains: input.domains },
       });
     }),
 });

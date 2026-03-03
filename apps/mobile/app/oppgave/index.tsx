@@ -83,7 +83,7 @@ export default function OppgaveListe() {
       return (
         <Pressable
           onPress={() => {
-            // TODO: Navigér til oppgavedetalj når skjermen er implementert
+            router.push(`/oppgave/${item.id}`);
           }}
           className="flex-row items-center border-b border-gray-100 bg-white px-4 py-3"
         >
@@ -106,7 +106,7 @@ export default function OppgaveListe() {
         </Pressable>
       );
     },
-    [],
+    [router],
   );
 
   return (

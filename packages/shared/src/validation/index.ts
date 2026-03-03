@@ -81,6 +81,9 @@ export const createBuildingSchema = z.object({
 // Malkategori-validering
 export const templateCategorySchema = z.enum(["oppgave", "sjekkliste"]);
 
+// Fagområde-validering
+export const templateDomainSchema = z.enum(["bygg", "hms", "kvalitet"]);
+
 // Prefiks-validering (kan ikke avsluttes med tall)
 export const templatePrefixSchema = z
   .string()
@@ -95,6 +98,7 @@ export const createTemplateSchema = z.object({
   prefix: templatePrefixSchema,
   description: z.string().optional(),
   category: templateCategorySchema.default("sjekkliste"),
+  domain: templateDomainSchema.default("bygg"),
   workflowIds: z.array(z.string().uuid()).default([]),
 });
 

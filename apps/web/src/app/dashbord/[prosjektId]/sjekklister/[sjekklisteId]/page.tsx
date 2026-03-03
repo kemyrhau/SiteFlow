@@ -77,6 +77,8 @@ export default function SjekklisteDetaljSide() {
   const fullSjekkliste = fullSjekklisteRå as {
     number?: number | null;
     creator?: { name?: string | null };
+    building?: { id: string; name: string } | null;
+    drawing?: { id: string; name: string; drawingNumber: string | null } | null;
   } | undefined;
 
   const objekter = useMemo(
@@ -162,6 +164,11 @@ export default function SjekklisteDetaljSide() {
         logoUrl={prosjekt?.logoUrl}
         prosjektAdresse={prosjekt?.address}
         status={sjekkliste.status}
+        bygningNavn={fullSjekkliste?.building?.name}
+        tegningNavn={fullSjekkliste?.drawing?.drawingNumber
+          ? `${fullSjekkliste.drawing.drawingNumber} ${fullSjekkliste.drawing.name}`
+          : fullSjekkliste?.drawing?.name}
+        visInterntNummer={(prosjekt as { showInternalProjectNumber?: boolean } | undefined)?.showInternalProjectNumber !== false}
       />
 
       {/* Skjerm-header: synlig på skjerm, skjult ved print */}

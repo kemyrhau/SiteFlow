@@ -103,6 +103,7 @@ export default function ProsjektoppsettSide() {
   const [longitude, setLongitude] = useState<number | null>(null);
   const [eksterntNummer, setEksterntNummer] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [visInterntNummer, setVisInterntNummer] = useState(true);
   const [lasterOppLogo, setLasterOppLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [harEndringer, setHarEndringer] = useState(false);
@@ -118,6 +119,7 @@ export default function ProsjektoppsettSide() {
       setLongitude(prosjekt.longitude ?? null);
       setEksterntNummer(prosjekt.externalProjectNumber ?? "");
       setLogoUrl(prosjekt.logoUrl ?? null);
+      setVisInterntNummer((prosjekt as { showInternalProjectNumber?: boolean }).showInternalProjectNumber !== false);
       setHarEndringer(false);
     }
   }, [prosjekt]);
@@ -171,6 +173,7 @@ export default function ProsjektoppsettSide() {
       longitude,
       externalProjectNumber: eksterntNummer.trim() || null,
       logoUrl: logoUrl || null,
+      showInternalProjectNumber: visInterntNummer,
       status: status as "active" | "archived" | "completed",
     });
   }
@@ -350,6 +353,29 @@ export default function ProsjektoppsettSide() {
               </div>
             )}
           </div>
+        </Seksjon>
+
+        {/* Rapportinnstillinger */}
+        <Seksjon
+          tittel="Rapportinnstillinger"
+          beskrivelse="Styr hva som vises på utskrifter og rapporter"
+        >
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={visInterntNummer}
+              onChange={(e) => handleFeltEndring(setVisInterntNummer)(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-siteflow-primary focus:ring-siteflow-primary"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-700">
+                Vis internt prosjektnummer på rapport
+              </p>
+              <p className="text-xs text-gray-500">
+                Deaktiver for å skjule SiteFlow-prosjektnummeret (SF-...) i utskriftshodet
+              </p>
+            </div>
+          </label>
         </Seksjon>
 
         {/* Prosjektstatus */}

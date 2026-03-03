@@ -221,9 +221,9 @@ function RedigerBygning({
   }
 
   const utilknyttede =
-    alleTegninger?.filter((t) => !t.buildingId) ?? [];
+    (alleTegninger as { id: string; name: string; buildingId: string | null }[] | undefined)?.filter((t) => !t.buildingId) ?? [];
 
-  const tegninger = bygning?.drawings ?? [];
+  const tegninger = (bygning?.drawings ?? []) as { id: string; name: string; fileUrl: string; fileType: string | null }[];
   const valgtTegning = tegninger.find((t) => t.id === valgtTegningId) ?? null;
 
   return (
@@ -694,6 +694,7 @@ export default function BygningerSide() {
   }
 
   const harValgt = !!valgtBygning;
+  const erPublisert = valgtBygning?.status === "published";
 
   if (isLoading) {
     return (
@@ -728,7 +729,7 @@ export default function BygningerSide() {
           Slett
         </button>
         <button
-          disabled={!harValgt}
+          disabled={!harValgt || !erPublisert}
           onClick={() => {
             if (valgtId) setRedigerBygningId(valgtId);
           }}
@@ -752,18 +753,19 @@ export default function BygningerSide() {
                 onClick={() => setVisMerMeny(false)}
               />
               <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                <button
-                  disabled={!harValgt}
-                  onClick={() => {
-                    if (valgtBygning) {
-                      publiserMutation.mutate({ id: valgtBygning.id });
-                    }
-                    setVisMerMeny(false);
-                  }}
-                  className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                >
-                  Publiser
-                </button>
+                {harValgt && !erPublisert && (
+                  <button
+                    onClick={() => {
+                      if (valgtBygning) {
+                        publiserMutation.mutate({ id: valgtBygning.id });
+                      }
+                      setVisMerMeny(false);
+                    }}
+                    className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Publiser
+                  </button>
+                )}
                 <button
                   disabled={!harValgt}
                   onClick={() => {
@@ -819,9 +821,9 @@ export default function BygningerSide() {
                             valgtId === bygning.id ? null : bygning.id,
                           )
                         }
-                        onDoubleClick={() =>
-                          setRedigerBygningId(bygning.id)
-                        }
+                        onDoubleClick={() => {
+                          // Kun publiserte bygg kan redigeres (tegninger)
+                        }}
                         className={`cursor-pointer border-b border-gray-100 last:border-0 ${
                           valgtId === bygning.id
                             ? "bg-siteflow-primary/5"
@@ -832,7 +834,7 @@ export default function BygningerSide() {
                           {bygning.name}
                         </td>
                         <td className="px-4 py-2.5 text-sm text-gray-500">
-                          {hentStatus(bygning)}
+                          Upublisert
                         </td>
                         <td className="px-4 py-2.5 text-right text-sm text-gray-500">
                           &mdash;

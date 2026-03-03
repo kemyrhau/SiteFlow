@@ -1,14 +1,20 @@
 import { z } from "zod";
 import crypto from "crypto";
-import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { addMemberSchema } from "@siteflow/shared";
 import { sendInvitasjonsEpost } from "../services/epost";
+import {
+  verifiserAdmin,
+  verifiserProsjektmedlem,
+} from "../trpc/tilgangskontroll";
 
 export const medlemRouter = router({
   // Hent alle medlemmer for et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      await verifiserProsjektmedlem(ctx.userId, input.projectId);
+
       return ctx.prisma.projectMember.findMany({
         where: { projectId: input.projectId },
         include: {
@@ -53,10 +59,12 @@ export const medlemRouter = router({
       return medlem.enterprises.map((me) => me.enterprise);
     }),
 
-  // Legg til medlem i prosjekt
-  leggTil: publicProcedure
+  // Legg til medlem i prosjekt (krever admin)
+  leggTil: protectedProcedure
     .input(addMemberSchema)
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       // Slå opp bruker på e-post, opprett hvis ikke finnes
       let user = await ctx.prisma.user.findUnique({
         where: { email: input.email },
@@ -140,7 +148,7 @@ export const medlemRouter = router({
         where: { userId: user.id },
       });
 
-      if (!harKonto && ctx.userId) {
+      if (!harKonto) {
         try {
           const token = crypto.randomBytes(32).toString("base64url");
           const utloper = new Date();
@@ -182,24 +190,29 @@ export const medlemRouter = router({
       return nyMedlem;
     }),
 
-  // Fjern medlem fra prosjekt
-  fjern: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+  // Fjern medlem fra prosjekt (krever admin)
+  fjern: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), projectId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       return ctx.prisma.projectMember.delete({
         where: { id: input.id },
       });
     }),
 
-  // Oppdater rolle på medlem
-  oppdaterRolle: publicProcedure
+  // Oppdater rolle på medlem (krever admin)
+  oppdaterRolle: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
         role: z.enum(["member", "admin"]),
+        projectId: z.string().uuid(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
       return ctx.prisma.projectMember.update({
         where: { id: input.id },
         data: { role: input.role },
@@ -211,7 +224,7 @@ export const medlemRouter = router({
     }),
 
   // Søk brukere på e-post (autocomplete)
-  sokBrukere: publicProcedure
+  sokBrukere: protectedProcedure
     .input(z.object({ email: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.user.findMany({

@@ -57,6 +57,11 @@ interface OpprettDokumentModalProps {
   mal: MalData;
   onOpprettet: (id: string) => void;
   onLukk: () => void;
+  // Props for oppgave fra sjekkliste
+  sjekklisteId?: string;
+  sjekklisteFeltId?: string;
+  sjekklisteNummer?: string;
+  feltLabel?: string;
 }
 
 const PRIORITETER: { verdi: Prioritet; label: string }[] = [
@@ -79,7 +84,13 @@ export function OpprettDokumentModal({
   mal,
   onOpprettet,
   onLukk,
+  sjekklisteId,
+  sjekklisteFeltId,
+  sjekklisteNummer,
+  feltLabel,
 }: OpprettDokumentModalProps) {
+  const erOppgave = kategori === "oppgave";
+  const erFraSjekkliste = !!sjekklisteId && !!sjekklisteFeltId;
   const { valgtProsjektId } = useProsjekt();
 
   const [emne, setEmne] = useState("");
@@ -230,12 +241,20 @@ export function OpprettDokumentModal({
         drawingId: valgtTegningId || undefined,
       });
     } else {
+      // Oppgave-tittel: fra sjekkliste eller prosjektnavn
+      const oppgaveTittel = erFraSjekkliste && sjekklisteNummer && feltLabel
+        ? `Oppgave fra ${sjekklisteNummer}: ${feltLabel}`
+        : prosjektNavn;
+
       opprettOppgave.mutate({
         templateId: mal.id,
         creatorEnterpriseId: oppretterEntrepriseId,
         responderEnterpriseId: autoSvarerEntrepriseId,
-        title: prosjektNavn,
+        title: oppgaveTittel,
         priority: prioritet,
+        workflowId: matchendeArbeidsforlop.id,
+        checklistId: sjekklisteId || undefined,
+        checklistFieldId: sjekklisteFeltId || undefined,
       });
     }
   }, [
@@ -251,6 +270,11 @@ export function OpprettDokumentModal({
     prioritet,
     opprettSjekkliste,
     opprettOppgave,
+    erFraSjekkliste,
+    sjekklisteId,
+    sjekklisteFeltId,
+    sjekklisteNummer,
+    feltLabel,
   ]);
 
   const kanOpprett = !!oppretterEntrepriseId && !!matchendeArbeidsforlop && !erPending;
@@ -312,42 +336,31 @@ export function OpprettDokumentModal({
             </Text>
           </View>
 
-          {/* 3. Emne (valgfritt tekstfelt) */}
-          <View className="border-b border-gray-100 px-4 py-3">
-            <Text className="mb-1 text-xs font-medium text-gray-500">Emne</Text>
-            <TextInput
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800"
-              placeholder="Beskriv emnet (valgfritt)…"
-              placeholderTextColor="#9ca3af"
-              value={emne}
-              onChangeText={setEmne}
-            />
-          </View>
-
-          {/* 4. Prioritet — kun for oppgaver */}
-          {kategori === "oppgave" && (
+          {/* 3. Emne (valgfritt tekstfelt) — skjult for oppgaver */}
+          {!erOppgave && (
             <View className="border-b border-gray-100 px-4 py-3">
-              <Text className="mb-2 text-xs font-medium text-gray-500">Prioritet</Text>
-              <View className="flex-row gap-2">
-                {PRIORITETER.map((p) => {
-                  const erValgt = prioritet === p.verdi;
-                  return (
-                    <Pressable
-                      key={p.verdi}
-                      onPress={() => setPrioritet(p.verdi)}
-                      className={`rounded-full px-3 py-1.5 ${erValgt ? PRIORITET_FARGER[p.verdi] : "bg-gray-100"}`}
-                    >
-                      <Text
-                        className={`text-xs font-medium ${erValgt ? "" : "text-gray-500"}`}
-                      >
-                        {p.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Text className="mb-1 text-xs font-medium text-gray-500">Emne</Text>
+              <TextInput
+                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800"
+                placeholder="Beskriv emnet (valgfritt)…"
+                placeholderTextColor="#9ca3af"
+                value={emne}
+                onChangeText={setEmne}
+              />
             </View>
           )}
+
+          {/* Sjekkliste-referanse (kun for oppgave fra sjekkliste) */}
+          {erOppgave && erFraSjekkliste && (
+            <View className="border-b border-gray-100 bg-blue-50 px-4 py-3">
+              <Text className="text-xs font-medium text-blue-600">Fra sjekkliste</Text>
+              <Text className="mt-0.5 text-sm text-blue-800">
+                {sjekklisteNummer ? `${sjekklisteNummer}: ` : ""}{feltLabel ?? ""}
+              </Text>
+            </View>
+          )}
+
+          {/* 4. Prioritet — skjult i forenklet oppgaveflyt (redigeres i detaljskjerm) */}
 
           {/* 5. Oppretter-entreprise (kun brukerens entrepriser) */}
           <View className="border-b border-gray-100 px-4 py-3">
@@ -418,106 +431,109 @@ export function OpprettDokumentModal({
             </View>
           )}
 
-          {/* 7. Lokasjon — valgfri bygning */}
-          <View className="border-b border-gray-100 px-4 py-3">
-            <Text className="mb-1 text-xs font-medium text-gray-500">Lokasjon</Text>
-            <Pressable
-              onPress={() => {
-                lukkAlleDropdowns();
-                setVisBygningListe(!visBygningListe);
-              }}
-              className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
-            >
-              <Text
-                className={`text-sm ${valgtBygning ? "text-gray-800" : "text-gray-400"}`}
-              >
-                {valgtBygning?.name ?? "Velg bygning (valgfritt)…"}
-              </Text>
-              <ChevronDown size={16} color="#9ca3af" />
-            </Pressable>
-            {visBygningListe && (
-              <View className="mt-1 rounded-lg border border-gray-200 bg-white">
+          {/* 7+8. Lokasjon + Tegning — kun sjekklister */}
+          {!erOppgave && (
+            <>
+              <View className="border-b border-gray-100 px-4 py-3">
+                <Text className="mb-1 text-xs font-medium text-gray-500">Lokasjon</Text>
                 <Pressable
                   onPress={() => {
-                    setValgtBygningId(null);
-                    setValgtTegningId(null);
-                    setVisBygningListe(false);
+                    lukkAlleDropdowns();
+                    setVisBygningListe(!visBygningListe);
                   }}
-                  className="border-b border-gray-50 px-3 py-2.5"
+                  className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
                 >
-                  <Text className="text-sm italic text-gray-400">Ingen bygning</Text>
+                  <Text
+                    className={`text-sm ${valgtBygning ? "text-gray-800" : "text-gray-400"}`}
+                  >
+                    {valgtBygning?.name ?? "Velg bygning (valgfritt)…"}
+                  </Text>
+                  <ChevronDown size={16} color="#9ca3af" />
                 </Pressable>
-                {bygninger.map((b) => (
+                {visBygningListe && (
+                  <View className="mt-1 rounded-lg border border-gray-200 bg-white">
+                    <Pressable
+                      onPress={() => {
+                        setValgtBygningId(null);
+                        setValgtTegningId(null);
+                        setVisBygningListe(false);
+                      }}
+                      className="border-b border-gray-50 px-3 py-2.5"
+                    >
+                      <Text className="text-sm italic text-gray-400">Ingen bygning</Text>
+                    </Pressable>
+                    {bygninger.map((b) => (
+                      <Pressable
+                        key={b.id}
+                        onPress={() => {
+                          setValgtBygningId(b.id);
+                          setValgtTegningId(null);
+                          setVisBygningListe(false);
+                        }}
+                        className={`border-b border-gray-50 px-3 py-2.5 ${valgtBygningId === b.id ? "bg-blue-50" : ""}`}
+                      >
+                        <Text
+                          className={`text-sm ${valgtBygningId === b.id ? "font-medium text-blue-700" : "text-gray-700"}`}
+                        >
+                          {b.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {valgtBygningId && (
+                <View className="border-b border-gray-100 px-4 py-3">
+                  <Text className="mb-1 text-xs font-medium text-gray-500">Tegning</Text>
                   <Pressable
-                    key={b.id}
                     onPress={() => {
-                      setValgtBygningId(b.id);
-                      setValgtTegningId(null);
-                      setVisBygningListe(false);
+                      lukkAlleDropdowns();
+                      setVisTegningListe(!visTegningListe);
                     }}
-                    className={`border-b border-gray-50 px-3 py-2.5 ${valgtBygningId === b.id ? "bg-blue-50" : ""}`}
+                    className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
                   >
                     <Text
-                      className={`text-sm ${valgtBygningId === b.id ? "font-medium text-blue-700" : "text-gray-700"}`}
+                      className={`text-sm ${valgtTegning ? "text-gray-800" : "text-gray-400"}`}
                     >
-                      {b.name}
+                      {valgtTegning
+                        ? `${valgtTegning.drawingNumber ?? ""} ${valgtTegning.name}`.trim()
+                        : "Velg tegning (valgfritt)…"}
                     </Text>
+                    <ChevronDown size={16} color="#9ca3af" />
                   </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* 8. Tegning — kun når bygning er valgt */}
-          {valgtBygningId && (
-            <View className="border-b border-gray-100 px-4 py-3">
-              <Text className="mb-1 text-xs font-medium text-gray-500">Tegning</Text>
-              <Pressable
-                onPress={() => {
-                  lukkAlleDropdowns();
-                  setVisTegningListe(!visTegningListe);
-                }}
-                className="flex-row items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5"
-              >
-                <Text
-                  className={`text-sm ${valgtTegning ? "text-gray-800" : "text-gray-400"}`}
-                >
-                  {valgtTegning
-                    ? `${valgtTegning.drawingNumber ?? ""} ${valgtTegning.name}`.trim()
-                    : "Velg tegning (valgfritt)…"}
-                </Text>
-                <ChevronDown size={16} color="#9ca3af" />
-              </Pressable>
-              {visTegningListe && (
-                <View className="mt-1 rounded-lg border border-gray-200 bg-white">
-                  <Pressable
-                    onPress={() => {
-                      setValgtTegningId(null);
-                      setVisTegningListe(false);
-                    }}
-                    className="border-b border-gray-50 px-3 py-2.5"
-                  >
-                    <Text className="text-sm italic text-gray-400">Ingen tegning</Text>
-                  </Pressable>
-                  {tegninger.map((t) => (
-                    <Pressable
-                      key={t.id}
-                      onPress={() => {
-                        setValgtTegningId(t.id);
-                        setVisTegningListe(false);
-                      }}
-                      className={`border-b border-gray-50 px-3 py-2.5 ${valgtTegningId === t.id ? "bg-blue-50" : ""}`}
-                    >
-                      <Text
-                        className={`text-sm ${valgtTegningId === t.id ? "font-medium text-blue-700" : "text-gray-700"}`}
+                  {visTegningListe && (
+                    <View className="mt-1 rounded-lg border border-gray-200 bg-white">
+                      <Pressable
+                        onPress={() => {
+                          setValgtTegningId(null);
+                          setVisTegningListe(false);
+                        }}
+                        className="border-b border-gray-50 px-3 py-2.5"
                       >
-                        {`${t.drawingNumber ?? ""} ${t.name}`.trim()}
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Text className="text-sm italic text-gray-400">Ingen tegning</Text>
+                      </Pressable>
+                      {tegninger.map((t) => (
+                        <Pressable
+                          key={t.id}
+                          onPress={() => {
+                            setValgtTegningId(t.id);
+                            setVisTegningListe(false);
+                          }}
+                          className={`border-b border-gray-50 px-3 py-2.5 ${valgtTegningId === t.id ? "bg-blue-50" : ""}`}
+                        >
+                          <Text
+                            className={`text-sm ${valgtTegningId === t.id ? "font-medium text-blue-700" : "text-gray-700"}`}
+                          >
+                            {`${t.drawingNumber ?? ""} ${t.name}`.trim()}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
                 </View>
               )}
-            </View>
+            </>
           )}
         </ScrollView>
       </SafeAreaView>

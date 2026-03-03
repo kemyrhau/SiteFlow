@@ -1,13 +1,18 @@
 import { z } from "zod";
 import type { Prisma } from "@siteflow/db";
-import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { documentStatusSchema } from "@siteflow/shared";
 import { isValidStatusTransition } from "@siteflow/shared";
 import { TRPCError } from "@trpc/server";
+import {
+  byggTilgangsFilter,
+  verifiserEntrepriseTilhorighet,
+  verifiserDokumentTilgang,
+} from "../trpc/tilgangskontroll";
 
 export const sjekklisteRouter = router({
   // Hent alle sjekklister for et prosjekt (via mal)
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(
       z.object({
         projectId: z.string().uuid(),
@@ -15,10 +20,13 @@ export const sjekklisteRouter = router({
       }),
     )
     .query(async ({ ctx, input }) => {
+      const tilgangsFilter = await byggTilgangsFilter(ctx.userId, input.projectId);
+
       return ctx.prisma.checklist.findMany({
         where: {
           template: { projectId: input.projectId },
           ...(input.status ? { status: input.status } : {}),
+          ...(tilgangsFilter ?? {}),
         },
         include: {
           template: true,
@@ -32,16 +40,18 @@ export const sjekklisteRouter = router({
     }),
 
   // Hent én sjekkliste med alle detaljer
-  hentMedId: publicProcedure
+  hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.checklist.findUniqueOrThrow({
+      const sjekkliste = await ctx.prisma.checklist.findUniqueOrThrow({
         where: { id: input.id },
         include: {
           template: { include: { objects: { orderBy: { sortOrder: "asc" } } } },
           creatorEnterprise: true,
           responderEnterprise: true,
           creator: true,
+          building: { select: { id: true, name: true } },
+          drawing: { select: { id: true, name: true, drawingNumber: true } },
           images: true,
           transfers: {
             include: { sender: true },
@@ -49,6 +59,17 @@ export const sjekklisteRouter = router({
           },
         },
       });
+
+      // Tilgangssjekk — hent projectId og domain fra malen
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        sjekkliste.template.projectId,
+        sjekkliste.creatorEnterpriseId,
+        sjekkliste.responderEnterpriseId,
+        sjekkliste.template.domain,
+      );
+
+      return sjekkliste;
     }),
 
   // Opprett ny sjekkliste
@@ -67,6 +88,9 @@ export const sjekklisteRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Verifiser at bruker tilhører oppretter-entreprisen
+      await verifiserEntrepriseTilhorighet(ctx.userId, input.creatorEnterpriseId);
+
       return ctx.prisma.$transaction(async (tx) => {
         // Finn malens prefix og prosjekt for autonummerering
         const mal = await tx.reportTemplate.findUniqueOrThrow({
@@ -107,7 +131,7 @@ export const sjekklisteRouter = router({
     }),
 
   // Oppdater sjekklistedata (fylling av felter)
-  oppdaterData: publicProcedure
+  oppdaterData: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -115,6 +139,19 @@ export const sjekklisteRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Tilgangssjekk
+      const sjekkliste = await ctx.prisma.checklist.findUniqueOrThrow({
+        where: { id: input.id },
+        include: { template: { select: { projectId: true, domain: true } } },
+      });
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        sjekkliste.template.projectId,
+        sjekkliste.creatorEnterpriseId,
+        sjekkliste.responderEnterpriseId,
+        sjekkliste.template.domain,
+      );
+
       return ctx.prisma.checklist.update({
         where: { id: input.id },
         data: { data: input.data as Prisma.InputJsonValue },
@@ -122,7 +159,7 @@ export const sjekklisteRouter = router({
     }),
 
   // Endre status (med overgangslogging)
-  endreStatus: publicProcedure
+  endreStatus: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -134,7 +171,17 @@ export const sjekklisteRouter = router({
     .mutation(async ({ ctx, input }) => {
       const sjekkliste = await ctx.prisma.checklist.findUniqueOrThrow({
         where: { id: input.id },
+        include: { template: { select: { projectId: true, domain: true } } },
       });
+
+      // Tilgangssjekk
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        sjekkliste.template.projectId,
+        sjekkliste.creatorEnterpriseId,
+        sjekkliste.responderEnterpriseId,
+        sjekkliste.template.domain,
+      );
 
       if (!isValidStatusTransition(sjekkliste.status, input.nyStatus)) {
         throw new TRPCError({

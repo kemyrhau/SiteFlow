@@ -209,6 +209,8 @@ export default function HjemSkjerm() {
       }
       if (opprettKategori === "sjekkliste") {
         router.push(`/sjekkliste/${id}`);
+      } else if (opprettKategori === "oppgave") {
+        router.push(`/oppgave/${id}`);
       }
     },
     [valgtProsjektId, opprettKategori, utils, router],
@@ -297,6 +299,8 @@ export default function HjemSkjerm() {
                   onPress={() => {
                     if (element.type === "sjekkliste") {
                       router.push(`/sjekkliste/${element.id}`);
+                    } else if (element.type === "oppgave") {
+                      router.push(`/oppgave/${element.id}`);
                     }
                   }}
                 >
