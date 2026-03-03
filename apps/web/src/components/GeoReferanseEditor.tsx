@@ -263,21 +263,31 @@ export function GeoReferanseEditor({
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const container = containerRef.current;
-    if (!container) return;
+    const bilde = bildeRef.current;
+    if (!container || !bilde) return;
 
-    const rect = container.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) / rect.width;
-    const my = (e.clientY - rect.top) / rect.height;
+    const containerRect = container.getBoundingClientRect();
+    const cx = e.clientX - containerRect.left;
+    const cy = e.clientY - containerRect.top;
+    const ox = bilde.offsetWidth / 2;
+    const oy = bilde.offsetHeight / 2;
 
     setZoom((prev) => {
-      const faktor = e.deltaY > 0 ? 0.9 : 1.1;
+      const faktor = e.deltaY > 0 ? 0.85 : 1.18;
       const neste = Math.min(10, Math.max(1, prev * faktor));
-      const skalaDiff = neste - prev;
 
-      setPan((p) => ({
-        x: p.x - skalaDiff * (mx - 0.5) * rect.width,
-        y: p.y - skalaDiff * (my - 0.5) * rect.height,
-      }));
+      if (neste !== prev) {
+        setPan((p) => {
+          // Zoom mot musepekeren: hold punktet under cursoren fast
+          const relX = (cx - p.x - ox) / prev;
+          const relY = (cy - p.y - oy) / prev;
+          const dz = neste - prev;
+          return {
+            x: p.x - relX * dz,
+            y: p.y - relY * dz,
+          };
+        });
+      }
 
       return neste;
     });
@@ -538,10 +548,10 @@ export function GeoReferanseEditor({
                 style={{ left: vx, top: vy }}
               >
                 <div className="flex flex-col items-center">
-                  <span className="mb-0.5 rounded bg-red-600 px-1 py-0.5 text-[9px] font-bold leading-none text-white">
+                  <span className="mb-0.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                     1
                   </span>
-                  <div className="h-2.5 w-2.5 rounded-full border-[1.5px] border-white bg-red-500 shadow" />
+                  <div className="h-3 w-3 rounded-full border-2 border-white bg-red-500 shadow" />
                 </div>
               </div>
             );
@@ -561,10 +571,10 @@ export function GeoReferanseEditor({
                 style={{ left: vx, top: vy }}
               >
                 <div className="flex flex-col items-center">
-                  <span className="mb-0.5 rounded bg-blue-600 px-1 py-0.5 text-[9px] font-bold leading-none text-white">
+                  <span className="mb-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                     2
                   </span>
-                  <div className="h-2.5 w-2.5 rounded-full border-[1.5px] border-white bg-blue-500 shadow" />
+                  <div className="h-3 w-3 rounded-full border-2 border-white bg-blue-500 shadow" />
                 </div>
               </div>
             );
