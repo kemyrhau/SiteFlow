@@ -688,6 +688,16 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 - `FeltDokumentasjon` er delt komponent brukt av `FeltWrapper` for ALLE utfyllbare rapportobjekter
 - `FeltDokumentasjon` har `objektId`-prop (for bakgrunnskø) og `skjulKommentar`-prop (satt til `true` for `text_field`)
 - **Web:** `FeltDokumentasjon` har to visninger — filmrull-thumbnails (72×72px, `print-skjul`) og print-versjon (`print-vedlegg-fullvisning`) med 5:4 bilder i 2-kolonne rutenett
+- **Web:** `FeltDokumentasjon` har `prosjektId`-prop — når satt, vises «Tegning»-knapp (Map-ikon) ved siden av «Vedlegg»-knappen
+- **Web:** `FeltWrapper` har valgfri `prosjektId`-prop som videresendes til `FeltDokumentasjon`
+
+**Tegningsknapp (web):**
+- Hvert utfyllbart felt i sjekkliste-utfylling har en «Tegning»-knapp som åpner `TegningsModal`
+- `TegningsModal` (`apps/web/src/components/rapportobjekter/TegningsModal.tsx`): Modal med tegningsvelger (dropdown fra `trpc.tegning.hentForProsjekt`) + bildevisning + «Lagre som vedlegg»-knapp
+- Canvas API fanger tegningsbildet som PNG → laster opp via `/api/trpc/../../../upload` → returnerer vedlegg via callback
+- Krever `prosjektId` for å hente tegninger — `FeltWrapper` sender dette fra sjekkliste-detaljsiden (`params.prosjektId`)
+- Bruker `crossOrigin="anonymous"` på `<img>` for å unngå tainted canvas ved Canvas API-eksport
+- `Modal` fra `@siteflow/ui` med `max-w-2xl` for bredere visning
 
 **Modal tekstredigering (mobil):**
 - Alle tekstfelt i sjekkliste-utfylling bruker tappbar visning → fullskjerm modal med "Ferdig"-knapp
