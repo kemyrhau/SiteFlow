@@ -168,9 +168,8 @@ export function GeoReferanseEditor({
   const bildeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Zoom og panorering
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Zoom og panorering — samlet state for atomiske oppdateringer
+  const [view, setView] = useState({ zoom: 1, panX: 0, panY: 0 });
   const [erDraging, setErDraging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const harDratt = useRef(false); // Forhindrer klikk-plassering etter drag
@@ -237,8 +236,8 @@ export function GeoReferanseEditor({
       const containerRect = container.getBoundingClientRect();
       const klikkX = e.clientX - containerRect.left;
       const klikkY = e.clientY - containerRect.top;
-      const lokalX = (klikkX - pan.x) / zoom;
-      const lokalY = (klikkY - pan.y) / zoom;
+      const lokalX = (klikkX - view.panX) / view.zoom;
+      const lokalY = (klikkY - view.panY) / view.zoom;
 
       const bildeBredd = bilde.offsetWidth;
       const bildeHoyde = bilde.offsetHeight;
@@ -255,7 +254,7 @@ export function GeoReferanseEditor({
         setAktivtPunkt(null);
       }
     },
-    [aktivtPunkt, modus, zoom, pan],
+    [aktivtPunkt, modus, view],
   );
 
   // Native wheel-listener med { passive: false } — React onWheel kan være passiv
@@ -272,27 +271,25 @@ export function GeoReferanseEditor({
       const cx = e.clientX - containerRect.left;
       const cy = e.clientY - containerRect.top;
 
-      setZoom((prev) => {
+      // Atomisk oppdatering av zoom + pan i én setView-kall
+      setView((prev) => {
         const faktor = e.deltaY > 0 ? 0.85 : 1.18;
-        const neste = Math.min(10, Math.max(1, prev * faktor));
+        const nesteZoom = Math.min(10, Math.max(1, prev.zoom * faktor));
+        if (nesteZoom === prev.zoom) return prev;
 
-        if (neste !== prev) {
-          setPan((p) => {
-            // Zoom mot musepekeren med transformOrigin: 0 0
-            // Behold punktet under cursoren fast:
-            // cx = lx * zoom + pan.x → lx = (cx - pan.x) / zoom
-            // pan_ny = pan_gammel - lx * (zoom_ny - zoom_gammel)
-            const lx = (cx - p.x) / prev;
-            const ly = (cy - p.y) / prev;
-            const dz = neste - prev;
-            return {
-              x: p.x - lx * dz,
-              y: p.y - ly * dz,
-            };
-          });
-        }
+        // Zoom mot musepekeren med transformOrigin: 0 0
+        // Behold punktet under cursoren fast:
+        // cx = lx * zoom + panX → lx = (cx - panX) / zoom
+        // panX_ny = panX - lx * (zoom_ny - zoom_gammel)
+        const lx = (cx - prev.panX) / prev.zoom;
+        const ly = (cy - prev.panY) / prev.zoom;
+        const dz = nesteZoom - prev.zoom;
 
-        return neste;
+        return {
+          zoom: nesteZoom,
+          panX: prev.panX - lx * dz,
+          panY: prev.panY - ly * dz,
+        };
       });
     };
 
@@ -307,10 +304,10 @@ export function GeoReferanseEditor({
         e.preventDefault();
         setErDraging(true);
         harDratt.current = false;
-        dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        dragStart.current = { x: e.clientX, y: e.clientY, panX: view.panX, panY: view.panY };
       }
     },
-    [modus, pan, aktivtPunkt],
+    [modus, view, aktivtPunkt],
   );
 
   const handleMouseMove = useCallback(
@@ -320,10 +317,11 @@ export function GeoReferanseEditor({
       const dy = e.clientY - dragStart.current.y;
       // Merk som dratt hvis musen har beveget seg mer enn 3px
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) harDratt.current = true;
-      setPan({
-        x: dragStart.current.panX + dx,
-        y: dragStart.current.panY + dy,
-      });
+      setView((prev) => ({
+        ...prev,
+        panX: dragStart.current.panX + dx,
+        panY: dragStart.current.panY + dy,
+      }));
     },
     [erDraging],
   );
@@ -333,8 +331,7 @@ export function GeoReferanseEditor({
   }, []);
 
   const nullstillVisning = useCallback(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    setView({ zoom: 1, panX: 0, panY: 0 });
   }, []);
 
   // Zoom mot midten av synlig område (for knappene)
@@ -344,17 +341,18 @@ export function GeoReferanseEditor({
     const cx = container.offsetWidth / 2;
     const cy = container.offsetHeight / 2;
 
-    setZoom((prev) => {
-      const neste = Math.min(10, Math.max(1, prev * faktor));
-      if (neste !== prev) {
-        setPan((p) => {
-          const lx = (cx - p.x) / prev;
-          const ly = (cy - p.y) / prev;
-          const dz = neste - prev;
-          return { x: p.x - lx * dz, y: p.y - ly * dz };
-        });
-      }
-      return neste;
+    setView((prev) => {
+      const nesteZoom = Math.min(10, Math.max(1, prev.zoom * faktor));
+      if (nesteZoom === prev.zoom) return prev;
+
+      const lx = (cx - prev.panX) / prev.zoom;
+      const ly = (cy - prev.panY) / prev.zoom;
+      const dz = nesteZoom - prev.zoom;
+      return {
+        zoom: nesteZoom,
+        panX: prev.panX - lx * dz,
+        panY: prev.panY - ly * dz,
+      };
     });
   }, []);
 
@@ -466,7 +464,7 @@ export function GeoReferanseEditor({
               </button>
 
               <span className="min-w-[3rem] text-center text-xs font-medium text-gray-600">
-                {Math.round(zoom * 100)}%
+                {Math.round(view.zoom * 100)}%
               </span>
 
               <button
@@ -478,7 +476,7 @@ export function GeoReferanseEditor({
                 <ZoomIn className="h-4 w-4" />
               </button>
 
-              {zoom !== 1 && (
+              {view.zoom !== 1 && (
                 <>
                   <div className="mx-1 h-5 w-px bg-gray-300" />
                   <button
@@ -521,7 +519,7 @@ export function GeoReferanseEditor({
             onClick={handleBildeKlikk}
             className="relative"
             style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`,
               transformOrigin: "0 0",
             }}
           >
@@ -561,13 +559,13 @@ export function GeoReferanseEditor({
           </div>
 
           {/* Markører — utenfor transformert div for fast størrelse */}
-          {/* Med transformOrigin: 0 0 → visuell pos: vx = lx * zoom + pan.x */}
+          {/* Med transformOrigin: 0 0 → visuell pos: vx = lx * zoom + panX */}
           {punkt1 && bildeRef.current && (() => {
             const b = bildeRef.current;
             const lx = (punkt1.pixel.x / 100) * b.offsetWidth;
             const ly = (punkt1.pixel.y / 100) * b.offsetHeight;
-            const vx = lx * zoom + pan.x;
-            const vy = ly * zoom + pan.y;
+            const vx = lx * view.zoom + view.panX;
+            const vy = ly * view.zoom + view.panY;
             return (
               <div
                 className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
@@ -587,8 +585,8 @@ export function GeoReferanseEditor({
             const b = bildeRef.current;
             const lx = (punkt2.pixel.x / 100) * b.offsetWidth;
             const ly = (punkt2.pixel.y / 100) * b.offsetHeight;
-            const vx = lx * zoom + pan.x;
-            const vy = ly * zoom + pan.y;
+            const vx = lx * view.zoom + view.panX;
+            const vy = ly * view.zoom + view.panY;
             return (
               <div
                 className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
