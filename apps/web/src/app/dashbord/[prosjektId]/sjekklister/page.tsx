@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { Button, Select, Modal, Spinner, EmptyState, StatusBadge, Table } from "@siteflow/ui";
 import { useVerktoylinje } from "@/hooks/useVerktoylinje";
-import { Plus } from "lucide-react";
+import type { VerktoylinjeHandling } from "@/kontekst/navigasjon-kontekst";
+import { Plus, Printer } from "lucide-react";
 
 export default function SjekklisteSide() {
   const params = useParams<{ prosjektId: string }>();
@@ -18,6 +19,7 @@ export default function SjekklisteSide() {
   const [valgtOppretter, setValgtOppretter] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
   const [tittel, setTittel] = useState("");
+  const [valgte, setValgte] = useState<Set<string>>(new Set());
 
   const { data: sjekklister, isLoading } = trpc.sjekkliste.hentForProsjekt.useQuery(
     { projectId: params.prosjektId },
@@ -40,15 +42,34 @@ export default function SjekklisteSide() {
     },
   });
 
-  useVerktoylinje([
-    {
-      id: "ny-sjekkliste",
-      label: "Ny sjekkliste",
-      ikon: <Plus className="h-4 w-4" />,
-      onClick: () => setVisModal(true),
-      variant: "primary",
-    },
-  ]);
+  const verktoylinjeHandlinger = useMemo((): VerktoylinjeHandling[] => {
+    const handlinger: VerktoylinjeHandling[] = [
+      {
+        id: "ny-sjekkliste",
+        label: "Ny sjekkliste",
+        ikon: <Plus className="h-4 w-4" />,
+        onClick: () => setVisModal(true),
+        variant: "primary",
+      },
+    ];
+
+    if (valgte.size > 0) {
+      handlinger.push({
+        id: "skriv-ut-valgte",
+        label: `Skriv ut valgte (${valgte.size})`,
+        ikon: <Printer className="h-4 w-4" />,
+        onClick: () => {
+          const ider = Array.from(valgte).join(",");
+          router.push(`/dashbord/${params.prosjektId}/sjekklister/skriv-ut?ider=${ider}`);
+        },
+        variant: "secondary",
+      });
+    }
+
+    return handlinger;
+  }, [valgte, params.prosjektId, router]);
+
+  useVerktoylinje(verktoylinjeHandlinger, [valgte.size]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -155,6 +176,9 @@ export default function SjekklisteSide() {
             router.push(`/dashbord/${params.prosjektId}/sjekklister/${rad.id}`)
           }
           tomMelding="Ingen sjekklister med denne statusen"
+          velgbar
+          valgteRader={valgte}
+          onValgEndring={setValgte}
         />
       )}
 

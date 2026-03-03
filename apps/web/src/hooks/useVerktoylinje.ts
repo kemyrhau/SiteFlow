@@ -6,7 +6,7 @@ import {
   type VerktoylinjeHandling,
 } from "@/kontekst/navigasjon-kontekst";
 
-export function useVerktoylinje(handlinger: VerktoylinjeHandling[]) {
+export function useVerktoylinje(handlinger: VerktoylinjeHandling[], deps?: unknown[]) {
   const { settVerktoylinjeHandlinger } = useNavigasjon();
 
   useEffect(() => {
@@ -15,5 +15,5 @@ export function useVerktoylinje(handlinger: VerktoylinjeHandling[]) {
       settVerktoylinjeHandlinger([]);
     };
     // eslint-disable-next-line
-  }, [settVerktoylinjeHandlinger]);
+  }, [settVerktoylinjeHandlinger, ...(deps ?? [])]);
 }

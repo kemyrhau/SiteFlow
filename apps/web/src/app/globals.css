@@ -38,4 +38,9 @@
   .print-no-break {
     page-break-inside: avoid;
   }
+
+  /* Sideskift mellom sjekklister */
+  .print-sideskift {
+    page-break-after: always;
+  }
 }
