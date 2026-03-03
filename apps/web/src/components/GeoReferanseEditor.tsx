@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button, Input } from "@siteflow/ui";
-import { MapPin, Trash2, Check } from "lucide-react";
+import { MapPin, Trash2, Check, ExternalLink } from "lucide-react";
 import type { GeoReferanse } from "@siteflow/shared";
 
 interface TegningInfo {
@@ -193,6 +193,15 @@ export function GeoReferanseEditor({
           Klikk to punkter på tegningen og oppgi GPS-koordinater for hvert punkt.
           Dette lar mobilappen beregne posisjon automatisk fra GPS.
         </p>
+        <a
+          href="https://norgeskart.no"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Åpne Norgeskart for koordinater
+        </a>
       </div>
 
       {/* Tegning med klikkbare punkter */}
