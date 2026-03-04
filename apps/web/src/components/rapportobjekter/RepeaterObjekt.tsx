@@ -1,48 +1,183 @@
+"use client";
+
+import { useCallback } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import type { RapportObjektProps, FeltVerdi } from "./typer";
+import type { RapportObjektProps, FeltVerdi, RapportObjekt } from "./typer";
+import { TOM_FELTVERDI } from "./typer";
+import { RapportObjektRenderer, DISPLAY_TYPER } from "./RapportObjektRenderer";
+import { FeltWrapper } from "./FeltWrapper";
 
-type RepeaterVerdi = Array<Record<string, FeltVerdi>>;
+type RadData = Record<string, FeltVerdi>;
+type RepeaterVerdi = RadData[];
 
-export function RepeaterObjekt({ objekt, verdi, onEndreVerdi, leseModus }: RapportObjektProps) {
+export function RepeaterObjekt({
+  objekt,
+  verdi,
+  onEndreVerdi,
+  leseModus,
+  prosjektId,
+  barneObjekter,
+}: RapportObjektProps) {
   const rader = Array.isArray(verdi) ? (verdi as RepeaterVerdi) : [];
-  const barneObjekter = (objekt.config.children as Array<{ id: string; type: string; label: string }>) ?? [];
+  const barn = barneObjekter ?? [];
 
-  const leggTilRad = () => {
-    const nyRad: Record<string, FeltVerdi> = {};
-    for (const barn of barneObjekter) {
-      nyRad[barn.id] = { verdi: null, kommentar: "", vedlegg: [] };
+  const leggTilRad = useCallback(() => {
+    const nyRad: RadData = {};
+    for (const b of barn) {
+      nyRad[b.id] = { ...TOM_FELTVERDI };
     }
     onEndreVerdi([...rader, nyRad]);
-  };
+  }, [barn, rader, onEndreVerdi]);
 
-  const fjernRad = (indeks: number) => {
-    onEndreVerdi(rader.filter((_, i) => i !== indeks));
-  };
+  const fjernRad = useCallback(
+    (indeks: number) => {
+      onEndreVerdi(rader.filter((_, i) => i !== indeks));
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const oppdaterFeltVerdi = useCallback(
+    (radIndeks: number, feltId: string, nyVerdi: unknown) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return { ...rad, [feltId]: { ...eksisterende, verdi: nyVerdi } };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const oppdaterKommentar = useCallback(
+    (radIndeks: number, feltId: string, kommentar: string) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return { ...rad, [feltId]: { ...eksisterende, kommentar } };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const leggTilVedlegg = useCallback(
+    (radIndeks: number, feltId: string, vedlegg: FeltVerdi["vedlegg"][number]) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return {
+          ...rad,
+          [feltId]: {
+            ...eksisterende,
+            vedlegg: [...(eksisterende.vedlegg ?? []), vedlegg],
+          },
+        };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const fjernVedlegg = useCallback(
+    (radIndeks: number, feltId: string, vedleggId: string) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return {
+          ...rad,
+          [feltId]: {
+            ...eksisterende,
+            vedlegg: (eksisterende.vedlegg ?? []).filter((v) => v.id !== vedleggId),
+          },
+        };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  if (barn.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-400">
+        Ingen felter definert i malen for denne repeateren.
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
-      {rader.map((rad, indeks) => (
-        <div key={indeks} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+      {rader.map((rad, radIndeks) => (
+        <div
+          key={radIndeks}
+          className="rounded-lg border border-gray-200 bg-gray-50/50 p-3"
+        >
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500">Rad {indeks + 1}</span>
+            <span className="text-xs font-semibold text-gray-500">
+              Rad {radIndeks + 1}
+            </span>
             {!leseModus && (
               <button
                 type="button"
-                onClick={() => fjernRad(indeks)}
-                className="text-red-500 hover:text-red-700"
+                onClick={() => fjernRad(radIndeks)}
+                className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
               >
-                <Trash2 size={16} />
+                <Trash2 size={14} />
               </button>
             )}
           </div>
-          {barneObjekter.map((barn) => (
-            <div key={barn.id} className="mb-2">
-              <p className="mb-1 text-xs text-gray-600">{barn.label}</p>
-              <p className="text-sm text-gray-400">
-                {String(rad[barn.id]?.verdi ?? "\u2014")}
-              </p>
-            </div>
-          ))}
+
+          <div className="flex flex-col gap-2">
+            {barn.map((barnObjekt) => {
+              const feltVerdi = rad[barnObjekt.id] ?? TOM_FELTVERDI;
+              const erDisplay = DISPLAY_TYPER.has(barnObjekt.type);
+
+              if (erDisplay) {
+                return (
+                  <div key={barnObjekt.id}>
+                    <RapportObjektRenderer
+                      objekt={barnObjekt}
+                      verdi={feltVerdi.verdi}
+                      onEndreVerdi={(v) =>
+                        oppdaterFeltVerdi(radIndeks, barnObjekt.id, v)
+                      }
+                      leseModus={leseModus}
+                      prosjektId={prosjektId}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <FeltWrapper
+                  key={barnObjekt.id}
+                  objekt={barnObjekt}
+                  kommentar={feltVerdi.kommentar}
+                  vedlegg={feltVerdi.vedlegg}
+                  onEndreKommentar={(k) =>
+                    oppdaterKommentar(radIndeks, barnObjekt.id, k)
+                  }
+                  onLeggTilVedlegg={(v) =>
+                    leggTilVedlegg(radIndeks, barnObjekt.id, v)
+                  }
+                  onFjernVedlegg={(vId) =>
+                    fjernVedlegg(radIndeks, barnObjekt.id, vId)
+                  }
+                  leseModus={leseModus}
+                  prosjektId={prosjektId}
+                >
+                  <RapportObjektRenderer
+                    objekt={barnObjekt}
+                    verdi={feltVerdi.verdi}
+                    onEndreVerdi={(v) =>
+                      oppdaterFeltVerdi(radIndeks, barnObjekt.id, v)
+                    }
+                    leseModus={leseModus}
+                    prosjektId={prosjektId}
+                  />
+                </FeltWrapper>
+              );
+            })}
+          </div>
         </div>
       ))}
 

@@ -193,7 +193,7 @@ export const REPORT_OBJECT_TYPE_META: Record<ReportObjectType, ReportObjectTypeM
     label: "Repeater",
     icon: "Repeat",
     category: "spesial",
-    defaultConfig: { children: [] },
+    defaultConfig: {},
   },
   location: {
     label: "Lokasjon",
@@ -302,7 +302,7 @@ export function erBetingelseKvalifisert(type: string): boolean {
 }
 
 // Kontainertyper som kan ha barn (rekursiv nesting)
-export const CONTAINER_TYPES = ["list_single", "list_multi"] as const;
+export const CONTAINER_TYPES = ["list_single", "list_multi", "repeater"] as const;
 
 export function erKontainerType(type: string): boolean {
   return (CONTAINER_TYPES as readonly string[]).includes(type);

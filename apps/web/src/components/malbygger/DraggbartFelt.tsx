@@ -85,9 +85,9 @@ export function DraggbartFelt({
   const erBarn = nestingNivå > 0;
   const harAktivBetingelse = objekt.config.conditionActive === true;
 
-  // Kan ha betingelse: er kontainertype, har minst én opsjon, og har ikke allerede aktiv betingelse
+  // Kan ha betingelse: er kontainertype (ikke repeater), har minst én opsjon, og har ikke allerede aktiv betingelse
   const harOpsjoner = Array.isArray(objekt.config.options) && (objekt.config.options as string[]).length > 0;
-  const kanHaBetingelse = erKontainerType(objekt.type) && harOpsjoner && !harAktivBetingelse;
+  const kanHaBetingelse = erKontainerType(objekt.type) && objekt.type !== "repeater" && harOpsjoner && !harAktivBetingelse;
 
   return (
     <div ref={setNodeRef} style={stil}>

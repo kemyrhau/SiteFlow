@@ -14,6 +14,7 @@ export interface RapportObjektProps {
   onEndreVerdi: (verdi: unknown) => void;
   leseModus?: boolean;
   prosjektId?: string;
+  barneObjekter?: RapportObjekt[];
 }
 
 export interface Vedlegg {

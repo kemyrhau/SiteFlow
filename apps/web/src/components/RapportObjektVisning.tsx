@@ -115,7 +115,7 @@ export function RapportObjektVisning({
 
   return (
     <div className={marginKlasse}>
-      <ObjektInnhold objekt={objekt} verdi={verdi} />
+      <ObjektInnhold objekt={objekt} verdi={verdi} data={data} />
       {objekt.children.length > 0 && (
         <div className="mt-1">
           {objekt.children.map((barn) => {
@@ -143,9 +143,11 @@ export function RapportObjektVisning({
 function ObjektInnhold({
   objekt,
   verdi,
+  data,
 }: {
   objekt: TreObjekt;
   verdi: unknown;
+  data?: Record<string, { verdi?: unknown }>;
 }) {
   const { type, label } = objekt;
 
@@ -373,10 +375,37 @@ function ObjektInnhold({
     }
 
     case "repeater": {
+      const repeaterRader = Array.isArray(verdi) ? (verdi as Array<Record<string, { verdi?: unknown; kommentar?: string; vedlegg?: unknown[] }>>) : [];
+      const repeaterBarn = objekt.children ?? [];
+
+      if (repeaterRader.length === 0) {
+        return <FeltRad label={label} tom>{null}</FeltRad>;
+      }
+
       return (
-        <FeltRad label={label} tom>
-          <p className="text-sm text-gray-400">Repeterende seksjon</p>
-        </FeltRad>
+        <div className="print-no-break py-2">
+          <p className="mb-2 text-xs font-medium text-gray-500">{label}</p>
+          <div className="flex flex-col gap-2">
+            {repeaterRader.map((rad, radIdx) => (
+              <div key={radIdx} className="rounded border border-gray-200 px-3 py-2">
+                <p className="mb-1 text-[11px] font-semibold text-gray-400">Rad {radIdx + 1}</p>
+                {repeaterBarn.map((barn) => {
+                  const feltData = rad[barn.id];
+                  const barnVerdi = feltData?.verdi ?? null;
+                  return (
+                    <RapportObjektVisning
+                      key={barn.id}
+                      objekt={barn}
+                      verdi={barnVerdi}
+                      nestingNivå={0}
+                      data={data}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
       );
     }
 

@@ -514,7 +514,7 @@ Maler bygges på PC med drag-and-drop. Hver mal inneholder objekter med definert
 | `room_property` | spesial | Rom-egenskap |
 | `weather` | spesial | Vær |
 | `signature` | spesial | Signatur |
-| `repeater` | spesial | Repeterende seksjon |
+| `repeater` | spesial | Repeterende seksjon (kontainer med barnefelt, rendrer dupliserbare rader) |
 | `location` | spesial | Lokasjon (read-only, viser prosjektets posisjon på kart) |
 | `drawing_position` | spesial | Posisjon i tegning (tegningsvelger + klikkbar markør) |
 
@@ -557,7 +557,9 @@ Drag-and-drop-editor for å bygge maler med rekursiv kontainer-nesting (Dalux-st
 | `typer.ts` | `TreObjekt` interface (MalObjekt + children) |
 
 **Rekursiv kontainer-nesting (Dalux-stil):**
-- Kontainertyper: `list_single` og `list_multi` (sjekkes med `erKontainerType()`)
+- Kontainertyper: `list_single`, `list_multi` og `repeater` (sjekkes med `erKontainerType()`)
+- `akseptererBarn(objekt)` i MalBygger: repeater aksepterer alltid barn, list-kontainere kun med `conditionActive === true`
+- Repeater vises med grønn ramme i malbygger (i stedet for blå), uten BetingelseBjelke
 - Forelder-barn-relasjon via `report_objects.parent_id` DB-kolonne (ikke config JSON)
 - Betingelse aktiveres på kontainerfelt: `conditionActive: true`, `conditionValues: string[]` i config
 - Barn knyttes via `parentId` på ReportObject — ubegrenset nesting-dybde
@@ -1024,7 +1026,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `PERMISSIONS` — Konstantarray: `["manage_field", "create_tasks", "create_checklists", "view_field"]`, `Permission` type
 - `DOMAINS` — Konstantarray: `["bygg", "hms", "kvalitet"]`, `Domain` type
 - `DOMAIN_LABELS` — Record som mapper domain til norsk label: `{ bygg: "Bygg", hms: "HMS", kvalitet: "Kvalitet" }`
-- `CONTAINER_TYPES` — Kontainertyper som kan ha barn: `["list_single", "list_multi"]`
+- `CONTAINER_TYPES` — Kontainertyper som kan ha barn: `["list_single", "list_multi", "repeater"]`
 - `FOLDER_ACCESS_MODES` — `["inherit", "custom"]`, `FolderAccessMode` type
 - `FOLDER_ACCESS_TYPES` — `["enterprise", "group", "user"]`, `FolderAccessType` type
 - `TreObjekt` — Interface for rekursivt objekttre (id, type, label, parentId, children)
@@ -1146,9 +1148,10 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Tegningsmarkør:** Posisjon (0–100% X/Y) på en tegning der en oppgave er opprettet fra mobilappen
 - **Enkeltvalg (`list_single`):** Rapportobjekt der brukeren velger én verdi. Web: `<select>` nedtrekksmeny (kompakt). Mobil: radioknapper. Kan brukes som kontainer med betingelse.
 - **Flervalg (`list_multi`):** Rapportobjekt der brukeren kan velge flere verdier. Web: dropdown med avkrysning, valgte vises som horisontale chips med ×-knapp. Mobil: avkrysningsbokser. Kan brukes som kontainer med betingelse.
-- **Kontainer:** Et Enkeltvalg- eller Flervalg-felt som har betingelse aktivert (`conditionActive: true`) og dermed kan inneholde barnefelt. Kontainere kan nestes rekursivt (eske-i-eske-prinsippet).
+- **Kontainer:** Et Enkeltvalg-, Flervalg- eller Repeater-felt som kan inneholde barnefelt. Enkeltvalg/Flervalg krever `conditionActive: true` for å akseptere barn (betingelsesbasert synlighet). Repeater aksepterer alltid barn uten betingelse — barna rendres som dupliserbare rader. Kontainere kan nestes rekursivt (eske-i-eske-prinsippet).
 - **Betingelse:** Logikk på en kontainer som styrer synligheten av barnefelt. Defineres av `conditionValues` (trigger-verdier) i config. Når brukerens valg matcher en trigger-verdi, vises barnefeltene.
 - **Eske-i-eske:** Metafor for rekursiv nesting — en kontainer kan inneholde andre kontainere med egne betingelser og barn, i ubegrenset dybde.
+- **Repeater (kontainer):** `repeater`-feltet bruker `parentId`-systemet for barnefelt (som `list_single`/`list_multi`). I utfylling rendres barna som dupliserbare rader med `RepeaterObjekt`-komponenten. Verdi-formatet er `Array<Record<feltId, FeltVerdi>>` der hver rad inneholder verdier for alle barnefeltene. Barnefelt hoppes over i hoved-render-loopen og rendres i stedet inne i `RepeaterObjekt`. `barneObjekter`-prop på `RapportObjektProps` sender barneobjektene til RepeaterObjekt. Print-rendering via `RapportObjektVisning` bruker `objekt.children` fra `byggObjektTre()`.
 - **Flerforetagsbruker:** Bruker som tilhører flere entrepriser i samme prosjekt. Koblet via `MemberEnterprise` join-tabell. Ved opprettelse av sjekklister/oppgaver velger brukeren hvilken entreprise de handler på vegne av.
 - **Prosjektlokasjon:** Valgfri GPS-koordinater (`latitude`/`longitude`) på prosjektet. Settes via kartvelger i prosjektinnstillinger. Brukes til kartvisning i `LokasjonObjekt` og automatisk værhenting.
 - **Lokasjon (`location`):** Display-only rapportobjekt som viser prosjektets posisjon på kart (web) eller med kart-lenke (mobil). Krever ingen brukerinndata.

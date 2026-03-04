@@ -125,6 +125,24 @@ export default function SjekklisteDetaljSide() {
     settVerdi,
   });
 
+  // Finn barn av repeatere (for å skippe dem i hoved-loopen)
+  const { repeaterBarnIder, barneObjekterMap } = useMemo(() => {
+    const repeaterIder = new Set(objekter.filter((o) => o.type === "repeater").map((o) => o.id));
+    const barnIder = new Set<string>();
+    const barnMap = new Map<string, RapportObjekt[]>();
+
+    for (const obj of objekter) {
+      if (obj.parentId && repeaterIder.has(obj.parentId)) {
+        barnIder.add(obj.id);
+        const liste = barnMap.get(obj.parentId) ?? [];
+        liste.push(obj);
+        barnMap.set(obj.parentId, liste);
+      }
+    }
+
+    return { repeaterBarnIder: barnIder, barneObjekterMap: barnMap };
+  }, [objekter]);
+
   // Beregn nesting-nivå for et objekt (rekursivt)
   const hentNestingNivå = useCallback(
     (objekt: RapportObjekt, alleObjekter: RapportObjekt[]): number => {
@@ -244,6 +262,8 @@ export default function SjekklisteDetaljSide() {
       {/* Rapportobjekter */}
       <div className="flex flex-col gap-3">
         {objekter.map((objekt) => {
+          // Skip barn av repeatere — de rendres inne i RepeaterObjekt
+          if (repeaterBarnIder.has(objekt.id)) return null;
           if (!erSynlig(objekt)) return null;
           if (!leseModus && SKJULT_I_UTFYLLING.has(objekt.type)) return null;
 
@@ -292,6 +312,7 @@ export default function SjekklisteDetaljSide() {
                   onEndreVerdi={(v) => settVerdi(objekt.id, v)}
                   leseModus={leseModus}
                   prosjektId={params.prosjektId}
+                  barneObjekter={barneObjekterMap.get(objekt.id)}
                 />
               </FeltWrapper>
             </div>

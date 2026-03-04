@@ -123,6 +123,12 @@ function finnAlleEtterkommere(objekter: MalObjekt[], parentId: string): MalObjek
   return alle;
 }
 
+// Sjekk om et objekt aksepterer barn (repeater alltid, list-kontainere kun med conditionActive)
+function akseptererBarn(objekt: MalObjekt): boolean {
+  if (objekt.type === "repeater") return true;
+  return objekt.config.conditionActive === true;
+}
+
 export function MalBygger({ mal }: MalByggerProps) {
   const utils = trpc.useUtils();
   const [valgtId, setValgtId] = useState<string | null>(null);
@@ -365,7 +371,7 @@ export function MalBygger({ mal }: MalByggerProps) {
 
       if (overObjekt) {
         // Droppet over et element
-        if (overObjekt.config.conditionActive === true) {
+        if (akseptererBarn(overObjekt)) {
           // Droppet på kontainer → bli barn
           parentId = overObjekt.id;
           const barn = objekter.filter((o) => o.parentId === overObjekt.id);
@@ -426,7 +432,7 @@ export function MalBygger({ mal }: MalByggerProps) {
 
           // Sjekk om vi drar inn i en kontainer, ut av en, eller innenfor samme nivå
           if (overObjekt) {
-            if (overObjekt.config.conditionActive === true && overObjekt.id !== aktivParentId) {
+            if (akseptererBarn(overObjekt) && overObjekt.id !== aktivParentId) {
               // Droppet på kontainer → bli barn av den kontaineren
               const aktivIdx = neste.findIndex((o) => o.id === aktivId);
               if (aktivIdx !== -1) {

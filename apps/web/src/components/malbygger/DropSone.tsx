@@ -116,6 +116,8 @@ function RekursivtFelt({
 }: RekursivtFeltProps) {
   const malObjekt = treObjekt as MalObjekt;
   const harAktivBetingelse = malObjekt.config.conditionActive === true;
+  const erRepeater = malObjekt.type === "repeater";
+  const harBarn = harAktivBetingelse || erRepeater;
   const barn = treObjekt.children;
 
   return (
@@ -128,17 +130,29 @@ function RekursivtFelt({
       onTilfoyjBetingelse={() => onTilfoyjBetingelse(malObjekt.id)}
       onFjernBetingelse={() => onFjernBarnFraKontainer(malObjekt.id)}
     >
-      {/* Betingelsebjelke + barnegruppe */}
-      {harAktivBetingelse && (
-        <div className="mt-1.5 ml-6 rounded-lg border-l-2 border-blue-400 bg-blue-50/30 pl-3 pb-2">
-          <BetingelseBjelke
-            parentObjekt={malObjekt}
-            aktiveVerdier={(malObjekt.config.conditionValues as string[]) ?? []}
-            onEndreVerdier={(verdier) =>
-              onOppdaterBetingelseVerdier(malObjekt.id, verdier)
-            }
-            onFjern={() => onFjernBetingelse(malObjekt.id)}
-          />
+      {/* Betingelsebjelke / repeater-bjelke + barnegruppe */}
+      {harBarn && (
+        <div className={`mt-1.5 ml-6 rounded-lg border-l-2 pb-2 pl-3 ${
+          erRepeater
+            ? "border-green-400 bg-green-50/30"
+            : "border-blue-400 bg-blue-50/30"
+        }`}>
+          {/* BetingelseBjelke kun for list-kontainere */}
+          {harAktivBetingelse && !erRepeater && (
+            <BetingelseBjelke
+              parentObjekt={malObjekt}
+              aktiveVerdier={(malObjekt.config.conditionValues as string[]) ?? []}
+              onEndreVerdier={(verdier) =>
+                onOppdaterBetingelseVerdier(malObjekt.id, verdier)
+              }
+              onFjern={() => onFjernBetingelse(malObjekt.id)}
+            />
+          )}
+          {erRepeater && (
+            <p className="mb-1.5 mt-1 text-xs font-medium text-green-600">
+              Felter som gjentas i hver rad:
+            </p>
+          )}
 
           {/* Rekursive barn */}
           <div className="mt-1.5 flex flex-col gap-1.5">
@@ -160,8 +174,14 @@ function RekursivtFelt({
           </div>
 
           {/* Tom drop-sone for tomme barnegrupper */}
-          <div className="mt-1.5 rounded-lg border border-dashed border-blue-300 px-3 py-3 text-center text-xs text-blue-400">
-            Dra og slipp felter her
+          <div className={`mt-1.5 rounded-lg border border-dashed px-3 py-3 text-center text-xs ${
+            erRepeater
+              ? "border-green-300 text-green-400"
+              : "border-blue-300 text-blue-400"
+          }`}>
+            {erRepeater
+              ? "Dra og slipp felter som skal gjentas i hver rad"
+              : "Dra og slipp felter her"}
           </div>
         </div>
       )}
