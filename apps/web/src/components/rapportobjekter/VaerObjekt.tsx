@@ -12,7 +12,6 @@ export function VaerObjekt({ verdi, onEndreVerdi, leseModus }: RapportObjektProp
   const vaerVerdi = (verdi as VaerVerdi) ?? {};
 
   const oppdater = (felt: keyof Omit<VaerVerdi, "kilde">, nyVerdi: string) => {
-    // Ved manuell endring: sett kilde til "manuell"
     onEndreVerdi({
       ...vaerVerdi,
       [felt]: nyVerdi || undefined,
@@ -20,18 +19,38 @@ export function VaerObjekt({ verdi, onEndreVerdi, leseModus }: RapportObjektProp
     });
   };
 
-  const inputKlasse = `w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-    leseModus ? "cursor-not-allowed bg-gray-50 text-gray-500" : "bg-white"
-  }`;
+  const harData = vaerVerdi.temp || vaerVerdi.conditions || vaerVerdi.wind;
+
+  // Kompakt oppsummering i utfyllingsmodus
+  if (!leseModus) {
+    const deler = [
+      vaerVerdi.temp,
+      vaerVerdi.conditions,
+      vaerVerdi.wind ? `${vaerVerdi.wind}` : undefined,
+    ].filter(Boolean);
+
+    return (
+      <div className="flex flex-col gap-1.5">
+        {vaerVerdi.kilde === "automatisk" && (
+          <div className="flex items-center gap-1.5 text-xs text-blue-600">
+            <Cloud className="h-3.5 w-3.5" />
+            Automatisk hentet fra Open-Meteo
+          </div>
+        )}
+        {harData ? (
+          <p className="text-sm text-gray-700">{deler.join(" · ")}</p>
+        ) : (
+          <p className="text-sm italic text-gray-400">Ingen værdata</p>
+        )}
+      </div>
+    );
+  }
+
+  // Full visning med inputfelter i lesemodus (brukes i print)
+  const inputKlasse = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 cursor-not-allowed bg-gray-50 text-gray-500";
 
   return (
     <div className="flex flex-col gap-3">
-      {vaerVerdi.kilde === "automatisk" && (
-        <div className="flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
-          <Cloud className="h-3.5 w-3.5" />
-          Automatisk hentet fra Open-Meteo
-        </div>
-      )}
       <div>
         <label className="mb-1 block text-xs font-medium text-gray-600">Temperatur</label>
         <input
@@ -39,7 +58,7 @@ export function VaerObjekt({ verdi, onEndreVerdi, leseModus }: RapportObjektProp
           value={vaerVerdi.temp ?? ""}
           onChange={(e) => oppdater("temp", e.target.value)}
           placeholder="f.eks. 15°C"
-          disabled={leseModus}
+          disabled
           className={inputKlasse}
         />
       </div>
@@ -50,7 +69,7 @@ export function VaerObjekt({ verdi, onEndreVerdi, leseModus }: RapportObjektProp
           value={vaerVerdi.conditions ?? ""}
           onChange={(e) => oppdater("conditions", e.target.value)}
           placeholder="f.eks. Overskyet"
-          disabled={leseModus}
+          disabled
           className={inputKlasse}
         />
       </div>
@@ -61,7 +80,7 @@ export function VaerObjekt({ verdi, onEndreVerdi, leseModus }: RapportObjektProp
           value={vaerVerdi.wind ?? ""}
           onChange={(e) => oppdater("wind", e.target.value)}
           placeholder="f.eks. 5 m/s NV"
-          disabled={leseModus}
+          disabled
           className={inputKlasse}
         />
       </div>
