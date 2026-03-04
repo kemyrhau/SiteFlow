@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { trpc } from "@/lib/trpc";
-import { Target } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Target, MapPin } from "lucide-react";
+import { useBygning } from "@/kontekst/bygning-kontekst";
 import type { RapportObjektProps } from "./typer";
 import type { TegningPosisjonVerdi } from "@siteflow/shared";
 
@@ -11,146 +12,86 @@ export function TegningPosisjonObjekt({
   verdi,
   onEndreVerdi,
   leseModus,
-  prosjektId,
 }: RapportObjektProps) {
   const posisjon = verdi as TegningPosisjonVerdi | null;
-  const [valgtTegningId, setValgtTegningId] = useState<string | null>(
-    posisjon?.drawingId ?? null,
-  );
+  const params = useParams<{ prosjektId: string }>();
+  const router = useRouter();
+  const { startPosisjonsvelger, hentOgTømPosisjonsResultat } = useBygning();
+  const harSjekketResultat = useRef(false);
 
-  const config = objekt.config;
-  const bygningsFilter = config.buildingFilter as string | null;
-  const disiplinFilter = config.disciplineFilter as string | null;
+  // Sjekk om det finnes et ventende posisjonsresultat fra tegningssiden
+  useEffect(() => {
+    if (harSjekketResultat.current) return;
+    harSjekketResultat.current = true;
 
-  const tegningQuery = trpc.tegning.hentForProsjekt.useQuery(
-    {
-      projectId: prosjektId!,
-      ...(bygningsFilter ? { buildingId: bygningsFilter } : {}),
-      ...(disiplinFilter ? { discipline: disiplinFilter } : {}),
-    },
-    { enabled: !!prosjektId },
-  );
-  const tegninger = tegningQuery.data as Array<{ id: string; name: string; drawingNumber: string | null; fileUrl: string | null }> | undefined;
+    const resultat = hentOgTømPosisjonsResultat(objekt.id);
+    if (resultat) {
+      onEndreVerdi({
+        drawingId: resultat.drawingId,
+        positionX: resultat.positionX,
+        positionY: resultat.positionY,
+        drawingName: resultat.drawingName,
+      } satisfies TegningPosisjonVerdi);
+    }
+  }, [objekt.id, hentOgTømPosisjonsResultat, onEndreVerdi]);
 
-  const valgtTegning = tegninger?.find((t) => t.id === valgtTegningId);
-
-  function handleTegningValg(tegningId: string) {
-    const tegning = tegninger?.find((t) => t.id === tegningId);
-    if (!tegning) return;
-    setValgtTegningId(tegningId);
-    // Nullstill posisjon når ny tegning velges
-    onEndreVerdi({
-      drawingId: tegningId,
-      positionX: 50,
-      positionY: 50,
-      drawingName: tegning.name,
-    } satisfies TegningPosisjonVerdi);
+  function handleVelgPosisjon() {
+    startPosisjonsvelger(objekt.id);
+    router.push(`/dashbord/${params.prosjektId}/tegninger`);
   }
 
-  function handleKlikkPåTegning(e: React.MouseEvent<HTMLDivElement>) {
-    if (leseModus || !valgtTegning) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-    onEndreVerdi({
-      drawingId: valgtTegningId!,
-      positionX: Math.round(x * 100) / 100,
-      positionY: Math.round(y * 100) / 100,
-      drawingName: valgtTegning.name,
-    } satisfies TegningPosisjonVerdi);
-  }
-
-  if (leseModus && posisjon) {
+  // Lesemodus: vis posisjon eller «Ingen posisjon valgt»
+  if (leseModus) {
+    if (!posisjon) {
+      return <p className="text-sm italic text-gray-400">Ingen posisjon valgt</p>;
+    }
     return (
-      <div className="flex flex-col gap-2">
-        <p className="text-sm text-gray-700">
-          <Target className="mr-1 inline h-4 w-4 text-gray-400" />
-          {posisjon.drawingName}
-        </p>
-        {valgtTegning?.fileUrl && (
-          <div className="relative overflow-hidden rounded-lg border border-gray-200">
-            <img
-              src={valgtTegning.fileUrl}
-              alt={posisjon.drawingName}
-              className="w-full"
-            />
-            <div
-              className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow"
-              style={{
-                left: `${posisjon.positionX}%`,
-                top: `${posisjon.positionY}%`,
-              }}
-            />
-          </div>
-        )}
-        <p className="text-xs text-gray-500">
-          Posisjon: {posisjon.positionX.toFixed(1)}%, {posisjon.positionY.toFixed(1)}%
-        </p>
+      <div className="flex items-center gap-2 text-sm text-gray-700">
+        <MapPin className="h-4 w-4 text-red-500" />
+        <span>{posisjon.drawingName}</span>
+        <span className="text-xs text-gray-400">
+          ({posisjon.positionX.toFixed(1)}%, {posisjon.positionY.toFixed(1)}%)
+        </span>
       </div>
     );
   }
 
-  if (leseModus && !posisjon) {
-    return (
-      <p className="text-sm text-gray-400 italic">Ingen posisjon valgt</p>
-    );
-  }
-
+  // Redigeringsmodus: vis posisjon + knapp for å velge/endre
   return (
-    <div className="flex flex-col gap-3">
-      {/* Tegningsvelger */}
-      <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">
-          Velg tegning
-        </label>
-        <select
-          value={valgtTegningId ?? ""}
-          onChange={(e) => handleTegningValg(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+    <div className="flex items-center gap-3">
+      {posisjon ? (
+        <>
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <MapPin className="h-4 w-4 text-red-500" />
+            <span>{posisjon.drawingName}</span>
+            <span className="text-xs text-gray-400">
+              ({posisjon.positionX.toFixed(1)}%, {posisjon.positionY.toFixed(1)}%)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleVelgPosisjon}
+            className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Endre
+          </button>
+          <button
+            type="button"
+            onClick={() => onEndreVerdi(null)}
+            className="rounded-md px-2 py-1 text-xs text-gray-400 hover:text-red-500"
+          >
+            Fjern
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={handleVelgPosisjon}
+          className="flex items-center gap-2 rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-blue-400 hover:bg-blue-50/50 hover:text-blue-600"
         >
-          <option value="">— Velg tegning —</option>
-          {tegninger?.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.drawingNumber ? `${t.drawingNumber} — ` : ""}
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Tegning med klikkbar markør */}
-      {valgtTegning?.fileUrl && (
-        <div
-          className="relative cursor-crosshair overflow-hidden rounded-lg border border-gray-200"
-          onClick={handleKlikkPåTegning}
-        >
-          <img
-            src={valgtTegning.fileUrl}
-            alt={valgtTegning.name}
-            className="w-full"
-            draggable={false}
-          />
-          {posisjon && posisjon.drawingId === valgtTegningId && (
-            <div
-              className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow"
-              style={{
-                left: `${posisjon.positionX}%`,
-                top: `${posisjon.positionY}%`,
-              }}
-            />
-          )}
-          <p className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
-            Klikk for å plassere markør
-          </p>
-        </div>
-      )}
-
-      {posisjon && (
-        <p className="text-xs text-gray-500">
-          <Target className="mr-1 inline h-3 w-3" />
-          {posisjon.drawingName} — {posisjon.positionX.toFixed(1)}%, {posisjon.positionY.toFixed(1)}%
-        </p>
+          <Target className="h-4 w-4" />
+          Velg posisjon i tegning
+        </button>
       )}
     </div>
   );

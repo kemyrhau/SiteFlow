@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { useBygning } from "@/kontekst/bygning-kontekst";
 import { Button, Select, Modal, Spinner } from "@siteflow/ui";
-import { Map, FileText, MapPin, Plus, ZoomIn, ZoomOut } from "lucide-react";
+import { Map, FileText, MapPin, Plus, ZoomIn, ZoomOut, ArrowLeft, Crosshair } from "lucide-react";
 
 interface Markør {
   id: string;
@@ -23,7 +23,13 @@ const STANDARD_ZOOM = 1;
 export default function TegningerSide() {
   const params = useParams<{ prosjektId: string }>();
   const router = useRouter();
-  const { standardTegning, aktivBygning } = useBygning();
+  const {
+    standardTegning,
+    aktivBygning,
+    posisjonsvelgerAktiv,
+    fullførPosisjonsvelger,
+    avbrytPosisjonsvelger,
+  } = useBygning();
   const utils = trpc.useUtils();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -116,9 +122,22 @@ export default function TegningerSide() {
     const rect = container.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    // Posisjonsvelger-modus: returner posisjon og naviger tilbake
+    if (posisjonsvelgerAktiv && standardTegning) {
+      fullførPosisjonsvelger({
+        drawingId: standardTegning.id,
+        drawingName: standardTegning.name,
+        positionX: Math.round(x * 100) / 100,
+        positionY: Math.round(y * 100) / 100,
+      });
+      router.back();
+      return;
+    }
+
     setNyMarkør({ x, y });
     setVisOpprettModal(true);
-  }, []);
+  }, [posisjonsvelgerAktiv, standardTegning, fullførPosisjonsvelger, router]);
 
   function handleOpprett(e: React.FormEvent) {
     e.preventDefault();
@@ -219,6 +238,27 @@ export default function TegningerSide() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Posisjonsvelger-banner */}
+      {posisjonsvelgerAktiv && (
+        <div className="flex items-center gap-3 border-b border-blue-200 bg-blue-50 px-6 py-2.5">
+          <Crosshair className="h-5 w-5 text-blue-600" />
+          <span className="text-sm font-medium text-blue-800">
+            Klikk i tegningen for å velge posisjon
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={() => {
+              avbrytPosisjonsvelger();
+              router.back();
+            }}
+            className="flex items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Avbryt
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-6 py-2">
         <FileText className="h-4 w-4 text-gray-400" />
@@ -260,10 +300,14 @@ export default function TegningerSide() {
           </button>
         </div>
 
-        <div className="mx-2 h-4 w-px bg-gray-200" />
-        <span className="text-xs text-gray-400">
-          Klikk i tegningen for å opprette
-        </span>
+        {!posisjonsvelgerAktiv && (
+          <>
+            <div className="mx-2 h-4 w-px bg-gray-200" />
+            <span className="text-xs text-gray-400">
+              Klikk i tegningen for å opprette
+            </span>
+          </>
+        )}
       </div>
 
       {/* Tegningsvisning med markører */}

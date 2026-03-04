@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { useProsjekt } from "./prosjekt-kontekst";
@@ -24,11 +25,25 @@ interface StandardTegning {
   name: string;
 }
 
+export interface PosisjonsResultat {
+  drawingId: string;
+  drawingName: string;
+  positionX: number;
+  positionY: number;
+}
+
 interface BygningKontekstType {
   aktivBygning: AktivBygning | null;
   velgBygning: (bygning: AktivBygning | null) => void;
   standardTegning: StandardTegning | null;
   settStandardTegning: (tegning: StandardTegning | null) => void;
+  // Posisjonsvelger: felt ber om posisjon → tegningssiden svarer → felt henter resultatet
+  startPosisjonsvelger: (feltId: string) => void;
+  avbrytPosisjonsvelger: () => void;
+  fullførPosisjonsvelger: (resultat: PosisjonsResultat) => void;
+  posisjonsvelgerAktiv: boolean;
+  posisjonsvelgerFeltId: string | null;
+  hentOgTømPosisjonsResultat: (feltId: string) => PosisjonsResultat | null;
 }
 
 const BygningKontekst = createContext<BygningKontekstType | null>(null);
@@ -37,6 +52,9 @@ export function BygningProvider({ children }: { children: ReactNode }) {
   const { prosjektId } = useProsjekt();
   const [aktivBygning, setAktivBygning] = useState<AktivBygning | null>(null);
   const [standardTegning, setStandardTegning] = useState<StandardTegning | null>(null);
+  const [posisjonsvelgerAktiv, setPosisjonsvelgerAktiv] = useState(false);
+  const [posisjonsvelgerFeltId, setPosisjonsvelgerFeltId] = useState<string | null>(null);
+  const posisjonsResultatRef = useRef<PosisjonsResultat | null>(null);
 
   // Les fra localStorage etter mount
   useEffect(() => {
@@ -133,6 +151,33 @@ export function BygningProvider({ children }: { children: ReactNode }) {
     [aktivBygning],
   );
 
+  const startPosisjonsvelger = useCallback((feltId: string) => {
+    setPosisjonsvelgerFeltId(feltId);
+    posisjonsResultatRef.current = null;
+    setPosisjonsvelgerAktiv(true);
+  }, []);
+
+  const avbrytPosisjonsvelger = useCallback(() => {
+    setPosisjonsvelgerFeltId(null);
+    posisjonsResultatRef.current = null;
+    setPosisjonsvelgerAktiv(false);
+  }, []);
+
+  const fullførPosisjonsvelger = useCallback((resultat: PosisjonsResultat) => {
+    posisjonsResultatRef.current = resultat;
+    setPosisjonsvelgerAktiv(false);
+  }, []);
+
+  const hentOgTømPosisjonsResultat = useCallback((feltId: string): PosisjonsResultat | null => {
+    if (posisjonsvelgerFeltId !== feltId) return null;
+    const resultat = posisjonsResultatRef.current;
+    if (resultat) {
+      posisjonsResultatRef.current = null;
+      setPosisjonsvelgerFeltId(null);
+    }
+    return resultat;
+  }, [posisjonsvelgerFeltId]);
+
   return (
     <BygningKontekst.Provider
       value={{
@@ -140,6 +185,12 @@ export function BygningProvider({ children }: { children: ReactNode }) {
         velgBygning,
         standardTegning,
         settStandardTegning,
+        startPosisjonsvelger,
+        avbrytPosisjonsvelger,
+        fullførPosisjonsvelger,
+        posisjonsvelgerAktiv,
+        posisjonsvelgerFeltId,
+        hentOgTømPosisjonsResultat,
       }}
     >
       {children}
