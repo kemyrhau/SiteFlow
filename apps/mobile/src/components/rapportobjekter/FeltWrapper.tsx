@@ -57,7 +57,7 @@ export function FeltWrapper({
   const marginKlasse = effektivNivå > 0
     ? effektivNivå === 1 ? "ml-4" : effektivNivå === 2 ? "ml-8" : "ml-12"
     : "";
-  const rammeKlasse = effektivNivå > 0 ? "border-l-2 border-l-blue-300" : "";
+  const rammeKlasse = "";
 
   return (
     <View

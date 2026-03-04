@@ -305,7 +305,7 @@ export default function SjekklisteUtfylling() {
           // Display-typer (heading, subtitle) rendres uten wrapper
           if (erDisplay) {
             return (
-              <View key={objekt.id} className={erBetinget ? "ml-4 border-l-2 border-l-blue-300 pl-3" : ""}>
+              <View key={objekt.id} className={erBetinget ? "ml-4 pl-3" : ""}>
                 <RapportObjektRenderer
                   objekt={objekt}
                   verdi={null}

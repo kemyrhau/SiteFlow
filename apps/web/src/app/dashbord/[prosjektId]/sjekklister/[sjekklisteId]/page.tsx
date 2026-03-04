@@ -222,7 +222,7 @@ export default function SjekklisteDetaljSide() {
             const marginKlasse = nestingNivå > 0
               ? nestingNivå === 1 ? "ml-4" : nestingNivå === 2 ? "ml-8" : "ml-12"
               : "";
-            const rammeKlasse = nestingNivå > 0 ? "border-l-2 border-l-blue-300 pl-4" : "";
+            const rammeKlasse = "";
             return (
               <div key={objekt.id} className={`print-no-break ${marginKlasse} ${rammeKlasse}`}>
                 <RapportObjektRenderer

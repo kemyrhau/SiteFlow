@@ -227,6 +227,7 @@ function SjekklistePrint({
                 objekt={objekt}
                 verdi={data[objekt.id]?.verdi ?? null}
                 nestingNivå={0}
+                data={data}
               />
             </div>
           ))}

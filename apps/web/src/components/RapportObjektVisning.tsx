@@ -94,10 +94,12 @@ export function RapportObjektVisning({
   objekt,
   verdi,
   nestingNivå = 0,
+  data,
 }: {
   objekt: TreObjekt;
   verdi: unknown;
   nestingNivå?: number;
+  data?: Record<string, { verdi?: unknown }>;
 }) {
   const marginKlasse =
     nestingNivå === 1
@@ -107,22 +109,24 @@ export function RapportObjektVisning({
         : nestingNivå >= 3
           ? "ml-12"
           : "";
-  const rammeKlasse =
-    nestingNivå > 0 ? "border-l-2 border-l-blue-300 pl-4" : "";
 
   return (
-    <div className={`${marginKlasse} ${rammeKlasse}`}>
+    <div className={marginKlasse}>
       <ObjektInnhold objekt={objekt} verdi={verdi} />
       {objekt.children.length > 0 && (
         <div className="mt-1">
-          {objekt.children.map((barn) => (
-            <RapportObjektVisning
-              key={barn.id}
-              objekt={barn}
-              verdi={null}
-              nestingNivå={nestingNivå + 1}
-            />
-          ))}
+          {objekt.children.map((barn) => {
+            const barnVerdi = data?.[barn.id]?.verdi ?? null;
+            return (
+              <RapportObjektVisning
+                key={barn.id}
+                objekt={barn}
+                verdi={barnVerdi}
+                nestingNivå={nestingNivå + 1}
+                data={data}
+              />
+            );
+          })}
         </div>
       )}
     </div>

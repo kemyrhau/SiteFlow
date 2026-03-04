@@ -120,7 +120,7 @@ export default function TegningerSide() {
       id: o.id,
       x: o.positionX!,
       y: o.positionY!,
-      label: o.template.prefix
+      label: o.template?.prefix
         ? `${o.template.prefix}-${String(o.number ?? 0).padStart(3, "0")}`
         : o.title,
       status: o.status,
