@@ -176,6 +176,28 @@ export default function SjekklisteUtfylling() {
     Alert.alert("Lagret", "Utfyllingen er lagret.");
   }, [valider, lagre]);
 
+  // Beregn objekter og repeater-logikk FØR tidlige returns (hooks må alltid kjøres)
+  const objekter = useMemo(() =>
+    (sjekkliste?.template?.objects ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder),
+  [sjekkliste]);
+  const repeaterIder = useMemo(() => new Set(
+    objekter.filter((o) => o.type === "repeater").map((o) => o.id),
+  ), [objekter]);
+  const repeaterBarnIder = useMemo(() => new Set(
+    objekter.filter((o) => o.parentId && repeaterIder.has(o.parentId)).map((o) => o.id),
+  ), [objekter, repeaterIder]);
+  const barneObjekterMap = useMemo(() => {
+    const m = new Map<string, typeof objekter>();
+    for (const obj of objekter) {
+      if (obj.parentId && repeaterIder.has(obj.parentId)) {
+        const liste = m.get(obj.parentId) ?? [];
+        liste.push(obj);
+        m.set(obj.parentId, liste);
+      }
+    }
+    return m;
+  }, [objekter, repeaterIder]);
+
   if (erLaster) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-gray-50">
@@ -195,29 +217,6 @@ export default function SjekklisteUtfylling() {
       </SafeAreaView>
     );
   }
-
-  const objekter = sjekkliste.template.objects
-    .slice()
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-
-  // Finn barn av repeatere (skip i hoved-loop, send som barneObjekter)
-  const repeaterIder = useMemo(() => new Set(
-    objekter.filter((o) => o.type === "repeater").map((o) => o.id),
-  ), [objekter]);
-  const repeaterBarnIder = useMemo(() => new Set(
-    objekter.filter((o) => o.parentId && repeaterIder.has(o.parentId)).map((o) => o.id),
-  ), [objekter, repeaterIder]);
-  const barneObjekterMap = useMemo(() => {
-    const m = new Map<string, typeof objekter>();
-    for (const obj of objekter) {
-      if (obj.parentId && repeaterIder.has(obj.parentId)) {
-        const liste = m.get(obj.parentId) ?? [];
-        liste.push(obj);
-        m.set(obj.parentId, liste);
-      }
-    }
-    return m;
-  }, [objekter, repeaterIder]);
 
   const leseModus = !erRedigerbar;
 
