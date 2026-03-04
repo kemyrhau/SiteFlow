@@ -81,22 +81,24 @@ export function FeltWrapper({
         <Text className="mt-1 text-xs text-red-500">{valideringsfeil}</Text>
       )}
 
-      {/* Dokumentasjon (kommentar + vedlegg) */}
-      <FeltDokumentasjon
-        kommentar={kommentar}
-        vedlegg={vedlegg}
-        onEndreKommentar={onEndreKommentar}
-        onLeggTilVedlegg={onLeggTilVedlegg}
-        onFjernVedlegg={onFjernVedlegg}
-        leseModus={leseModus}
-        sjekklisteId={sjekklisteId}
-        oppgaveIdForKo={oppgaveIdForKo}
-        objektId={objekt.id}
-        skjulKommentar={objekt.type === "text_field"}
-      />
+      {/* Dokumentasjon (kommentar + vedlegg) — skjul for dato/tid-felter */}
+      {objekt.type !== "date_time" && (
+        <FeltDokumentasjon
+          kommentar={kommentar}
+          vedlegg={vedlegg}
+          onEndreKommentar={onEndreKommentar}
+          onLeggTilVedlegg={onLeggTilVedlegg}
+          onFjernVedlegg={onFjernVedlegg}
+          leseModus={leseModus}
+          sjekklisteId={sjekklisteId}
+          oppgaveIdForKo={oppgaveIdForKo}
+          objektId={objekt.id}
+          skjulKommentar={objekt.type === "text_field"}
+        />
+      )}
 
-      {/* Oppgave-badge og opprett-knapp (skjul når vi er i en oppgave) */}
-      {!oppgaveIdForKo && oppgaveNummer && oppgaveId ? (
+      {/* Oppgave-badge og opprett-knapp (skjul for dato/tid og når vi er i en oppgave) */}
+      {objekt.type === "date_time" ? null : !oppgaveIdForKo && oppgaveNummer && oppgaveId ? (
         <Pressable
           onPress={() => onNavigerTilOppgave?.(oppgaveId)}
           className="mt-2 self-start rounded-full bg-blue-100 px-3 py-1"
