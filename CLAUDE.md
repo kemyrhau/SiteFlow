@@ -355,6 +355,26 @@ Komponenter:
 - `OppgaveModal` — Fullskjerm modal for oppgaveoppretting fra tegning
 - Både bilde- og PDF-visning (WebView med injisert JS) støtter trykk-registrering
 
+### Tegningsvisning (web)
+
+Interaktiv tegningsvisning på `/dashbord/[prosjektId]/tegninger/` med zoom og markørplassering:
+
+**Layout:** Full-høyde visning uten padding (layout bruker `flex flex-col overflow-hidden` i stedet for `p-6 overflow-auto`)
+
+**Header:** Tegningsnavn, nummer, revisjon + zoom-kontroller (−/+/prosent) + plasseringsmodus-toggle (Navigering/Plasseringsmodus)
+
+**Zoom:** 0.25x–3x med knapper, Ctrl+musehjul, klikk-på-prosent for reset. Bilde skaleres via `width: ${zoom * 100}%`
+
+**Plasseringsmodus:** Toggle mellom navigering (scroll/pan) og plasseringsmodus (crosshair-cursor). Klikk i plasseringsmodus:
+1. Plasserer blå bouncende markør
+2. Åpner opprett-modal (oppgave eller sjekkliste)
+3. Velg mal, entrepriser, tittel
+4. Sender `drawingId`, `positionX`, `positionY`
+
+**Eksisterende markører:** Røde MapPin fra `oppgave.hentForTegning` med hover-label (nummer), klikk navigerer til oppgave
+
+**PDF-tegninger:** iframe med transparent overlay i plasseringsmodus, markører rendres over iframe
+
 ### TODO
 - Nedtrekksmeny for å velge eksisterende prosjektmedlemmer i brukergrupper (erstatt e-postfelt)
 - Oppgave-fra-tegning: Android-tilpasning for tegningstrykk (iOS/web implementert)
@@ -680,10 +700,12 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 **RapportObjektVisning** (`apps/web/src/components/RapportObjektVisning.tsx`):
 - Read-only renderer for alle 23 rapportobjekttyper
 - Rekursiv nesting med `TreObjekt`-interface (objekt + children)
+- `data`-prop (`Record<string, { verdi?: unknown }>`) sendes ned rekursivt slik at barneobjekter henter sine verdier
 - `FeltRad`-wrapper med label + verdi/tom-state
 - Normaliserer opsjoner via `normaliserOpsjon()` fra `typer.ts`
 - Bruker `formaterDato()` og `formaterDatoTid()` med `nb-NO`-locale
 - Vedlegg (`attachments`): viser bilder i 2-kolonne rutenett med 5:4 aspect ratio, filer som tekstliste
+- Ingen blå ramme for nestede barn — kun innrykk via marginKlasse
 
 ### Bildehåndtering
 
@@ -1118,7 +1140,7 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Tillatelse (Permission):** Rettighet tildelt via prosjektgrupper: `manage_field`, `create_tasks`, `create_checklists`, `view_field`. Admin har alle tillatelser implisitt
 - **Tegningsmarkør:** Posisjon (0–100% X/Y) på en tegning der en oppgave er opprettet fra mobilappen
 - **Enkeltvalg (`list_single`):** Rapportobjekt der brukeren velger én verdi. Web: `<select>` nedtrekksmeny (kompakt). Mobil: radioknapper. Kan brukes som kontainer med betingelse.
-- **Flervalg (`list_multi`):** Rapportobjekt der brukeren kan velge flere verdier (avkrysningsbokser). Kan brukes som kontainer med betingelse.
+- **Flervalg (`list_multi`):** Rapportobjekt der brukeren kan velge flere verdier. Web: dropdown med avkrysning, valgte vises som horisontale chips med ×-knapp. Mobil: avkrysningsbokser. Kan brukes som kontainer med betingelse.
 - **Kontainer:** Et Enkeltvalg- eller Flervalg-felt som har betingelse aktivert (`conditionActive: true`) og dermed kan inneholde barnefelt. Kontainere kan nestes rekursivt (eske-i-eske-prinsippet).
 - **Betingelse:** Logikk på en kontainer som styrer synligheten av barnefelt. Defineres av `conditionValues` (trigger-verdier) i config. Når brukerens valg matcher en trigger-verdi, vises barnefeltene.
 - **Eske-i-eske:** Metafor for rekursiv nesting — en kontainer kan inneholde andre kontainere med egne betingelser og barn, i ubegrenset dybde.
