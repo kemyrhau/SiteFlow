@@ -411,7 +411,8 @@ function TegningPosisjonPrint({ pos }: { pos: TegningPosisjonVerdi }) {
     : null;
 
   const tegningNummer = (tegning as { drawingNumber?: string | null } | undefined)?.drawingNumber;
-  const visNavn = tegningNummer ? `${tegningNummer} ${drawingName}` : drawingName;
+  // Unngå duplisering: bruk tegningsnummer fra API hvis tilgjengelig, ellers drawingName
+  const visNavn = tegningNummer ?? drawingName;
 
   if (!fileUrl) {
     return <p className="text-sm text-gray-900">{visNavn}</p>;
@@ -420,53 +421,52 @@ function TegningPosisjonPrint({ pos }: { pos: TegningPosisjonVerdi }) {
   return (
     <div className="print-no-break">
       <p className="mb-2 text-sm font-medium text-gray-700">{visNavn}</p>
-      <div className="flex gap-3">
-        {/* Oversiktsbilde med markør */}
-        <div className="relative w-1/2 overflow-hidden rounded border border-gray-200">
-          <img
-            src={fileUrl}
-            alt={drawingName}
-            className="block w-full"
-            crossOrigin="anonymous"
-          />
-          {/* Rød markør */}
-          <div
-            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow"
-            style={{ left: `${x}%`, top: `${y}%` }}
-          />
-          {/* Detalj-ramme: viser hvilket område som er zoomet */}
-          <div
-            className="absolute border border-red-400"
-            style={{
-              width: `${100 / DETALJ_ZOOM}%`,
-              height: `${100 / DETALJ_ZOOM}%`,
-              left: `${Math.max(0, Math.min(100 - 100 / DETALJ_ZOOM, x - 100 / DETALJ_ZOOM / 2))}%`,
-              top: `${Math.max(0, Math.min(100 - 100 / DETALJ_ZOOM, y - 100 / DETALJ_ZOOM / 2))}%`,
-            }}
-          />
-          <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-[9px] text-white">
-            Oversikt
-          </span>
-        </div>
 
-        {/* Detaljutsnitt — zoomet inn rundt posisjonen */}
-        <div className="relative w-1/2 overflow-hidden rounded border border-gray-200">
-          <img
-            src={fileUrl}
-            alt={`Detalj: ${drawingName}`}
-            className="block w-full"
-            crossOrigin="anonymous"
-            style={{
-              transformOrigin: `${x}% ${y}%`,
-              transform: `scale(${DETALJ_ZOOM})`,
-            }}
-          />
-          {/* Rød markør i senter */}
-          <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow" />
-          <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-[9px] text-white">
-            Detalj
-          </span>
-        </div>
+      {/* Oversiktsbilde med markør — full bredde */}
+      <div className="relative mb-3 overflow-hidden rounded border border-gray-200">
+        <img
+          src={fileUrl}
+          alt={drawingName}
+          className="block w-full"
+          crossOrigin="anonymous"
+        />
+        {/* Rød markør */}
+        <div
+          className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow-md"
+          style={{ left: `${x}%`, top: `${y}%` }}
+        />
+        {/* Detalj-ramme: viser hvilket område som er zoomet */}
+        <div
+          className="absolute border-2 border-red-400"
+          style={{
+            width: `${100 / DETALJ_ZOOM}%`,
+            height: `${100 / DETALJ_ZOOM}%`,
+            left: `${Math.max(0, Math.min(100 - 100 / DETALJ_ZOOM, x - 100 / DETALJ_ZOOM / 2))}%`,
+            top: `${Math.max(0, Math.min(100 - 100 / DETALJ_ZOOM, y - 100 / DETALJ_ZOOM / 2))}%`,
+          }}
+        />
+        <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+          Oversikt
+        </span>
+      </div>
+
+      {/* Detaljutsnitt — zoomet inn rundt posisjonen, halv bredde */}
+      <div className="relative w-1/2 overflow-hidden rounded border border-gray-200">
+        <img
+          src={fileUrl}
+          alt={`Detalj: ${drawingName}`}
+          className="block w-full"
+          crossOrigin="anonymous"
+          style={{
+            transformOrigin: `${x}% ${y}%`,
+            transform: `scale(${DETALJ_ZOOM})`,
+          }}
+        />
+        {/* Rød markør i senter */}
+        <div className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow-md" />
+        <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+          Detalj
+        </span>
       </div>
     </div>
   );
