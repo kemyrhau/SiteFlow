@@ -44,10 +44,11 @@ export default function ProsjektOversikt() {
     );
   }
 
-  const brukerMedlem = prosjekt.members.find(
-    (m) => m.user.id === session?.user?.id || m.user.email === session?.user?.email,
+  const erAdmin = prosjekt.members.some(
+    (m) =>
+      (m.user.id === session?.user?.id || m.user.email === session?.user?.email) &&
+      (m.role === "admin" || m.role === "owner"),
   );
-  const erAdmin = brukerMedlem?.role === "admin" || brukerMedlem?.role === "owner";
 
   const basePath = `/dashbord/${params.prosjektId}`;
 
