@@ -883,7 +883,7 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/[prosjektId]/maler/[id]             -> Mal-detalj / malbygger
 /dashbord/[prosjektId]/entrepriser            -> Entreprise-liste
 /dashbord/[prosjektId]/mapper                 -> Mapper (read-only dokumentvisning, ?mappe=id)
-/dashbord/[prosjektId]/tegninger              -> Tegninger
+/dashbord/[prosjektId]/tegninger              -> Tegninger (viser valgt tegning fra BygningKontekst)
 /dashbord/oppsett                             -> Innstillinger (redirect til brukere)
 /dashbord/oppsett/brukere                     -> Brukergrupper, roller, medlemmer
 /dashbord/oppsett/lokasjoner                  -> Lokasjonsoversikt
