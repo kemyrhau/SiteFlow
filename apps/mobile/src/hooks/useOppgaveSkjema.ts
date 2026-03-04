@@ -321,6 +321,8 @@ export function useOppgaveSkjema(oppgaveId: string): UseOppgaveSkjemaResultat {
           }
           return endret ? oppdatert : prev;
         });
+        // Trigger server-synk slik at oppdatert URL lagres i PostgreSQL
+        planleggLagringRef.current?.();
       },
     );
     return avregistrer;
@@ -374,6 +376,10 @@ export function useOppgaveSkjema(oppgaveId: string): UseOppgaveSkjemaResultat {
       lagreIntern();
     }, 2000);
   }, [lagreIntern]);
+
+  // Ref for opplastingskø-callback — unngår dependency-sirkel
+  const planleggLagringRef = useRef(planleggLagring);
+  planleggLagringRef.current = planleggLagring;
 
   const lagre = useCallback(async () => {
     if (lagreTimerRef.current) {
