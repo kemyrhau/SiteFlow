@@ -21,4 +21,8 @@ export interface RapportObjektProps {
   leseModus?: boolean;
   prosjektId?: string;
   barneObjekter?: RapportObjekt[];
+  /** Sjekkliste-ID for opplastingskø (brukes av RepeaterObjekt) */
+  sjekklisteId?: string;
+  /** Oppgave-ID for opplastingskø (brukes av RepeaterObjekt) */
+  oppgaveIdForKo?: string;
 }

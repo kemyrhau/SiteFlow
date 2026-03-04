@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Plus, Trash2 } from "lucide-react-native";
 import type { RapportObjektProps, RapportObjekt } from "./typer";
@@ -17,52 +17,58 @@ export function RepeaterObjekt({
   onEndreVerdi,
   leseModus,
   barneObjekter,
+  sjekklisteId,
+  oppgaveIdForKo,
 }: RapportObjektProps) {
   const rader = Array.isArray(verdi) ? (verdi as RepeaterVerdi) : [];
   const barn = barneObjekter ?? [];
+
+  // Ref for å unngå stale closure i asynkrone callbacks (kamera)
+  const raderRef = useRef(rader);
+  raderRef.current = rader;
 
   const leggTilRad = useCallback(() => {
     const nyRad: RadData = {};
     for (const b of barn) {
       nyRad[b.id] = { ...TOM_FELTVERDI };
     }
-    onEndreVerdi([...rader, nyRad]);
-  }, [barn, rader, onEndreVerdi]);
+    onEndreVerdi([...raderRef.current, nyRad]);
+  }, [barn, onEndreVerdi]);
 
   const fjernRad = useCallback(
     (indeks: number) => {
-      onEndreVerdi(rader.filter((_, i) => i !== indeks));
+      onEndreVerdi(raderRef.current.filter((_, i) => i !== indeks));
     },
-    [rader, onEndreVerdi],
+    [onEndreVerdi],
   );
 
   const oppdaterFeltVerdi = useCallback(
     (radIndeks: number, feltId: string, nyVerdi: unknown) => {
-      const oppdatert = rader.map((rad, i) => {
+      const oppdatert = raderRef.current.map((rad, i) => {
         if (i !== radIndeks) return rad;
         const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
         return { ...rad, [feltId]: { ...eksisterende, verdi: nyVerdi } };
       });
       onEndreVerdi(oppdatert);
     },
-    [rader, onEndreVerdi],
+    [onEndreVerdi],
   );
 
   const oppdaterKommentar = useCallback(
     (radIndeks: number, feltId: string, kommentar: string) => {
-      const oppdatert = rader.map((rad, i) => {
+      const oppdatert = raderRef.current.map((rad, i) => {
         if (i !== radIndeks) return rad;
         const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
         return { ...rad, [feltId]: { ...eksisterende, kommentar } };
       });
       onEndreVerdi(oppdatert);
     },
-    [rader, onEndreVerdi],
+    [onEndreVerdi],
   );
 
   const leggTilVedlegg = useCallback(
     (radIndeks: number, feltId: string, vedlegg: FeltVerdi["vedlegg"][number]) => {
-      const oppdatert = rader.map((rad, i) => {
+      const oppdatert = raderRef.current.map((rad, i) => {
         if (i !== radIndeks) return rad;
         const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
         return {
@@ -75,12 +81,12 @@ export function RepeaterObjekt({
       });
       onEndreVerdi(oppdatert);
     },
-    [rader, onEndreVerdi],
+    [onEndreVerdi],
   );
 
   const fjernVedlegg = useCallback(
     (radIndeks: number, feltId: string, vedleggId: string) => {
-      const oppdatert = rader.map((rad, i) => {
+      const oppdatert = raderRef.current.map((rad, i) => {
         if (i !== radIndeks) return rad;
         const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
         return {
@@ -93,7 +99,7 @@ export function RepeaterObjekt({
       });
       onEndreVerdi(oppdatert);
     },
-    [rader, onEndreVerdi],
+    [onEndreVerdi],
   );
 
   if (barn.length === 0) {
@@ -155,8 +161,8 @@ export function RepeaterObjekt({
                     leseModus={leseModus}
                   />
                   <FeltDokumentasjon
-                    kommentar={feltVerdi.kommentar}
-                    vedlegg={feltVerdi.vedlegg}
+                    kommentar={feltVerdi.kommentar ?? ""}
+                    vedlegg={feltVerdi.vedlegg ?? []}
                     onEndreKommentar={(k) =>
                       oppdaterKommentar(radIndeks, barnObjekt.id, k)
                     }
@@ -167,6 +173,8 @@ export function RepeaterObjekt({
                       fjernVedlegg(radIndeks, barnObjekt.id, vId)
                     }
                     leseModus={leseModus}
+                    sjekklisteId={sjekklisteId}
+                    oppgaveIdForKo={oppgaveIdForKo}
                     objektId={barnObjekt.id}
                     skjulKommentar={barnObjekt.type === "text_field"}
                   />

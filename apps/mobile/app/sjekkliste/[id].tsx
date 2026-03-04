@@ -373,6 +373,7 @@ export default function SjekklisteUtfylling() {
                 onEndreVerdi={(v) => settVerdi(objekt.id, v)}
                 leseModus={leseModus}
                 barneObjekter={barneObjekterMap.get(objekt.id)}
+                sjekklisteId={sjekkliste.id}
               />
             </FeltWrapper>
           );

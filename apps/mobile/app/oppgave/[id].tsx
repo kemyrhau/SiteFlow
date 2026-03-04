@@ -472,6 +472,7 @@ export default function OppgaveDetalj() {
                 onEndreVerdi={(v) => settVerdi(objekt.id, v)}
                 leseModus={leseModus}
                 barneObjekter={barneObjekterMap.get(objekt.id)}
+                oppgaveIdForKo={oppgave.id}
               />
             </FeltWrapper>
           );
