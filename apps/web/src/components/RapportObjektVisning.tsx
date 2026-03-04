@@ -398,37 +398,65 @@ function ObjektInnhold({
 const DETALJ_ZOOM = 4;
 const BILDE_TYPER = ["png", "jpg", "jpeg", "gif", "webp"];
 
-/** Rendrer første side av en PDF til en data-URL via pdfjs-dist */
-function usePdfSomBilde(url: string | null): string | null {
+/** Rendrer første side av en PDF/bilde til en data-URL via canvas */
+function useTegningSomBilde(url: string | null, erPdf: boolean): string | null {
   const [bildeUrl, setBildeUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!url) return;
     let avbrutt = false;
 
+    if (!erPdf) {
+      // Bilde — last inn og konverter til data-URL for pålitelighet
+      const img = new Image();
+      img.onload = () => {
+        if (avbrutt) return;
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        setBildeUrl(canvas.toDataURL("image/png"));
+      };
+      img.onerror = () => {
+        // Fallback: bruk URL direkte
+        if (!avbrutt) setBildeUrl(url);
+      };
+      img.src = url;
+      return () => { avbrutt = true; };
+    }
+
+    // PDF — rendre med pdfjs-dist
     (async () => {
       try {
+        // Dynamisk import og worker-oppsett
         const pdfjsLib = await import("pdfjs-dist");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        }
 
-        const pdf = await pdfjsLib.getDocument({ url, verbosity: 0 }).promise;
+        const loadingTask = pdfjsLib.getDocument({ url, verbosity: 0 });
+        const pdf = await loadingTask.promise;
         const side = await pdf.getPage(1);
         const viewport = side.getViewport({ scale: 2 });
         const canvas = document.createElement("canvas");
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         const ctx = canvas.getContext("2d")!;
-        await side.render({ canvasContext: ctx, viewport, canvas } as Parameters<typeof side.render>[0]).promise;
+        // pdfjs v5 krever canvas-parameter
+        const renderParams = { canvasContext: ctx, viewport, canvas };
+        await side.render(renderParams as Parameters<typeof side.render>[0]).promise;
         if (!avbrutt) {
           setBildeUrl(canvas.toDataURL("image/png"));
         }
       } catch (e) {
         console.error("Kunne ikke rendre PDF til bilde:", e);
+        if (!avbrutt) setBildeUrl("error");
       }
     })();
 
     return () => { avbrutt = true; };
-  }, [url]);
+  }, [url, erPdf]);
 
   return bildeUrl;
 }
@@ -450,11 +478,10 @@ function TegningPosisjonPrint({ pos }: { pos: TegningPosisjonVerdi }) {
     : null;
 
   const fileType = (tegning as { fileType?: string } | undefined)?.fileType?.toLowerCase() ?? "";
-  const erBilde = BILDE_TYPER.includes(fileType);
+  const erPdf = fileType === "pdf";
 
-  // For PDF-filer: rendre første side til data-URL via pdfjs-dist
-  const pdfBildeUrl = usePdfSomBilde(!erBilde && fileUrl ? fileUrl : null);
-  const bildeSrc = erBilde ? fileUrl : pdfBildeUrl;
+  // Rendre tegning til data-URL (PDF via pdfjs-dist, bilder via canvas)
+  const bildeSrc = useTegningSomBilde(fileUrl, erPdf);
 
   const tegningNummer = (tegning as { drawingNumber?: string | null } | undefined)?.drawingNumber;
   const visNavn = tegningNummer ?? drawingName;
@@ -464,11 +491,19 @@ function TegningPosisjonPrint({ pos }: { pos: TegningPosisjonVerdi }) {
   }
 
   if (!bildeSrc) {
-    // Laster PDF eller mangler bilde
     return (
       <div>
         <p className="text-sm font-medium text-gray-700">{visNavn}</p>
         <p className="mt-1 text-xs text-gray-400">Laster tegning…</p>
+      </div>
+    );
+  }
+
+  if (bildeSrc === "error") {
+    return (
+      <div>
+        <p className="text-sm font-medium text-gray-700">{visNavn}</p>
+        <p className="mt-1 text-xs text-red-400">Kunne ikke laste tegning</p>
       </div>
     );
   }

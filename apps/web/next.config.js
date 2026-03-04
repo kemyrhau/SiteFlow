@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@siteflow/shared", "@siteflow/ui"],
+  transpilePackages: ["@siteflow/shared", "@siteflow/ui", "pdfjs-dist"],
+  webpack: (config) => {
+    // pdfjs-dist bruker canvas som optional dependency — ignorer i webpack
+    config.resolve.alias.canvas = false;
+    return config;
+  },
   eslint: {
     // Lint kjøres separat via turbo lint
     ignoreDuringBuilds: true,
