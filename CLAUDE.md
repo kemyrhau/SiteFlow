@@ -574,6 +574,7 @@ Drag-and-drop-editor for å bygge maler med rekursiv kontainer-nesting (Dalux-st
 - Sletting av kontainerfelt kaskaderer via DB CASCADE — barn slettes automatisk
 - **Slett-validering:** Sletting av rapportobjekter blokkeres hvis sjekklister/oppgaver inneholder data for feltet. `mal.sjekkObjektBruk` query sjekker bruk via JSONB `?|` operator (inkludert alle etterkommere). `SlettBekreftelse`-modal viser liste over berørte dokumenter — slett-knappen skjules helt ved bruk
 - Trebygging: flat array → tre med `byggTre()` i MalBygger, splittes i topptekst/datafelter
+- **Rekkefølge-sortering:** `sortOrder` lagres globalt (topptekst først, deretter datafelter) slik at mobil, web-utfylling og print viser felter i riktig rekkefølge. `byggObjektTre()` i `@siteflow/shared` og alle konsumenter sorterer etter sone (`config.zone === "topptekst"` → 0, ellers 1) før `sortOrder` innenfor sone
 - `harForelderObjekt(obj)` fra `@siteflow/shared` sjekker `obj.parentId != null`
 - `harBetingelse(config)` er deprecated — bruk `harForelderObjekt()` for nye kall
 
