@@ -113,7 +113,7 @@ export function RepeaterObjekt({
         >
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">
-              Rad {radIndeks + 1}
+              {radIndeks + 1} {objekt.label}
             </span>
             {!leseModus && (
               <button

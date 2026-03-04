@@ -388,7 +388,7 @@ function ObjektInnhold({
           <div className="flex flex-col gap-2">
             {repeaterRader.map((rad, radIdx) => (
               <div key={radIdx} className="rounded border border-gray-200 px-3 py-2">
-                <p className="mb-1 text-[11px] font-semibold text-gray-400">Rad {radIdx + 1}</p>
+                <p className="mb-1 text-[11px] font-semibold text-gray-400">{radIdx + 1} {label}</p>
                 {repeaterBarn.map((barn) => {
                   const feltData = rad[barn.id];
                   const barnVerdi = feltData?.verdi ?? null;
