@@ -188,7 +188,7 @@ Alle routere i `apps/api/src/routes/`:
 | `entreprise` | hentForProsjekt, hentMedId, opprett, oppdater, slett |
 | `sjekkliste` | hentForProsjekt (m/statusfilter + buildingId-filter), hentMedId, opprett, oppdaterData, endreStatus |
 | `oppgave` | hentForProsjekt (m/statusfilter), hentForTegning (markører per tegning), hentMedId (m/template.objects), opprett (m/tegningsposisjon, templateId påkrevd), oppdater, oppdaterData, endreStatus |
-| `mal` | hentForProsjekt, hentMedId, opprett, oppdaterMal, slettMal, leggTilObjekt, oppdaterObjekt, oppdaterRekkefølge, slettObjekt |
+| `mal` | hentForProsjekt, hentMedId, opprett, oppdaterMal, slettMal, leggTilObjekt, oppdaterObjekt, oppdaterRekkefølge, sjekkObjektBruk, slettObjekt |
 | `bygning` | hentForProsjekt (m/valgfri type-filter), hentMedId, opprett (m/type), oppdater, publiser, slett |
 | `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, settGeoReferanse, fjernGeoReferanse, slett |
 | `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
@@ -566,6 +566,7 @@ Drag-and-drop-editor for å bygge maler med rekursiv kontainer-nesting (Dalux-st
 - Rekursiv `RekursivtFelt`-komponent i DropSone rendrer barn inline med BetingelseBjelke
 - Dra-og-slipp: felt arver `parentId` ved drop i kontainer, nullstilles ved drag ut
 - Sletting av kontainerfelt kaskaderer via DB CASCADE — barn slettes automatisk
+- **Slett-validering:** Sletting av rapportobjekter blokkeres hvis sjekklister/oppgaver inneholder data for feltet. `mal.sjekkObjektBruk` query sjekker bruk via JSONB `?|` operator (inkludert alle etterkommere). `SlettBekreftelse`-modal viser liste over berørte dokumenter — slett-knappen skjules helt ved bruk
 - Trebygging: flat array → tre med `byggTre()` i MalBygger, splittes i topptekst/datafelter
 - `harForelderObjekt(obj)` fra `@siteflow/shared` sjekker `obj.parentId != null`
 - `harBetingelse(config)` er deprecated — bruk `harForelderObjekt()` for nye kall
@@ -621,6 +622,8 @@ Sjekklister med vær-felt (`weather`) og dato-felt (`date`/`date_time`) kan auto
 - Returnerer `hourly.temperature_2m`, `hourly.weather_code`, `hourly.wind_speed_10m`
 
 **VaerObjekt (web):**
+- **Utfyllingsmodus:** Kompakt tekstlinje (f.eks. "1.4°C · Overskyet · 6.1 m/s") — ingen inputfelter
+- **Lesemodus/print:** Separate inputfelter for temperatur, forhold og vind
 - Viser "Automatisk hentet fra Open-Meteo"-badge når `kilde === "automatisk"`
 - Ved manuell endring → `kilde` endres til `"manuell"`, badge forsvinner
 
@@ -634,7 +637,7 @@ Sjekklister med vær-felt (`weather`) og dato-felt (`date`/`date_time`) kan auto
 
 ### LokasjonObjekt og TegningPosisjonObjekt
 
-To nye rapportobjekttyper (23 totalt):
+To nye rapportobjekttyper (23 totalt). Begge er i `SKJULT_I_UTFYLLING` — skjules under utfylling av sjekklister/oppgaver, vises kun i lesemodus og print.
 
 **`location` — Lokasjon:**
 - Display-only (som `heading`/`subtitle`) — ingen redigerbar verdi, i `DISPLAY_TYPER`
