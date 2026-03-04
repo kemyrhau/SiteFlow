@@ -4,13 +4,88 @@ import { sjekklisteFeltdata, oppgaveFeltdata, opplastingsKo } from "./schema";
 import { slettLokaltBilde, listLokalebilder } from "../services/lokalBilde";
 
 /**
- * Slett fullførte køoppføringer ved oppstart.
- * Lokale filer er allerede slettet etter vellykket opplasting.
+ * Patch feltdata med server-URL-er fra fullførte køoppføringer, deretter slett dem.
+ * Fikser tilfeller der oppdaterFeltdataVedlegg feilet (f.eks. repeater-barn før bugfix).
  */
 export function ryddFullforteOpplastinger() {
   try {
     const db = hentDatabase();
     if (!db) return;
+
+    // Hent fullførte oppføringer som har serverUrl
+    const fullforte = db
+      .select()
+      .from(opplastingsKo)
+      .where(eq(opplastingsKo.status, "fullfort"))
+      .all();
+
+    // Patch feltdata for å sikre at server-URL-er er oppdatert
+    for (const oppforing of fullforte) {
+      if (!oppforing.serverUrl) continue;
+      const dokumentType = oppforing.oppgaveId ? "oppgave" as const : "sjekkliste" as const;
+      const dokumentId = oppforing.oppgaveId ?? oppforing.sjekklisteId ?? "";
+      if (!dokumentId) continue;
+
+      try {
+        const rader = dokumentType === "sjekkliste"
+          ? db.select().from(sjekklisteFeltdata).where(eq(sjekklisteFeltdata.sjekklisteId, dokumentId)).all()
+          : db.select().from(oppgaveFeltdata).where(eq(oppgaveFeltdata.oppgaveId, dokumentId)).all();
+
+        if (rader.length === 0) continue;
+        const rad = rader[0]!;
+        const feltVerdier = JSON.parse(rad.feltVerdier) as Record<string, Record<string, unknown>>;
+
+        let endret = false;
+        for (const feltId of Object.keys(feltVerdier)) {
+          const felt = feltVerdier[feltId] as { vedlegg?: Array<{ id: string; url: string }>; verdi?: unknown } | undefined;
+          if (!felt) continue;
+
+          // Toppnivå-vedlegg
+          if (felt.vedlegg) {
+            for (const v of felt.vedlegg) {
+              if (v.id === oppforing.vedleggId && v.url !== oppforing.serverUrl) {
+                v.url = oppforing.serverUrl;
+                endret = true;
+              }
+            }
+          }
+
+          // Repeater-barn (nestet i verdi-arrayen)
+          if (Array.isArray(felt.verdi)) {
+            for (const rad of felt.verdi as Record<string, { vedlegg?: Array<{ id: string; url: string }> }>[]) {
+              for (const barnId of Object.keys(rad)) {
+                const barn = rad[barnId];
+                if (!barn?.vedlegg) continue;
+                for (const v of barn.vedlegg) {
+                  if (v.id === oppforing.vedleggId && v.url !== oppforing.serverUrl) {
+                    v.url = oppforing.serverUrl;
+                    endret = true;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (endret) {
+          if (dokumentType === "sjekkliste") {
+            db.update(sjekklisteFeltdata)
+              .set({ feltVerdier: JSON.stringify(feltVerdier), erSynkronisert: false })
+              .where(eq(sjekklisteFeltdata.id, rad.id))
+              .run();
+          } else {
+            db.update(oppgaveFeltdata)
+              .set({ feltVerdier: JSON.stringify(feltVerdier), erSynkronisert: false })
+              .where(eq(oppgaveFeltdata.id, rad.id))
+              .run();
+          }
+        }
+      } catch {
+        // Ignorer enkeltfeil — fortsett med neste oppføring
+      }
+    }
+
+    // Slett fullførte køoppføringer
     db.delete(opplastingsKo)
       .where(eq(opplastingsKo.status, "fullfort"))
       .run();
