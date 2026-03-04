@@ -24,6 +24,48 @@ export const gruppeRouter = router({
       return Array.from(tillatelser);
     }),
 
+  // Hent innlogget brukers tillatelser + domener i et prosjekt
+  hentMinTilgang: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const medlem = await ctx.prisma.projectMember.findUnique({
+        where: { userId_projectId: { userId: ctx.userId, projectId: input.projectId } },
+        include: {
+          groupMemberships: {
+            include: {
+              group: { select: { permissions: true, domains: true } },
+            },
+          },
+        },
+      });
+
+      if (!medlem) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Ikke medlem" });
+      }
+
+      const erAdmin = medlem.role === "admin";
+      const tillatelser = new Set<string>();
+      const domener = new Set<string>();
+
+      if (erAdmin) {
+        tillatelser.add("manage_field");
+        tillatelser.add("create_tasks");
+        tillatelser.add("create_checklists");
+        tillatelser.add("view_field");
+      } else {
+        for (const gm of medlem.groupMemberships) {
+          for (const p of gm.group.permissions as string[]) tillatelser.add(p);
+          for (const d of gm.group.domains as string[]) domener.add(d);
+        }
+      }
+
+      return {
+        tillatelser: Array.from(tillatelser),
+        domener: Array.from(domener),
+        erAdmin,
+      };
+    }),
+
   // Hent alle grupper for et prosjekt med medlemmer
   hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))

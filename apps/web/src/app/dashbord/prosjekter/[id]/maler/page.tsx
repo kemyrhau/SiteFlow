@@ -59,7 +59,7 @@ export default function MalerSide() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {maler.map((mal) => (
+          {(maler as Array<{ id: string; name: string; description: string | null; _count: { objects: number; checklists: number } }>).map((mal) => (
             <Link
               key={mal.id}
               href={`/dashbord/prosjekter/${params.id}/maler/${mal.id}`}

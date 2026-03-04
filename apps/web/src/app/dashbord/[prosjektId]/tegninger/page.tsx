@@ -74,6 +74,14 @@ export default function TegningerSide() {
     { projectId: params.prosjektId },
     { enabled: visOpprettModal },
   );
+  const { data: alleMaler } = trpc.mal.hentForProsjekt.useQuery(
+    { projectId: params.prosjektId },
+    { enabled: visOpprettModal },
+  );
+  const { data: minTilgang } = trpc.gruppe.hentMinTilgang.useQuery(
+    { projectId: params.prosjektId },
+    { enabled: visOpprettModal },
+  );
 
   // Auto-velg oppretter-entreprise når data lastes
   useEffect(() => {
@@ -212,19 +220,51 @@ export default function TegningerSide() {
       status: o.status,
     }));
 
-  // Filtrerte maler: kun de som er tilgjengelige via arbeidsforløp for valgt oppretter
+  // Filtrerte maler basert på tilgang:
+  // 1. Admin / manage_field → alle maler
+  // 2. Enterprise-arbeidsforløp → maler knyttet via workflow + HMS (alle kan opprette HMS)
+  // 3. Domene-grupper (HMS, Bygg) → maler med matchende domain
   const filtrerMaler = (() => {
     if (!valgtOppretter) return [];
-    const malObj: Record<string, string> = {};
+    const alleMalerTypet = (alleMaler ?? []) as Array<{ id: string; name: string; category: string; domain: string | null }>;
+    const kategoriMaler = alleMalerTypet.filter((m) => m.category === opprettType);
+
+    // Admin eller manage_field → alle maler av riktig kategori
+    if (minTilgang?.erAdmin || minTilgang?.tillatelser.includes("manage_field")) {
+      return kategoriMaler.map((m) => ({ id: m.id, name: m.name }));
+    }
+
+    const synligeMalIder = new Set<string>();
+
+    // Entreprise-arbeidsforløp: maler knyttet til valgt oppretter via workflow
     for (const af of alleArbeidsforlop) {
       if (af.enterpriseId !== valgtOppretter) continue;
       for (const wt of af.templates) {
         if (wt.template.category === opprettType) {
-          malObj[wt.template.id] = wt.template.name;
+          synligeMalIder.add(wt.template.id);
         }
       }
     }
-    return Object.entries(malObj).map(([id, name]) => ({ id, name }));
+
+    // HMS-maler er alltid tilgjengelige for entreprise-medlemmer
+    for (const mal of kategoriMaler) {
+      if (mal.domain === "hms") {
+        synligeMalIder.add(mal.id);
+      }
+    }
+
+    // Domene-tilgang: maler som matcher brukerens gruppe-domener
+    if (minTilgang?.domener) {
+      for (const mal of kategoriMaler) {
+        if (mal.domain && minTilgang.domener.includes(mal.domain)) {
+          synligeMalIder.add(mal.id);
+        }
+      }
+    }
+
+    return kategoriMaler
+      .filter((m) => synligeMalIder.has(m.id))
+      .map((m) => ({ id: m.id, name: m.name }));
   })();
 
   const oppretterAlternativer = (mineEntrepriser ?? []).map((e) => ({ value: e.id, label: e.name }));
