@@ -23,9 +23,6 @@ type Orientering = "portrett" | "landskapVenstre" | "landskapHoyre";
 
 /** Bestem enhetens fysiske orientering fra akselerometerdata */
 function beregnOrientering(x: number, y: number): Orientering {
-  // x > terskel → telefonen er vippet til venstre (hjem-knapp til høyre)
-  // x < -terskel → telefonen er vippet til høyre (hjem-knapp til venstre)
-  // ellers → portrett
   const terskel = 0.55;
   if (x > terskel) return "landskapVenstre";
   if (x < -terskel) return "landskapHoyre";
@@ -69,7 +66,6 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
       const ny = beregnOrientering(x, y);
       setOrientering((forrige) => {
         if (forrige === ny) return forrige;
-        // Animer rotasjon av UI-elementer
         Animated.spring(rotasjon, {
           toValue: orienteringTilGrader(ny),
           useNativeDriver: true,
@@ -116,12 +112,11 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
   }, [flashOpacity]);
 
   const håndterTaBilde = useCallback(() => {
-    if (nedtelling > 0) return; // Allerede i nedtelling
+    if (nedtelling > 0) return;
     if (!tidtakerAktiv) {
       taBildeNå();
       return;
     }
-    // Start 2-sekunders nedtelling
     setNedtelling(2);
     tidtakerRef.current = setInterval(() => {
       setNedtelling((n) => {
@@ -145,12 +140,22 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
     }
   }, [synlig]);
 
+  // Resett state når kameraet lukkes
+  useEffect(() => {
+    if (!synlig) {
+      settAntallTatt(0);
+      setZoom(0);
+      setNedtelling(0);
+      setOrientering("portrett");
+      rotasjon.setValue(0);
+    }
+  }, [synlig, rotasjon]);
+
   const håndterLukk = useCallback(() => {
     if (tidtakerRef.current) {
       clearInterval(tidtakerRef.current);
       tidtakerRef.current = null;
     }
-    // Kall onLukk direkte — InteractionManager håndteres av FeltDokumentasjon
     onLukk();
   }, [onLukk]);
 
@@ -160,15 +165,10 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
   let overlaySide = 0;
   if (bredde > 0 && hoyde > 0) {
     if (orientering === "portrett") {
-      // Portrett: bredde < høyde → crop topp/bunn
       const cropHoyde = bredde / MAL_FORHOLD;
       overlayTopp = Math.max(0, (hoyde - cropHoyde) / 2);
     } else {
-      // Landskapsmodus (telefon på siden): bredde < høyde fysisk,
-      // men bildet vil bli 5:4 landscape etter crop.
-      // Vis 4:5-guide (invertert) i portrettvisningen som representerer
-      // et landskapsbilde rotert 90 grader.
-      const landskapForhold = 4 / 5; // invertert fordi skjermen er portrett
+      const landskapForhold = 4 / 5;
       const cropHoyde = bredde / landskapForhold;
       if (cropHoyde <= hoyde) {
         overlayTopp = Math.max(0, (hoyde - cropHoyde) / 2);
@@ -179,12 +179,12 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
     }
   }
 
-  // Komponenten er kun mountet når synlig=true (styrt av FeltDokumentasjon)
-  if (!synlig) return null;
-
+  // ALLTID render <Modal> med visible-prop — ALDRI conditional mount/unmount.
+  // <Modal visible={false}> er lettvekts i React Native (ingen native controller).
+  // Conditional unmount av en presentert Modal krasjer iOS.
   return (
-    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={håndterLukk}>
-      {!tillatelse?.granted ? (
+    <Modal visible={synlig} animationType="slide" presentationStyle="fullScreen" onRequestClose={håndterLukk}>
+      {synlig && !tillatelse?.granted ? (
         <View className="flex-1 items-center justify-center bg-black" style={{ paddingTop: insets.top }}>
           <Text className="mb-4 text-base text-white">Kameratilgang kreves</Text>
           <Pressable
@@ -197,7 +197,7 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
             <Text className="text-gray-400">Avbryt</Text>
           </Pressable>
         </View>
-      ) : (
+      ) : synlig ? (
       <View className="flex-1 bg-black">
         <CameraView
           ref={cameraRef}
@@ -341,7 +341,7 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
           </View>
         </View>
       </View>
-      )}
+      ) : null}
     </Modal>
   );
 }

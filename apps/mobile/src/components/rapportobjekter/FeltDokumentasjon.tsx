@@ -349,18 +349,12 @@ export function FeltDokumentasjon({
         )}
       </Modal>
 
-      {/* Kamera modal — kun mountet når aktiv (unngår mange skjulte Modaler i repeater) */}
-      {visKamera && (
-        <KameraModal
-          synlig={visKamera}
-          onBilde={håndterKameraBilde}
-          onLukk={() => {
-            InteractionManager.runAfterInteractions(() => {
-              settVisKamera(false);
-            });
-          }}
-        />
-      )}
+      {/* Kamera modal — alltid i treet, styrt via visible-prop */}
+      <KameraModal
+        synlig={visKamera}
+        onBilde={håndterKameraBilde}
+        onLukk={() => settVisKamera(false)}
+      />
 
       {/* Tegnings-skjermbilde modal */}
       <Modal
