@@ -426,32 +426,26 @@ function useTegningSomBilde(url: string | null, erPdf: boolean): string | null {
       return () => { avbrutt = true; };
     }
 
-    // PDF — rendre med pdfjs-dist
+    // PDF — rendre med pdfjs-dist v4
     (async () => {
       try {
-        // Dynamisk import og worker-oppsett
         const pdfjsLib = await import("pdfjs-dist");
-        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
-        const loadingTask = pdfjsLib.getDocument({ url, verbosity: 0 });
-        const pdf = await loadingTask.promise;
+        const pdf = await pdfjsLib.getDocument(url).promise;
         const side = await pdf.getPage(1);
         const viewport = side.getViewport({ scale: 2 });
         const canvas = document.createElement("canvas");
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         const ctx = canvas.getContext("2d")!;
-        // pdfjs v5 krever canvas-parameter
-        const renderParams = { canvasContext: ctx, viewport, canvas };
-        await side.render(renderParams as Parameters<typeof side.render>[0]).promise;
+        await side.render({ canvasContext: ctx, viewport }).promise;
         if (!avbrutt) {
           setBildeUrl(canvas.toDataURL("image/png"));
         }
       } catch (e) {
         console.error("Kunne ikke rendre PDF til bilde:", e);
-        if (!avbrutt) setBildeUrl("error");
+        if (!avbrutt) setBildeUrl("error:" + String(e));
       }
     })();
 
@@ -499,11 +493,12 @@ function TegningPosisjonPrint({ pos }: { pos: TegningPosisjonVerdi }) {
     );
   }
 
-  if (bildeSrc === "error") {
+  if (bildeSrc?.startsWith("error")) {
     return (
       <div>
         <p className="text-sm font-medium text-gray-700">{visNavn}</p>
         <p className="mt-1 text-xs text-red-400">Kunne ikke laste tegning</p>
+        <p className="mt-0.5 text-[10px] text-red-300 break-all">{bildeSrc.replace("error:", "")}</p>
       </div>
     );
   }
