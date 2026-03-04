@@ -186,8 +186,8 @@ Alle routere i `apps/api/src/routes/`:
 |--------|-----------|
 | `prosjekt` | hentAlle, hentMedId, opprett, oppdater |
 | `entreprise` | hentForProsjekt, hentMedId, opprett, oppdater, slett |
-| `sjekkliste` | hentForProsjekt (m/statusfilter), hentMedId, opprett, oppdaterData, endreStatus |
-| `oppgave` | hentForProsjekt (m/statusfilter), hentMedId (m/template.objects), opprett (m/tegningsposisjon, templateId påkrevd), oppdater, oppdaterData, endreStatus |
+| `sjekkliste` | hentForProsjekt (m/statusfilter + buildingId-filter), hentMedId, opprett, oppdaterData, endreStatus |
+| `oppgave` | hentForProsjekt (m/statusfilter), hentForTegning (markører per tegning), hentMedId (m/template.objects), opprett (m/tegningsposisjon, templateId påkrevd), oppdater, oppdaterData, endreStatus |
 | `mal` | hentForProsjekt, hentMedId, opprett, oppdaterMal, slettMal, leggTilObjekt, oppdaterObjekt, oppdaterRekkefølge, slettObjekt |
 | `bygning` | hentForProsjekt (m/valgfri type-filter), hentMedId, opprett (m/type), oppdater, publiser, slett |
 | `tegning` | hentForProsjekt (m/filtre), hentForBygning, hentMedId, opprett, oppdater, lastOppRevisjon, hentRevisjoner, tilknyttBygning, settGeoReferanse, fjernGeoReferanse, slett |
@@ -883,7 +883,7 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/[prosjektId]/maler/[id]             -> Mal-detalj / malbygger
 /dashbord/[prosjektId]/entrepriser            -> Entreprise-liste
 /dashbord/[prosjektId]/mapper                 -> Mapper (read-only dokumentvisning, ?mappe=id)
-/dashbord/[prosjektId]/tegninger              -> Tegninger (viser valgt tegning fra BygningKontekst)
+/dashbord/[prosjektId]/tegninger              -> Interaktiv tegningsvisning: klikk for å opprette oppgave/sjekkliste, røde markører for eksisterende oppgaver
 /dashbord/oppsett                             -> Innstillinger (redirect til brukere)
 /dashbord/oppsett/brukere                     -> Brukergrupper, roller, medlemmer
 /dashbord/oppsett/lokasjoner                  -> Lokasjonsoversikt
