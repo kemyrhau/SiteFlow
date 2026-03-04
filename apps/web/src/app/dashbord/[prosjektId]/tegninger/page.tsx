@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { useBygning } from "@/kontekst/bygning-kontekst";
 import { Button, Select, Modal, Spinner } from "@siteflow/ui";
-import { Map, FileText, MapPin, Plus, ZoomIn, ZoomOut, Crosshair, Hand } from "lucide-react";
+import { Map, FileText, MapPin, Plus, ZoomIn, ZoomOut } from "lucide-react";
 
 interface Markør {
   id: string;
@@ -27,9 +27,8 @@ export default function TegningerSide() {
   const utils = trpc.useUtils();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Zoom og modus
+  // Zoom
   const [zoom, setZoom] = useState(STANDARD_ZOOM);
-  const [plasseringsmodus, setPlasseringsmodus] = useState(false);
 
   // Ny markør-plassering
   const [nyMarkør, setNyMarkør] = useState<{ x: number; y: number } | null>(null);
@@ -83,7 +82,6 @@ export default function TegningerSide() {
   useEffect(() => {
     setZoom(STANDARD_ZOOM);
     setNyMarkør(null);
-    setPlasseringsmodus(false);
   }, [standardTegning?.id]);
 
   // Musehjul-zoom
@@ -111,7 +109,6 @@ export default function TegningerSide() {
     setValgtOppretter("");
     setValgtSvarer("");
     setTittel("");
-    setPlasseringsmodus(false);
   }
 
   const handleBildeKlikk = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -263,34 +260,10 @@ export default function TegningerSide() {
           </button>
         </div>
 
-        {erBilde ? (
-          <>
-            <div className="mx-2 h-4 w-px bg-gray-200" />
-            <span className="text-xs text-gray-400">
-              Klikk i tegningen for å opprette oppgave
-            </span>
-          </>
-        ) : (
-          <>
-            <div className="mx-2 h-4 w-px bg-gray-200" />
-            <button
-              onClick={() => setPlasseringsmodus(!plasseringsmodus)}
-              className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                plasseringsmodus
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
-              title={plasseringsmodus ? "Tilbake til navigering" : "Aktiver markørplassering"}
-            >
-              {plasseringsmodus ? (
-                <Crosshair className="h-3.5 w-3.5" />
-              ) : (
-                <Hand className="h-3.5 w-3.5" />
-              )}
-              {plasseringsmodus ? "Plasser markør" : "Navigering"}
-            </button>
-          </>
-        )}
+        <div className="mx-2 h-4 w-px bg-gray-200" />
+        <span className="text-xs text-gray-400">
+          Klikk i tegningen for å opprette
+        </span>
       </div>
 
       {/* Tegningsvisning med markører */}
@@ -344,21 +317,19 @@ export default function TegningerSide() {
             </div>
           </div>
         ) : (
-          /* PDF — iframe med scroll og valgfri klikkbar overlay */
+          /* PDF — iframe med klikkbar overlay for markørplassering */
           <div ref={containerRef} className="relative flex-1 overflow-hidden">
             <iframe
               src={fileUrl}
               title={tegning.name}
               className="h-full w-full border-0"
             />
-            {/* Overlay kun i plasseringsmodus */}
-            {plasseringsmodus && (
-              <div
-                className="absolute inset-0 cursor-crosshair"
-                onClick={handleBildeKlikk}
-                style={{ background: "transparent" }}
-              />
-            )}
+            {/* Overlay som fanger klikk for markørplassering */}
+            <div
+              className="absolute inset-0 cursor-crosshair"
+              onClick={handleBildeKlikk}
+              style={{ background: "transparent" }}
+            />
             {/* Markører over PDF */}
             {markører.map((m) => (
               <button
