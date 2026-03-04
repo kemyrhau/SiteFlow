@@ -214,6 +214,9 @@ export function useSjekklisteSkjema(sjekklisteId: string): UseSjekklisteSkjemaRe
       // Sjekk at forelderen selv er synlig (rekursivt)
       if (!erSynlig(forelder)) return false;
 
+      // Repeater-barn er alltid synlige (ingen betingelseslogikk)
+      if (forelder.type === "repeater") return true;
+
       // Sjekk at forelderens betingelse er oppfylt
       if (!forelder.config.conditionActive) return true;
 
