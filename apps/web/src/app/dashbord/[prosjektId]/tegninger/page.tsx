@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { useBygning } from "@/kontekst/bygning-kontekst";
 import { Button, Select, Modal, Spinner } from "@siteflow/ui";
-import { Map, FileText, MapPin, Plus } from "lucide-react";
+import { Map, FileText, MapPin, Plus, ZoomIn, ZoomOut, Crosshair, Hand } from "lucide-react";
 
 interface Markør {
   id: string;
@@ -15,12 +15,21 @@ interface Markør {
   status: string;
 }
 
+const ZOOM_NIVÅER: readonly number[] = [0.25, 0.5, 0.75, 1, 1.5, 2, 3];
+const MIN_ZOOM = 0.25;
+const MAKS_ZOOM = 3;
+const STANDARD_ZOOM = 1;
+
 export default function TegningerSide() {
   const params = useParams<{ prosjektId: string }>();
   const router = useRouter();
   const { standardTegning, aktivBygning } = useBygning();
   const utils = trpc.useUtils();
-  const bildeRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Zoom og modus
+  const [zoom, setZoom] = useState(STANDARD_ZOOM);
+  const [plasseringsmodus, setPlasseringsmodus] = useState(false);
 
   // Ny markør-plassering
   const [nyMarkør, setNyMarkør] = useState<{ x: number; y: number } | null>(null);
@@ -70,6 +79,31 @@ export default function TegningerSide() {
     },
   });
 
+  // Reset zoom ved tegningsbytte
+  useEffect(() => {
+    setZoom(STANDARD_ZOOM);
+    setNyMarkør(null);
+    setPlasseringsmodus(false);
+  }, [standardTegning?.id]);
+
+  // Musehjul-zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    function handleWheel(e: WheelEvent) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoom((prev) => {
+        const delta = e.deltaY > 0 ? -0.25 : 0.25;
+        return Math.min(3, Math.max(0.25, prev + delta));
+      });
+    }
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
   function lukkModal() {
     setVisOpprettModal(false);
     setNyMarkør(null);
@@ -77,16 +111,18 @@ export default function TegningerSide() {
     setValgtOppretter("");
     setValgtSvarer("");
     setTittel("");
+    setPlasseringsmodus(false);
   }
 
   const handleBildeKlikk = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!plasseringsmodus) return;
     const container = e.currentTarget;
     const rect = container.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
     setNyMarkør({ x, y });
     setVisOpprettModal(true);
-  }, []);
+  }, [plasseringsmodus]);
 
   function handleOpprett(e: React.FormEvent) {
     e.preventDefault();
@@ -111,6 +147,20 @@ export default function TegningerSide() {
         drawingId: standardTegning?.id,
       });
     }
+  }
+
+  function zoomInn() {
+    setZoom((prev) => {
+      const neste = ZOOM_NIVÅER.find((z) => z > prev);
+      return neste ?? prev;
+    });
+  }
+
+  function zoomUt() {
+    setZoom((prev) => {
+      const forrige = [...ZOOM_NIVÅER].reverse().find((z) => z < prev);
+      return forrige ?? prev;
+    });
   }
 
   // Markører fra eksisterende oppgaver
@@ -169,6 +219,7 @@ export default function TegningerSide() {
   const fileType = tegning.fileType ?? "";
   const erBilde = ["png", "jpg", "jpeg"].includes(fileType);
   const erLaster = opprettOppgaveMutation.isPending || opprettSjekklisteMutation.isPending;
+  const zoomProsent = Math.round(zoom * 100);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -185,21 +236,68 @@ export default function TegningerSide() {
           </span>
         )}
         <div className="flex-1" />
-        <span className="text-xs text-gray-400">
-          Klikk i tegningen for å opprette oppgave
-        </span>
+
+        {/* Zoom-kontroller */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={zoomUt}
+            disabled={zoom <= MIN_ZOOM}
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:text-gray-300"
+            title="Zoom ut"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setZoom(STANDARD_ZOOM)}
+            className="min-w-[48px] rounded px-1.5 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            title="Tilbakestill zoom"
+          >
+            {zoomProsent}%
+          </button>
+          <button
+            onClick={zoomInn}
+            disabled={zoom >= MAKS_ZOOM}
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:text-gray-300"
+            title="Zoom inn"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mx-2 h-4 w-px bg-gray-200" />
+
+        {/* Plasseringsmodus-toggle */}
+        <button
+          onClick={() => setPlasseringsmodus(!plasseringsmodus)}
+          className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+            plasseringsmodus
+              ? "bg-blue-100 text-blue-700"
+              : "text-gray-500 hover:bg-gray-100"
+          }`}
+          title={plasseringsmodus ? "Deaktiver markørplassering" : "Aktiver markørplassering"}
+        >
+          {plasseringsmodus ? (
+            <Crosshair className="h-3.5 w-3.5" />
+          ) : (
+            <Hand className="h-3.5 w-3.5" />
+          )}
+          {plasseringsmodus ? "Plasseringsmodus" : "Navigering"}
+        </button>
       </div>
 
       {/* Tegningsvisning med markører */}
       {fileUrl ? (
         erBilde ? (
-          <div className="flex-1 overflow-auto bg-gray-100">
+          <div
+            ref={containerRef}
+            className="flex-1 overflow-auto bg-gray-100"
+          >
             <div
-              className="relative cursor-crosshair"
+              className={`relative inline-block ${plasseringsmodus ? "cursor-crosshair" : ""}`}
+              style={{ width: `${zoom * 100}%`, minWidth: "100%" }}
               onClick={handleBildeKlikk}
             >
               <img
-                ref={bildeRef}
                 src={fileUrl}
                 alt={tegning.name}
                 className="block w-full"
@@ -238,18 +336,21 @@ export default function TegningerSide() {
             </div>
           </div>
         ) : (
-          /* PDF — iframe med klikkbar overlay */
-          <div className="relative flex-1">
+          /* PDF — iframe med scroll og valgfri klikkbar overlay */
+          <div ref={containerRef} className="relative flex-1 overflow-hidden">
             <iframe
               src={fileUrl}
               title={tegning.name}
               className="h-full w-full border-0"
             />
-            <div
-              className="absolute inset-0 cursor-crosshair"
-              onClick={handleBildeKlikk}
-              style={{ background: "transparent" }}
-            />
+            {/* Overlay kun i plasseringsmodus */}
+            {plasseringsmodus && (
+              <div
+                className="absolute inset-0 cursor-crosshair"
+                onClick={handleBildeKlikk}
+                style={{ background: "transparent" }}
+              />
+            )}
             {/* Markører over PDF */}
             {markører.map((m) => (
               <button
@@ -258,11 +359,14 @@ export default function TegningerSide() {
                   e.stopPropagation();
                   router.push(`/dashbord/${params.prosjektId}/oppgaver?oppgave=${m.id}`);
                 }}
-                className="group absolute -translate-x-1/2 -translate-y-full"
+                className="group absolute -translate-x-1/2 -translate-y-full pointer-events-auto"
                 style={{ left: `${m.x}%`, top: `${m.y}%` }}
                 title={m.label}
               >
-                <MapPin className="h-6 w-6 fill-red-500 text-red-700 drop-shadow-md" />
+                <MapPin className="h-6 w-6 fill-red-500 text-red-700 drop-shadow-md transition-transform group-hover:scale-125" />
+                <span className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900/80 px-1.5 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  {m.label}
+                </span>
               </button>
             ))}
             {nyMarkør && (
