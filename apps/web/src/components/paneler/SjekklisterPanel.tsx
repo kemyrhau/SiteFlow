@@ -4,6 +4,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { SearchInput, Spinner } from "@siteflow/ui";
 import { useState } from "react";
+import { useBygning } from "@/kontekst/bygning-kontekst";
+import { MapPin, X } from "lucide-react";
 
 interface StatusGruppe {
   id: string;
@@ -29,6 +31,7 @@ export function SjekklisterPanel() {
   const searchParams = useSearchParams();
   const aktivStatus = searchParams.get("status") ?? "alle";
   const [sok, setSok] = useState("");
+  const { aktivBygning, standardTegning, settStandardTegning } = useBygning();
 
   const { data: sjekklister, isLoading } =
     trpc.sjekkliste.hentForProsjekt.useQuery(
@@ -62,6 +65,28 @@ export function SjekklisterPanel() {
         onChange={setSok}
         placeholder="Søk sjekklister..."
       />
+
+      {/* Standard-tegning for opprettelse */}
+      {standardTegning && (
+        <div className="rounded-md border border-blue-100 bg-blue-50/50 px-2.5 py-1.5">
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-blue-400">
+            Standard tegning
+          </p>
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+            <span className="flex-1 truncate text-xs font-medium text-blue-700">
+              {aktivBygning ? `${aktivBygning.name} — ` : ""}{standardTegning.name}
+            </span>
+            <button
+              onClick={() => settStandardTegning(null)}
+              className="rounded p-0.5 text-blue-400 hover:bg-blue-100 hover:text-blue-600"
+              title="Fjern standard-tegning"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-0.5">
         {statusGrupper.map((gruppe) => {

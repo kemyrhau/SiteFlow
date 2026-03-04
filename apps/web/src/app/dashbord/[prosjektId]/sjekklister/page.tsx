@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { Button, Select, Modal, Spinner, EmptyState, StatusBadge, Table } from "@siteflow/ui";
 import { useVerktoylinje } from "@/hooks/useVerktoylinje";
+import { useBygning } from "@/kontekst/bygning-kontekst";
 import type { VerktoylinjeHandling } from "@/kontekst/navigasjon-kontekst";
 import { Plus, Printer } from "lucide-react";
 
@@ -14,12 +15,14 @@ export default function SjekklisteSide() {
   const searchParams = useSearchParams();
   const statusFilter = searchParams.get("status");
   const utils = trpc.useUtils();
+  const { aktivBygning, standardTegning } = useBygning();
   const [visModal, setVisModal] = useState(false);
   const [valgtMal, setValgtMal] = useState("");
   const [valgtOppretter, setValgtOppretter] = useState("");
   const [valgtSvarer, setValgtSvarer] = useState("");
   const [valgtEmne, setValgtEmne] = useState("");
   const [valgtBygning, setValgtBygning] = useState("");
+  const [valgtTegning, setValgtTegning] = useState("");
   const [valgte, setValgte] = useState<Set<string>>(new Set());
 
   const { data: sjekklister, isLoading } = trpc.sjekkliste.hentForProsjekt.useQuery(
@@ -34,6 +37,10 @@ export default function SjekklisteSide() {
   const { data: bygninger } = trpc.bygning.hentForProsjekt.useQuery(
     { projectId: params.prosjektId },
   );
+  const { data: tegninger } = trpc.tegning.hentForProsjekt.useQuery(
+    { projectId: params.prosjektId },
+    { enabled: visModal },
+  );
 
   const opprettMutation = trpc.sjekkliste.opprett.useMutation({
     onSuccess: () => {
@@ -44,11 +51,14 @@ export default function SjekklisteSide() {
       setValgtSvarer("");
       setValgtEmne("");
       setValgtBygning("");
+      setValgtTegning("");
     },
   });
 
   function apneModal() {
-    setValgtBygning("");
+    // Forhåndsvelg fra standard-tegning kontekst
+    setValgtBygning(aktivBygning?.id ?? "");
+    setValgtTegning(standardTegning?.id ?? "");
     setVisModal(true);
   }
 
@@ -78,9 +88,9 @@ export default function SjekklisteSide() {
 
     return handlinger;
     // eslint-disable-next-line
-  }, [valgte, params.prosjektId, router]);
+  }, [valgte, params.prosjektId, router, aktivBygning?.id, standardTegning?.id]);
 
-  useVerktoylinje(verktoylinjeHandlinger, [valgte.size]);
+  useVerktoylinje(verktoylinjeHandlinger, [valgte.size, aktivBygning?.id, standardTegning?.id]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,6 +102,7 @@ export default function SjekklisteSide() {
       responderEnterpriseId: valgtSvarer,
       subject: valgtEmne || undefined,
       buildingId: valgtBygning || undefined,
+      drawingId: valgtTegning || undefined,
     });
   }
 
@@ -127,13 +138,13 @@ export default function SjekklisteSide() {
     return (malData.subjects as string[]).filter((s) => s.trim() !== "");
   })();
 
-  // Oppretter-dropdown: brukerens entrepriser (eller alle for admin)
+  // Oppretter-dropdown
   const oppretterAlternativer = (mineEntrepriser ?? []).map((e) => ({
     value: e.id,
     label: e.name,
   }));
 
-  // Svarer-dropdown: alle entrepriser i prosjektet
+  // Svarer-dropdown
   const svarerAlternativer = (entrepriser ?? []).map((e) => ({
     value: e.id,
     label: e.name,
@@ -144,6 +155,14 @@ export default function SjekklisteSide() {
     value: b.id,
     label: b.number ? `${b.number}. ${b.name}` : b.name,
   }));
+
+  // Tegning-dropdown — filtrert etter valgt bygning
+  const tegningAlternativer = ((tegninger ?? []) as Array<{ id: string; name: string; drawingNumber: string | null; buildingId: string | null }>)
+    .filter((t) => !valgtBygning || t.buildingId === valgtBygning)
+    .map((t) => ({
+      value: t.id,
+      label: t.drawingNumber ? `${t.drawingNumber} ${t.name}` : t.name,
+    }));
 
   return (
     <div>
@@ -245,8 +264,19 @@ export default function SjekklisteSide() {
             label="Lokasjon"
             options={bygningAlternativer}
             value={valgtBygning}
-            onChange={(e) => setValgtBygning(e.target.value)}
+            onChange={(e) => {
+              setValgtBygning(e.target.value);
+              // Nullstill tegning hvis bygning endres
+              if (e.target.value !== valgtBygning) setValgtTegning("");
+            }}
             placeholder="Ingen lokasjon"
+          />
+          <Select
+            label="Tegning"
+            options={tegningAlternativer}
+            value={valgtTegning}
+            onChange={(e) => setValgtTegning(e.target.value)}
+            placeholder="Ingen tegning"
           />
           <Select
             label="Oppretter-entreprise"
