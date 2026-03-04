@@ -51,7 +51,7 @@ const navigasjon: NavElement[] = [
     ],
   },
   {
-    label: "Owners Portal",
+    label: "Prosjekteiers innstillinger",
     href: "/dashbord/oppsett/prosjektoppsett",
     ikon: <Home className="h-4 w-4" />,
     barn: [
@@ -83,7 +83,7 @@ export default function OppsettLayout({
   const [ekspandert, setEkspandert] = useState<Record<string, boolean>>({
     Lokasjoner: true,
     Feltarbeid: true,
-    "Owners Portal": false,
+    "Prosjekteiers innstillinger": false,
   });
 
   function toggleEkspander(label: string) {
