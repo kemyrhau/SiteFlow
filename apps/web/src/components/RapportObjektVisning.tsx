@@ -1,5 +1,6 @@
 "use client";
 
+import { trpc } from "@/lib/trpc";
 import { normaliserOpsjon } from "./rapportobjekter/typer";
 import type { RapportObjekt } from "./rapportobjekter/typer";
 
@@ -358,12 +359,12 @@ function ObjektInnhold({
 
     case "drawing_position": {
       const pos = verdi as TegningPosisjonVerdi | null;
-      const tekst = pos?.drawingName
-        ? `${pos.drawingName} (${pos.positionX?.toFixed(0)}%, ${pos.positionY?.toFixed(0)}%)`
-        : "";
+      if (!pos?.drawingId) {
+        return <FeltRad label={label} tom>{null}</FeltRad>;
+      }
       return (
-        <FeltRad label={label} tom={!tekst}>
-          <p className="text-sm text-gray-900">{tekst}</p>
+        <FeltRad label={label}>
+          <TegningPosisjonPrint pos={pos} />
         </FeltRad>
       );
     }
@@ -385,4 +386,88 @@ function ObjektInnhold({
       );
     }
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tegningsposisjon — oversikt + detalj                               */
+/* ------------------------------------------------------------------ */
+
+const DETALJ_ZOOM = 4;
+
+function TegningPosisjonPrint({ pos }: { pos: TegningPosisjonVerdi }) {
+  const { data: tegning } = trpc.tegning.hentMedId.useQuery(
+    { id: pos.drawingId! },
+    { enabled: !!pos.drawingId },
+  );
+
+  const x = pos.positionX ?? 50;
+  const y = pos.positionY ?? 50;
+  const drawingName = pos.drawingName ?? "";
+
+  const fileUrl = tegning?.fileUrl
+    ? tegning.fileUrl.startsWith("/uploads/")
+      ? `/api/uploads${tegning.fileUrl.replace("/uploads", "")}`
+      : tegning.fileUrl
+    : null;
+
+  const tegningNummer = (tegning as { drawingNumber?: string | null } | undefined)?.drawingNumber;
+  const visNavn = tegningNummer ? `${tegningNummer} ${drawingName}` : drawingName;
+
+  if (!fileUrl) {
+    return <p className="text-sm text-gray-900">{visNavn}</p>;
+  }
+
+  return (
+    <div className="print-no-break">
+      <p className="mb-2 text-sm font-medium text-gray-700">{visNavn}</p>
+      <div className="flex gap-3">
+        {/* Oversiktsbilde med markør */}
+        <div className="relative w-1/2 overflow-hidden rounded border border-gray-200">
+          <img
+            src={fileUrl}
+            alt={drawingName}
+            className="block w-full"
+            crossOrigin="anonymous"
+          />
+          {/* Rød markør */}
+          <div
+            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow"
+            style={{ left: `${x}%`, top: `${y}%` }}
+          />
+          {/* Detalj-ramme: viser hvilket område som er zoomet */}
+          <div
+            className="absolute border border-red-400"
+            style={{
+              width: `${100 / DETALJ_ZOOM}%`,
+              height: `${100 / DETALJ_ZOOM}%`,
+              left: `${Math.max(0, Math.min(100 - 100 / DETALJ_ZOOM, x - 100 / DETALJ_ZOOM / 2))}%`,
+              top: `${Math.max(0, Math.min(100 - 100 / DETALJ_ZOOM, y - 100 / DETALJ_ZOOM / 2))}%`,
+            }}
+          />
+          <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-[9px] text-white">
+            Oversikt
+          </span>
+        </div>
+
+        {/* Detaljutsnitt — zoomet inn rundt posisjonen */}
+        <div className="relative w-1/2 overflow-hidden rounded border border-gray-200">
+          <img
+            src={fileUrl}
+            alt={`Detalj: ${drawingName}`}
+            className="block w-full"
+            crossOrigin="anonymous"
+            style={{
+              transformOrigin: `${x}% ${y}%`,
+              transform: `scale(${DETALJ_ZOOM})`,
+            }}
+          />
+          {/* Rød markør i senter */}
+          <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-500 shadow" />
+          <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-[9px] text-white">
+            Detalj
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
