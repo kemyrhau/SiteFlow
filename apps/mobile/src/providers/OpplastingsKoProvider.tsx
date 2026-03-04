@@ -126,11 +126,31 @@ export function OpplastingsKoProvider({ children }: { children: ReactNode }) {
         let endret = false;
         for (const feltId of Object.keys(feltVerdier)) {
           const felt = feltVerdier[feltId];
-          if (!felt?.vedlegg) continue;
-          for (const v of felt.vedlegg) {
-            if (v.id === vedleggId) {
-              v.url = serverUrl;
-              endret = true;
+
+          // Søk i toppnivå-vedlegg
+          if (felt?.vedlegg) {
+            for (const v of felt.vedlegg) {
+              if (v.id === vedleggId) {
+                v.url = serverUrl;
+                endret = true;
+              }
+            }
+          }
+
+          // Søk i repeater-data (nestet i verdi-arrayen)
+          const verdi = (felt as Record<string, unknown> | undefined)?.verdi;
+          if (Array.isArray(verdi)) {
+            for (const rad of verdi as Record<string, { vedlegg?: Array<{ id: string; url: string }> }>[]) {
+              for (const barnId of Object.keys(rad)) {
+                const barn = rad[barnId];
+                if (!barn?.vedlegg) continue;
+                for (const v of barn.vedlegg) {
+                  if (v.id === vedleggId) {
+                    v.url = serverUrl;
+                    endret = true;
+                  }
+                }
+              }
             }
           }
         }

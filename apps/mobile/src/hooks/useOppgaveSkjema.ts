@@ -279,6 +279,8 @@ export function useOppgaveSkjema(oppgaveId: string): UseOppgaveSkjemaResultat {
           for (const feltId of Object.keys(oppdatert)) {
             const felt = oppdatert[feltId];
             if (!felt) continue;
+
+            // Søk i toppnivå-vedlegg
             const vedleggIdx = felt.vedlegg.findIndex((v) => v.id === vedleggId);
             if (vedleggIdx >= 0) {
               oppdatert[feltId] = {
@@ -288,6 +290,33 @@ export function useOppgaveSkjema(oppgaveId: string): UseOppgaveSkjemaResultat {
                 ),
               };
               endret = true;
+            }
+
+            // Søk i repeater-data (nestet i verdi-arrayen)
+            if (Array.isArray(felt.verdi)) {
+              let repeaterEndret = false;
+              const oppdatertRader = (felt.verdi as Record<string, { vedlegg?: Array<{ id: string; url: string }> }>[]).map((rad) => {
+                const nyRad = { ...rad };
+                for (const barnId of Object.keys(nyRad)) {
+                  const barn = nyRad[barnId];
+                  if (!barn?.vedlegg) continue;
+                  const idx = barn.vedlegg.findIndex((v) => v.id === vedleggId);
+                  if (idx >= 0) {
+                    nyRad[barnId] = {
+                      ...barn,
+                      vedlegg: barn.vedlegg.map((v) =>
+                        v.id === vedleggId ? { ...v, url: serverUrl } : v,
+                      ),
+                    };
+                    repeaterEndret = true;
+                  }
+                }
+                return nyRad;
+              });
+              if (repeaterEndret) {
+                oppdatert[feltId] = { ...oppdatert[feltId]!, verdi: oppdatertRader };
+                endret = true;
+              }
             }
           }
           return endret ? oppdatert : prev;

@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { View, Text, Pressable, Modal, Animated } from "react-native";
+import { View, Text, Pressable, Modal, Animated, InteractionManager } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Accelerometer } from "expo-sensors";
 import { X, Timer } from "lucide-react-native";
@@ -100,12 +100,17 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
 
       const foto = await cameraRef.current.takePictureAsync({
         quality: 1,
-        skipProcessing: true,
       });
       if (foto?.uri) {
         settAntallTatt((n) => n + 1);
+        // Vent til interaksjoner er ferdige før bildebehandling
+        await new Promise<void>((resolve) => {
+          InteractionManager.runAfterInteractions(() => resolve());
+        });
         onBildeRef.current(foto.uri);
       }
+    } catch (e) {
+      console.error("taBildeNå feilet:", e);
     } finally {
       tarBilde.current = false;
     }
@@ -156,7 +161,10 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
       clearInterval(tidtakerRef.current);
       tidtakerRef.current = null;
     }
-    onLukk();
+    // Vent til Modal-animasjonen er ferdig før state-oppdateringer
+    InteractionManager.runAfterInteractions(() => {
+      onLukk();
+    });
   }, [onLukk]);
 
   // Beregn 5:4 crop-guide basert på kameravisningens faktiske layout
@@ -180,8 +188,6 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
   }
 
   // ALLTID render <Modal> med visible-prop — ALDRI conditional mount/unmount.
-  // <Modal visible={false}> er lettvekts i React Native (ingen native controller).
-  // Conditional unmount av en presentert Modal krasjer iOS.
   return (
     <Modal visible={synlig} animationType="slide" presentationStyle="fullScreen" onRequestClose={håndterLukk}>
       {synlig && !tillatelse?.granted ? (
@@ -199,11 +205,9 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
         </View>
       ) : synlig ? (
       <View className="flex-1 bg-black">
-        <CameraView
-          ref={cameraRef}
+        {/* Kamera-seksjon med overlays som søsken (CameraView støtter ikke barn) */}
+        <View
           style={{ flex: 1 }}
-          facing="back"
-          zoom={zoom}
           onLayout={(e) => {
             const { width, height } = e.nativeEvent.layout;
             setKameraLayout((prev) =>
@@ -213,7 +217,15 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
             );
           }}
         >
-          {/* 5:4 crop-guide — mørke overlay */}
+          {/* CameraView uten barn */}
+          <CameraView
+            ref={cameraRef}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            facing="back"
+            zoom={zoom}
+          />
+
+          {/* 5:4 crop-guide — mørke overlay (over kamera) */}
           {overlayTopp > 0 && (
             <>
               <View
@@ -246,7 +258,7 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
           {/* Flash-overlay */}
           <Animated.View
             pointerEvents="none"
-            style={{ ...({ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#ffffff" }), opacity: flashOpacity }}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#ffffff", opacity: flashOpacity }}
           />
 
           {/* Lukk-knapp — roterer med enhetens orientering */}
@@ -290,7 +302,7 @@ export function KameraModal({ synlig, onBilde, onLukk }: KameraModalProps) {
               </View>
             </Animated.View>
           )}
-        </CameraView>
+        </View>
 
         {/* Zoomknapper + Utløserknapp */}
         <View
