@@ -39,6 +39,29 @@ export const oppgaveRouter = router({
       });
     }),
 
+  // Hent oppgavemarkører for en tegning
+  hentForTegning: protectedProcedure
+    .input(z.object({ drawingId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.task.findMany({
+        where: {
+          drawingId: input.drawingId,
+          positionX: { not: null },
+          positionY: { not: null },
+        },
+        select: {
+          id: true,
+          title: true,
+          number: true,
+          status: true,
+          positionX: true,
+          positionY: true,
+          template: { select: { prefix: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }),
+
   // Hent én oppgave med alle detaljer
   hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
