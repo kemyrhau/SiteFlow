@@ -33,8 +33,10 @@ import {
 
 interface BrukerGruppeMedlem {
   id: string;
+  projectMemberId?: string;
   navn: string;
   epost?: string;
+  telefon?: string;
   firma?: string;
   rolle?: string;
   ventendeInvitasjon?: { id: string };
@@ -65,7 +67,8 @@ interface DbGruppe {
   members: {
     id: string;
     projectMember: {
-      user: { name: string | null; email: string };
+      id: string;
+      user: { name: string | null; email: string; phone?: string | null };
       enterprises: { enterprise: { name: string } }[];
     };
   }[];
@@ -114,6 +117,9 @@ function RedigerGruppeModal({
   const [redigererNavn, setRedigererNavn] = useState(false);
   const [nyttGruppeNavn, setNyttGruppeNavn] = useState(gruppe.navn);
   const [redigererMedlem, setRedigererMedlem] = useState(false);
+  const [redigerNavn, setRedigerNavn] = useState("");
+  const [redigerEpost, setRedigerEpost] = useState("");
+  const [redigerTelefon, setRedigerTelefon] = useState("");
   const [redigerRolle, setRedigerRolle] = useState<"member" | "admin">("member");
 
   // Er dette en DB-gruppe (UUID)?
@@ -186,12 +192,18 @@ function RedigerGruppeModal({
     },
   });
 
-  const oppdaterRolle = trpc.medlem.oppdaterRolle.useMutation({
+  const oppdaterMedlem = trpc.medlem.oppdater.useMutation({
     onSuccess: () => {
       setRedigererMedlem(false);
       setValgtMedlemId(null);
+      setFeilmelding("");
       utils.prosjekt.hentMedId.invalidate({ id: prosjektId });
       utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+    onError: (error) => {
+      setFeilmelding(error.message);
     },
   });
 
@@ -358,11 +370,15 @@ function RedigerGruppeModal({
                 if (valgtMedlemId) {
                   const medlem = gruppe.medlemmer.find((m) => m.id === valgtMedlemId);
                   if (medlem) {
+                    setRedigerNavn(medlem.navn);
+                    setRedigerEpost(medlem.epost ?? "");
+                    setRedigerTelefon(medlem.telefon ?? "");
                     setRedigerRolle(
                       medlem.rolle === "Kontaktperson" || gruppe.id === "prosjektadmin"
                         ? "admin"
                         : "member",
                     );
+                    setFeilmelding("");
                     setRedigererMedlem(true);
                   }
                 }
@@ -533,6 +549,7 @@ function RedigerGruppeModal({
           {redigererMedlem && valgtMedlemId && (() => {
             const valgtMedlem = gruppe.medlemmer.find((m) => m.id === valgtMedlemId);
             if (!valgtMedlem) return null;
+            const pmId = valgtMedlem.projectMemberId ?? valgtMedlem.id;
             return (
               <div className="mt-2 rounded border border-blue-200 bg-blue-50 p-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -540,31 +557,70 @@ function RedigerGruppeModal({
                     Rediger {valgtMedlem.navn}
                   </span>
                   <button
-                    onClick={() => setRedigererMedlem(false)}
+                    onClick={() => { setRedigererMedlem(false); setFeilmelding(""); }}
                     className="rounded p-1 text-gray-400 hover:text-gray-600"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-sm text-gray-600">Rolle:</label>
-                  <select
-                    value={redigerRolle}
-                    onChange={(e) => setRedigerRolle(e.target.value as "member" | "admin")}
-                    className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
-                  >
-                    <option value="member">Medlem</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      oppdaterRolle.mutate({ id: valgtMedlemId, role: redigerRolle, projectId: prosjektId });
-                    }}
-                    disabled={oppdaterRolle.isPending}
-                  >
-                    {oppdaterRolle.isPending ? "Lagrer..." : "Lagre"}
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Navn</label>
+                    <input
+                      type="text"
+                      value={redigerNavn}
+                      onChange={(e) => setRedigerNavn(e.target.value)}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">E-post</label>
+                    <input
+                      type="email"
+                      value={redigerEpost}
+                      onChange={(e) => setRedigerEpost(e.target.value)}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Telefon</label>
+                    <input
+                      type="tel"
+                      value={redigerTelefon}
+                      onChange={(e) => setRedigerTelefon(e.target.value)}
+                      placeholder="Valgfritt"
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Rolle</label>
+                    <select
+                      value={redigerRolle}
+                      onChange={(e) => setRedigerRolle(e.target.value as "member" | "admin")}
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                    >
+                      <option value="member">Medlem</option>
+                      <option value="admin">Administrator</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        oppdaterMedlem.mutate({
+                          id: pmId,
+                          projectId: prosjektId,
+                          name: redigerNavn.trim() || undefined,
+                          email: redigerEpost.trim() || undefined,
+                          phone: redigerTelefon.trim(),
+                          role: redigerRolle,
+                        });
+                      }}
+                      disabled={oppdaterMedlem.isPending || !redigerNavn.trim()}
+                    >
+                      {oppdaterMedlem.isPending ? "Lagrer..." : "Lagre"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
@@ -1013,8 +1069,10 @@ export default function BrukereSide() {
     ikon: SLUG_IKON[g.slug] ?? <Users className="h-4 w-4" />,
     medlemmer: g.members.map((m) => ({
       id: m.id,
+      projectMemberId: m.projectMember.id,
       navn: m.projectMember.user.name ?? m.projectMember.user.email ?? "Ukjent",
       epost: m.projectMember.user.email ?? undefined,
+      telefon: m.projectMember.user.phone ?? undefined,
       firma: m.projectMember.enterprises?.[0]?.enterprise?.name ?? undefined,
       ventendeInvitasjon: finnInvitasjon(g.id, m.projectMember.user.email),
     })),
@@ -1034,6 +1092,7 @@ export default function BrukereSide() {
           id: m.id,
           navn: m.user.name ?? m.user.email ?? "Ukjent",
           epost: m.user.email ?? undefined,
+          telefon: (m.user as { phone?: string | null }).phone ?? undefined,
           rolle: m.role === "owner" ? "Kontaktperson" : undefined,
           ventendeInvitasjon: finnInvitasjon("prosjektadmin", m.user.email),
         })) ?? [],
@@ -1045,10 +1104,11 @@ export default function BrukereSide() {
       id: `ent-${ent.id}`,
       navn: ent.name,
       kategori: "brukergrupper" as const,
-      medlemmer: ent.memberEnterprises.map((me: { projectMember: { id: string; user: { name?: string | null; email?: string | null } } }) => ({
+      medlemmer: ent.memberEnterprises.map((me: { projectMember: { id: string; user: { name?: string | null; email?: string | null; phone?: string | null } } }) => ({
         id: me.projectMember.id,
         navn: me.projectMember.user?.name ?? me.projectMember.user?.email ?? "Ukjent",
         epost: me.projectMember.user?.email ?? undefined,
+        telefon: me.projectMember.user?.phone ?? undefined,
         firma: ent.name,
         ventendeInvitasjon: finnInvitasjon(`ent-${ent.id}`, me.projectMember.user?.email ?? undefined),
       })),

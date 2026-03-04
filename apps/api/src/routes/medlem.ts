@@ -2,6 +2,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { router, protectedProcedure } from "../trpc/trpc";
 import { addMemberSchema } from "@siteflow/shared";
+import { TRPCError } from "@trpc/server";
 import { sendInvitasjonsEpost } from "../services/epost";
 import {
   verifiserAdmin,
@@ -216,6 +217,67 @@ export const medlemRouter = router({
       return ctx.prisma.projectMember.update({
         where: { id: input.id },
         data: { role: input.role },
+        include: {
+          user: true,
+          enterprises: { include: { enterprise: true } },
+        },
+      });
+    }),
+
+  // Oppdater medlem (navn, e-post, telefon, rolle)
+  oppdater: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        projectId: z.string().uuid(),
+        name: z.string().min(1).optional(),
+        email: z.string().email().optional(),
+        phone: z.string().optional(),
+        role: z.enum(["member", "admin"]).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
+      const medlem = await ctx.prisma.projectMember.findUniqueOrThrow({
+        where: { id: input.id },
+        include: { user: true },
+      });
+
+      // Oppdater User-felter
+      const brukerOppdatering: { name?: string; email?: string; phone?: string | null } = {};
+      if (input.name !== undefined) brukerOppdatering.name = input.name;
+      if (input.phone !== undefined) brukerOppdatering.phone = input.phone || null;
+      if (input.email !== undefined && input.email !== medlem.user.email) {
+        const eksisterende = await ctx.prisma.user.findUnique({
+          where: { email: input.email },
+        });
+        if (eksisterende) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "E-postadressen er allerede i bruk",
+          });
+        }
+        brukerOppdatering.email = input.email;
+      }
+
+      if (Object.keys(brukerOppdatering).length > 0) {
+        await ctx.prisma.user.update({
+          where: { id: medlem.userId },
+          data: brukerOppdatering,
+        });
+      }
+
+      // Oppdater rolle hvis endret
+      if (input.role !== undefined) {
+        await ctx.prisma.projectMember.update({
+          where: { id: input.id },
+          data: { role: input.role },
+        });
+      }
+
+      return ctx.prisma.projectMember.findUniqueOrThrow({
+        where: { id: input.id },
         include: {
           user: true,
           enterprises: { include: { enterprise: true } },
