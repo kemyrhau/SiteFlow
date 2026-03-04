@@ -111,14 +111,14 @@ export default function SjekklisteUtfylling() {
     (handling: StatusHandling) => {
       if (!bruker?.id) return;
 
-      const bekreftTekst = handling.nyStatus === "cancelled" ? "Ja, avbryt" : handling.tekst;
+      const bekreftTekst = handling.nyStatus === "cancelled" ? "Ja, avbryt sjekklisten" : handling.tekst;
       const erDestruktiv = handling.nyStatus === "rejected" || handling.nyStatus === "cancelled";
 
       Alert.alert(
         "Bekreft statusendring",
         `Er du sikker på at du vil endre status til "${handling.tekst.toLowerCase()}"?`,
         [
-          { text: "Nei", style: "cancel" },
+          { text: "Ikke nå", style: "cancel" },
           {
             text: bekreftTekst,
             style: erDestruktiv ? "destructive" : "default",
@@ -199,6 +199,25 @@ export default function SjekklisteUtfylling() {
   const objekter = sjekkliste.template.objects
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  // Finn barn av repeatere (skip i hoved-loop, send som barneObjekter)
+  const repeaterIder = useMemo(() => new Set(
+    objekter.filter((o) => o.type === "repeater").map((o) => o.id),
+  ), [objekter]);
+  const repeaterBarnIder = useMemo(() => new Set(
+    objekter.filter((o) => o.parentId && repeaterIder.has(o.parentId)).map((o) => o.id),
+  ), [objekter, repeaterIder]);
+  const barneObjekterMap = useMemo(() => {
+    const m = new Map<string, typeof objekter>();
+    for (const obj of objekter) {
+      if (obj.parentId && repeaterIder.has(obj.parentId)) {
+        const liste = m.get(obj.parentId) ?? [];
+        liste.push(obj);
+        m.set(obj.parentId, liste);
+      }
+    }
+    return m;
+  }, [objekter, repeaterIder]);
 
   const leseModus = !erRedigerbar;
 
@@ -285,6 +304,8 @@ export default function SjekklisteUtfylling() {
         keyboardShouldPersistTaps="handled"
       >
         {objekter.map((objekt) => {
+          // Skip barn av repeatere — rendres inne i RepeaterObjekt
+          if (repeaterBarnIder.has(objekt.id)) return null;
           // Sjekk synlighet (betinget felt)
           if (!erSynlig(objekt)) return null;
 
@@ -352,6 +373,7 @@ export default function SjekklisteUtfylling() {
                 verdi={feltVerdi.verdi}
                 onEndreVerdi={(v) => settVerdi(objekt.id, v)}
                 leseModus={leseModus}
+                barneObjekter={barneObjekterMap.get(objekt.id)}
               />
             </FeltWrapper>
           );

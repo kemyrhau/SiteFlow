@@ -1,3 +1,13 @@
+export interface RapportObjekt {
+  id: string;
+  type: string;
+  label: string;
+  required: boolean;
+  config: Record<string, unknown>;
+  sortOrder: number;
+  parentId: string | null;
+}
+
 export interface RapportObjektProps {
   objekt: {
     id: string;
@@ -10,4 +20,5 @@ export interface RapportObjektProps {
   onEndreVerdi: (verdi: unknown) => void;
   leseModus?: boolean;
   prosjektId?: string;
+  barneObjekter?: RapportObjekt[];
 }

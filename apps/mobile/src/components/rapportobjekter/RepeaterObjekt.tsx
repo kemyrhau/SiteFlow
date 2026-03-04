@@ -1,57 +1,189 @@
+import { useCallback } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Plus, Trash2 } from "lucide-react-native";
-import type { RapportObjektProps } from "./typer";
+import type { RapportObjektProps, RapportObjekt } from "./typer";
 import type { FeltVerdi } from "../../hooks/useSjekklisteSkjema";
+import { RapportObjektRenderer, DISPLAY_TYPER } from "./RapportObjektRenderer";
+import { FeltDokumentasjon } from "./FeltDokumentasjon";
 
-// Forenkling: Repeater-rader er en array av Record<string, FeltVerdi>
-type RepeaterVerdi = Array<Record<string, FeltVerdi>>;
+type RadData = Record<string, FeltVerdi>;
+type RepeaterVerdi = RadData[];
 
-export function RepeaterObjekt({ objekt, verdi, onEndreVerdi, leseModus }: RapportObjektProps) {
+const TOM_FELTVERDI: FeltVerdi = { verdi: null, kommentar: "", vedlegg: [] };
+
+export function RepeaterObjekt({
+  objekt,
+  verdi,
+  onEndreVerdi,
+  leseModus,
+  barneObjekter,
+}: RapportObjektProps) {
   const rader = Array.isArray(verdi) ? (verdi as RepeaterVerdi) : [];
-  const barneObjekter = (objekt.config.children as Array<{ id: string; type: string; label: string }>) ?? [];
+  const barn = barneObjekter ?? [];
 
-  const leggTilRad = () => {
-    const nyRad: Record<string, FeltVerdi> = {};
-    for (const barn of barneObjekter) {
-      nyRad[barn.id] = { verdi: null, kommentar: "", vedlegg: [] };
+  const leggTilRad = useCallback(() => {
+    const nyRad: RadData = {};
+    for (const b of barn) {
+      nyRad[b.id] = { ...TOM_FELTVERDI };
     }
     onEndreVerdi([...rader, nyRad]);
-  };
+  }, [barn, rader, onEndreVerdi]);
 
-  const fjernRad = (indeks: number) => {
-    onEndreVerdi(rader.filter((_, i) => i !== indeks));
-  };
+  const fjernRad = useCallback(
+    (indeks: number) => {
+      onEndreVerdi(rader.filter((_, i) => i !== indeks));
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const oppdaterFeltVerdi = useCallback(
+    (radIndeks: number, feltId: string, nyVerdi: unknown) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return { ...rad, [feltId]: { ...eksisterende, verdi: nyVerdi } };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const oppdaterKommentar = useCallback(
+    (radIndeks: number, feltId: string, kommentar: string) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return { ...rad, [feltId]: { ...eksisterende, kommentar } };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const leggTilVedlegg = useCallback(
+    (radIndeks: number, feltId: string, vedlegg: FeltVerdi["vedlegg"][number]) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return {
+          ...rad,
+          [feltId]: {
+            ...eksisterende,
+            vedlegg: [...(eksisterende.vedlegg ?? []), vedlegg],
+          },
+        };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  const fjernVedlegg = useCallback(
+    (radIndeks: number, feltId: string, vedleggId: string) => {
+      const oppdatert = rader.map((rad, i) => {
+        if (i !== radIndeks) return rad;
+        const eksisterende = rad[feltId] ?? { ...TOM_FELTVERDI };
+        return {
+          ...rad,
+          [feltId]: {
+            ...eksisterende,
+            vedlegg: (eksisterende.vedlegg ?? []).filter((v) => v.id !== vedleggId),
+          },
+        };
+      });
+      onEndreVerdi(oppdatert);
+    },
+    [rader, onEndreVerdi],
+  );
+
+  if (barn.length === 0) {
+    return (
+      <View className="rounded-lg border border-dashed border-gray-300 px-4 py-6">
+        <Text className="text-center text-sm text-gray-400">
+          Ingen felter definert i malen for denne repeateren.
+        </Text>
+      </View>
+    );
+  }
 
   return (
-    <View className="gap-3">
-      {rader.map((rad, indeks) => (
-        <View key={indeks} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <View className="mb-2 flex-row items-center justify-between">
-            <Text className="text-xs font-medium text-gray-500">Rad {indeks + 1}</Text>
+    <View className="gap-1.5">
+      {rader.map((rad, radIndeks) => (
+        <View
+          key={radIndeks}
+          className="rounded border border-gray-200 bg-gray-50 px-3 py-2"
+        >
+          <View className="mb-1 flex-row items-center justify-between">
+            <Text className="text-[11px] font-semibold text-gray-400">
+              {radIndeks + 1} {objekt.label}
+            </Text>
             {!leseModus && (
-              <Pressable onPress={() => fjernRad(indeks)} hitSlop={8}>
-                <Trash2 size={16} color="#ef4444" />
+              <Pressable onPress={() => fjernRad(radIndeks)} hitSlop={8}>
+                <Trash2 size={12} color="#fca5a5" />
               </Pressable>
             )}
           </View>
-          {barneObjekter.map((barn) => (
-            <View key={barn.id} className="mb-2">
-              <Text className="mb-1 text-xs text-gray-600">{barn.label}</Text>
-              <Text className="text-sm text-gray-400">
-                {String(rad[barn.id]?.verdi ?? "—")}
-              </Text>
-            </View>
-          ))}
+
+          <View className="gap-1">
+            {barn.map((barnObjekt) => {
+              const feltVerdi = rad[barnObjekt.id] ?? TOM_FELTVERDI;
+              const erDisplay = DISPLAY_TYPER.has(barnObjekt.type);
+
+              if (erDisplay) {
+                return (
+                  <View key={barnObjekt.id}>
+                    <RapportObjektRenderer
+                      objekt={barnObjekt}
+                      verdi={feltVerdi.verdi}
+                      onEndreVerdi={(v) =>
+                        oppdaterFeltVerdi(radIndeks, barnObjekt.id, v)
+                      }
+                      leseModus={leseModus}
+                    />
+                  </View>
+                );
+              }
+
+              return (
+                <View key={barnObjekt.id}>
+                  <RapportObjektRenderer
+                    objekt={barnObjekt}
+                    verdi={feltVerdi.verdi}
+                    onEndreVerdi={(v) =>
+                      oppdaterFeltVerdi(radIndeks, barnObjekt.id, v)
+                    }
+                    leseModus={leseModus}
+                  />
+                  <FeltDokumentasjon
+                    kommentar={feltVerdi.kommentar}
+                    vedlegg={feltVerdi.vedlegg}
+                    onEndreKommentar={(k) =>
+                      oppdaterKommentar(radIndeks, barnObjekt.id, k)
+                    }
+                    onLeggTilVedlegg={(v) =>
+                      leggTilVedlegg(radIndeks, barnObjekt.id, v)
+                    }
+                    onFjernVedlegg={(vId) =>
+                      fjernVedlegg(radIndeks, barnObjekt.id, vId)
+                    }
+                    leseModus={leseModus}
+                    objektId={barnObjekt.id}
+                    skjulKommentar={barnObjekt.type === "text_field"}
+                  />
+                </View>
+              );
+            })}
+          </View>
         </View>
       ))}
 
       {!leseModus && (
         <Pressable
           onPress={leggTilRad}
-          className="flex-row items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-3"
+          className="flex-row items-center justify-center gap-1.5 rounded border border-dashed border-gray-300 py-2"
         >
-          <Plus size={16} color="#6b7280" />
-          <Text className="text-sm text-gray-600">Legg til rad</Text>
+          <Plus size={14} color="#6b7280" />
+          <Text className="text-xs text-gray-500">Legg til rad</Text>
         </Pressable>
       )}
     </View>
