@@ -182,6 +182,56 @@ export const malRouter = router({
       );
     }),
 
+  // Sjekk om et rapportobjekt (og evt. barn) har data i sjekklister/oppgaver
+  sjekkObjektBruk: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const objekt = await ctx.prisma.reportObject.findUnique({
+        where: { id: input.id },
+        select: { id: true, templateId: true },
+      });
+      if (!objekt) return { sjekklister: 0, oppgaver: 0 };
+
+      // Hent alle objekter i malen for å finne etterkommere
+      const alleObjekter = await ctx.prisma.reportObject.findMany({
+        where: { templateId: objekt.templateId },
+        select: { id: true, parentId: true },
+      });
+
+      // Samle alle IDer som vil bli slettet (objektet + alle etterkommere)
+      const sletteIder = [input.id];
+      function finnEtterkommere(parentId: string) {
+        for (const o of alleObjekter) {
+          if (o.parentId === parentId) {
+            sletteIder.push(o.id);
+            finnEtterkommere(o.id);
+          }
+        }
+      }
+      finnEtterkommere(input.id);
+
+      // Tell sjekklister med data for noen av disse IDene (JSONB ?| operator)
+      const sjekklisteResultat = await ctx.prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) as count FROM checklists
+        WHERE template_id = ${objekt.templateId}
+        AND data IS NOT NULL
+        AND data ?| ${sletteIder}
+      `;
+
+      // Tell oppgaver med data for noen av disse IDene
+      const oppgaveResultat = await ctx.prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) as count FROM tasks
+        WHERE template_id = ${objekt.templateId}
+        AND data IS NOT NULL
+        AND data ?| ${sletteIder}
+      `;
+
+      return {
+        sjekklister: Number(sjekklisteResultat[0].count),
+        oppgaver: Number(oppgaveResultat[0].count),
+      };
+    }),
+
   // Slett rapportobjekt
   slettObjekt: publicProcedure
     .input(z.object({ id: z.string().uuid() }))

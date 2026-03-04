@@ -18,6 +18,7 @@ import {
   type ReportObjectType,
   type TemplateZone,
 } from "@siteflow/shared";
+import { Modal, Button, Spinner } from "@siteflow/ui";
 import { trpc } from "@/lib/trpc";
 import { FeltPalett } from "./FeltPalett";
 import { DropSone } from "./DropSone";
@@ -126,6 +127,7 @@ export function MalBygger({ mal }: MalByggerProps) {
   const utils = trpc.useUtils();
   const [valgtId, setValgtId] = useState<string | null>(null);
   const [aktivtDrag, setAktivtDrag] = useState<Active | null>(null);
+  const [slettBekreftelse, setSlettBekreftelse] = useState<{ id: string; label: string } | null>(null);
 
   // Lokale objekter for optimistisk oppdatering
   const [objekter, setObjekter] = useState<MalObjekt[]>(
@@ -512,6 +514,12 @@ export function MalBygger({ mal }: MalByggerProps) {
   }
 
   function handleSlett(id: string) {
+    const objekt = objekter.find((o) => o.id === id);
+    const label = objekt?.label ?? "felt";
+    setSlettBekreftelse({ id, label });
+  }
+
+  function utførSlett(id: string) {
     // Med CASCADE fjerner databasen barn automatisk.
     // Optimistisk: fjern feltet + alle etterkommere lokalt
     const etterkommere = finnAlleEtterkommere(objekter, id);
@@ -521,6 +529,7 @@ export function MalBygger({ mal }: MalByggerProps) {
     if (valgtId && sletteIder.has(valgtId)) setValgtId(null);
 
     slettMutation.mutate({ id });
+    setSlettBekreftelse(null);
   }
 
   function handleLagreKonfig(data: {
@@ -607,6 +616,69 @@ export function MalBygger({ mal }: MalByggerProps) {
           </p>
         </aside>
       )}
+
+      {/* Slett-bekreftelsesmodal */}
+      {slettBekreftelse && (
+        <SlettBekreftelse
+          id={slettBekreftelse.id}
+          label={slettBekreftelse.label}
+          onBekreft={() => utførSlett(slettBekreftelse.id)}
+          onAvbryt={() => setSlettBekreftelse(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function SlettBekreftelse({
+  id,
+  label,
+  onBekreft,
+  onAvbryt,
+}: {
+  id: string;
+  label: string;
+  onBekreft: () => void;
+  onAvbryt: () => void;
+}) {
+  const { data, isLoading } = trpc.mal.sjekkObjektBruk.useQuery({ id });
+
+  const harBruk = data && (data.sjekklister > 0 || data.oppgaver > 0);
+
+  return (
+    <Modal open={true} title={`Slett «${label}»?`} onClose={onAvbryt}>
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Spinner size="sm" />
+            Sjekker bruk i sjekklister og oppgaver…
+          </div>
+        ) : harBruk ? (
+          <p className="text-sm text-gray-700">
+            <strong>{data.sjekklister} {data.sjekklister === 1 ? "sjekkliste" : "sjekklister"}</strong>
+            {" og "}
+            <strong>{data.oppgaver} {data.oppgaver === 1 ? "oppgave" : "oppgaver"}</strong>
+            {" inneholder data for dette feltet. Dataen vil bli utilgjengelig ved sletting."}
+          </p>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Ingen sjekklister eller oppgaver bruker dette feltet.
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onAvbryt}>
+            Avbryt
+          </Button>
+          <Button
+            variant="danger"
+            onClick={onBekreft}
+            disabled={isLoading}
+          >
+            {harBruk ? "Slett likevel" : "Slett"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
