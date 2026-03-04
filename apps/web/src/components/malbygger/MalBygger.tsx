@@ -630,6 +630,12 @@ export function MalBygger({ mal }: MalByggerProps) {
   );
 }
 
+function formaterNummer(prefiks: string | null | undefined, nummer: number | null | undefined): string {
+  if (!nummer) return "";
+  if (prefiks) return `${prefiks}-${String(nummer).padStart(3, "0")}`;
+  return String(nummer);
+}
+
 function SlettBekreftelse({
   id,
   label,
@@ -643,7 +649,7 @@ function SlettBekreftelse({
 }) {
   const { data, isLoading } = trpc.mal.sjekkObjektBruk.useQuery({ id });
 
-  const harBruk = data && (data.sjekklister > 0 || data.oppgaver > 0);
+  const harBruk = data && (data.sjekklister.length > 0 || data.oppgaver.length > 0);
 
   return (
     <Modal open={true} title={`Slett «${label}»?`} onClose={onAvbryt}>
@@ -654,12 +660,48 @@ function SlettBekreftelse({
             Sjekker bruk i sjekklister og oppgaver…
           </div>
         ) : harBruk ? (
-          <p className="text-sm text-gray-700">
-            <strong>{data.sjekklister} {data.sjekklister === 1 ? "sjekkliste" : "sjekklister"}</strong>
-            {" og "}
-            <strong>{data.oppgaver} {data.oppgaver === 1 ? "oppgave" : "oppgaver"}</strong>
-            {" inneholder data for dette feltet. Dataen vil bli utilgjengelig ved sletting."}
-          </p>
+          <>
+            <p className="text-sm text-gray-700">
+              Feltet kan ikke slettes fordi følgende dokumenter inneholder data for dette feltet.
+              Fjern eller tøm dataen i disse dokumentene først.
+            </p>
+
+            {data.sjekklister.length > 0 && (
+              <div>
+                <h4 className="mb-1 text-sm font-medium text-gray-700">
+                  Sjekklister ({data.sjekklister.length})
+                </h4>
+                <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
+                  {data.sjekklister.map((s) => (
+                    <li key={s.id} className="flex items-center gap-2 rounded px-2 py-1 text-gray-600 hover:bg-gray-50">
+                      <span className="font-mono text-xs text-gray-400">
+                        {formaterNummer(s.template?.prefix, s.number)}
+                      </span>
+                      <span className="truncate">{s.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {data.oppgaver.length > 0 && (
+              <div>
+                <h4 className="mb-1 text-sm font-medium text-gray-700">
+                  Oppgaver ({data.oppgaver.length})
+                </h4>
+                <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
+                  {data.oppgaver.map((o) => (
+                    <li key={o.id} className="flex items-center gap-2 rounded px-2 py-1 text-gray-600 hover:bg-gray-50">
+                      <span className="font-mono text-xs text-gray-400">
+                        {formaterNummer(o.template?.prefix, o.number)}
+                      </span>
+                      <span className="truncate">{o.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-sm text-gray-500">
             Ingen sjekklister eller oppgaver bruker dette feltet.
@@ -668,15 +710,17 @@ function SlettBekreftelse({
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onAvbryt}>
-            Avbryt
+            {harBruk ? "Lukk" : "Avbryt"}
           </Button>
-          <Button
-            variant="danger"
-            onClick={onBekreft}
-            disabled={isLoading}
-          >
-            {harBruk ? "Slett likevel" : "Slett"}
-          </Button>
+          {!harBruk && (
+            <Button
+              variant="danger"
+              onClick={onBekreft}
+              disabled={isLoading}
+            >
+              Slett
+            </Button>
+          )}
         </div>
       </div>
     </Modal>

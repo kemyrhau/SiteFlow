@@ -190,7 +190,7 @@ export const malRouter = router({
         where: { id: input.id },
         select: { id: true, templateId: true },
       });
-      if (!objekt) return { sjekklister: 0, oppgaver: 0 };
+      if (!objekt) return { sjekklister: [], oppgaver: [] };
 
       // Hent alle objekter i malen for å finne etterkommere
       const alleObjekter = await ctx.prisma.reportObject.findMany({
@@ -210,26 +210,51 @@ export const malRouter = router({
       }
       finnEtterkommere(input.id);
 
-      // Tell sjekklister med data for noen av disse IDene (JSONB ?| operator)
-      const sjekklisteResultat = await ctx.prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) as count FROM checklists
+      // Hent sjekklister med data for noen av disse IDene (JSONB ?| operator)
+      const sjekklisteIder = await ctx.prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM checklists
         WHERE template_id = ${objekt.templateId}
         AND data IS NOT NULL
         AND data ?| ${sletteIder}
       `;
 
-      // Tell oppgaver med data for noen av disse IDene
-      const oppgaveResultat = await ctx.prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) as count FROM tasks
+      // Hent oppgave-IDer med data for noen av disse IDene
+      const oppgaveIder = await ctx.prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM tasks
         WHERE template_id = ${objekt.templateId}
         AND data IS NOT NULL
         AND data ?| ${sletteIder}
       `;
 
-      return {
-        sjekklister: Number(sjekklisteResultat[0].count),
-        oppgaver: Number(oppgaveResultat[0].count),
-      };
+      // Hent detaljer for berørte sjekklister
+      const sjekklister = sjekklisteIder.length > 0
+        ? await ctx.prisma.checklist.findMany({
+            where: { id: { in: sjekklisteIder.map((r) => r.id) } },
+            select: {
+              id: true,
+              title: true,
+              number: true,
+              status: true,
+              template: { select: { prefix: true, projectId: true } },
+            },
+          })
+        : [];
+
+      // Hent detaljer for berørte oppgaver
+      const oppgaver = oppgaveIder.length > 0
+        ? await ctx.prisma.task.findMany({
+            where: { id: { in: oppgaveIder.map((r) => r.id) } },
+            select: {
+              id: true,
+              title: true,
+              number: true,
+              status: true,
+              template: { select: { prefix: true, projectId: true } },
+            },
+          })
+        : [];
+
+      return { sjekklister, oppgaver };
     }),
 
   // Slett rapportobjekt
