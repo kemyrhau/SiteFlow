@@ -245,7 +245,7 @@ export default function SjekklisteDetaljSide() {
       <div className="flex flex-col gap-3">
         {objekter.map((objekt) => {
           if (!erSynlig(objekt)) return null;
-          if (SKJULT_I_UTFYLLING.has(objekt.type)) return null;
+          if (!leseModus && SKJULT_I_UTFYLLING.has(objekt.type)) return null;
 
           const erDisplay = DISPLAY_TYPER.has(objekt.type);
           const nestingNivå = hentNestingNivå(objekt, objekter);
