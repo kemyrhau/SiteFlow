@@ -8,6 +8,7 @@ interface VaerVerdi {
   temp?: string;
   conditions?: string;
   wind?: string;
+  precipitation?: string;
   kilde?: "manuell" | "automatisk";
 }
 
@@ -98,10 +99,17 @@ export function useAutoVaer({
     const vaerkode = vaerdata.hourly.weather_code[indeks];
     const vind = vaerdata.hourly.wind_speed_10m[indeks];
 
+    // Summer opp nedbør for hele dagen (alle 24 timer)
+    const dagNedbor = vaerdata.hourly.precipitation.reduce(
+      (sum: number, v: number | null) => sum + (v ?? 0),
+      0,
+    );
+
     const nyVerdi: VaerVerdi = {
       temp: temp != null ? `${temp}°C` : undefined,
       conditions: vaerkode != null ? vaerkodeTilTekst(vaerkode) : undefined,
       wind: vind != null ? `${vind} m/s` : undefined,
+      precipitation: `${Math.round(dagNedbor * 10) / 10} mm`,
       kilde: "automatisk",
     };
 

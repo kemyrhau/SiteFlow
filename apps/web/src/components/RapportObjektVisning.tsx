@@ -21,6 +21,7 @@ interface VaerVerdi {
   temp?: string;
   conditions?: string;
   wind?: string;
+  precipitation?: string;
   kilde?: "manuell" | "automatisk";
 }
 
@@ -326,6 +327,7 @@ function ObjektInnhold({
       if (v.temp) deler.push(v.temp);
       if (v.conditions) deler.push(v.conditions);
       if (v.wind) deler.push(`Vind ${v.wind}`);
+      if (v.precipitation) deler.push(`Nedbør ${v.precipitation}`);
       const tekst = deler.join(", ");
       return (
         <FeltRad label={label} tom={!tekst}>

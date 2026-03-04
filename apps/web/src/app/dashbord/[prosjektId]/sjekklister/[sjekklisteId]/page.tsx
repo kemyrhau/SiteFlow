@@ -114,12 +114,14 @@ export default function SjekklisteDetaljSide() {
       temp?: string;
       conditions?: string;
       wind?: string;
+      precipitation?: string;
     } | null;
     if (!vaerVerdi) return null;
     const deler: string[] = [];
     if (vaerVerdi.temp) deler.push(vaerVerdi.temp);
     if (vaerVerdi.conditions) deler.push(vaerVerdi.conditions);
     if (vaerVerdi.wind) deler.push(`Vind ${vaerVerdi.wind}`);
+    if (vaerVerdi.precipitation) deler.push(`Nedbør ${vaerVerdi.precipitation}`);
     return deler.length > 0 ? deler.join(", ") : null;
   }, [objekter, hentFeltVerdi]);
 

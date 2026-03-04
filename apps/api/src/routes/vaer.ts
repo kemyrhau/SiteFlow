@@ -7,6 +7,7 @@ const openMeteoResponseSchema = z.object({
     temperature_2m: z.array(z.number().nullable()),
     weather_code: z.array(z.number().nullable()),
     wind_speed_10m: z.array(z.number().nullable()),
+    precipitation: z.array(z.number().nullable()),
   }),
 });
 
@@ -20,7 +21,7 @@ export const vaerRouter = router({
       }),
     )
     .query(async ({ input }) => {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${input.latitude}&longitude=${input.longitude}&hourly=temperature_2m,weather_code,wind_speed_10m&start_date=${input.dato}&end_date=${input.dato}`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${input.latitude}&longitude=${input.longitude}&hourly=temperature_2m,weather_code,wind_speed_10m,precipitation&start_date=${input.dato}&end_date=${input.dato}`;
 
       const respons = await fetch(url);
       if (!respons.ok) {

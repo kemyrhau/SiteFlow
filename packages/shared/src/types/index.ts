@@ -373,6 +373,7 @@ export interface VaerVerdi {
   forhold?: string;
   vindstyrke?: number;
   vaerkode?: number;
+  nedbor?: string;
   kilde?: "manuell" | "automatisk";
 }
 

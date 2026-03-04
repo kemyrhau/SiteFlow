@@ -5,6 +5,7 @@ interface VaerVerdi {
   temp?: string;
   conditions?: string;
   wind?: string;
+  precipitation?: string;
 }
 
 export function VaerObjekt({ verdi, onEndreVerdi, leseModus }: RapportObjektProps) {
@@ -46,6 +47,18 @@ export function VaerObjekt({ verdi, onEndreVerdi, leseModus }: RapportObjektProp
           value={vaerVerdi.wind ?? ""}
           onChangeText={(t) => oppdater("wind", t)}
           placeholder="f.eks. 5 m/s NV"
+          editable={!leseModus}
+          className={`rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ${
+            leseModus ? "bg-gray-50 text-gray-500" : ""
+          }`}
+        />
+      </View>
+      <View>
+        <Text className="mb-1 text-xs font-medium text-gray-600">Nedbør</Text>
+        <TextInput
+          value={vaerVerdi.precipitation ?? ""}
+          onChangeText={(t) => oppdater("precipitation", t)}
+          placeholder="f.eks. 2.5 mm"
           editable={!leseModus}
           className={`rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ${
             leseModus ? "bg-gray-50 text-gray-500" : ""

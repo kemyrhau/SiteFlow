@@ -110,12 +110,14 @@ export default function UtskriftSjekklisteSide() {
       temp?: string;
       conditions?: string;
       wind?: string;
+      precipitation?: string;
     } | null;
     if (!vaerData) return null;
     const deler: string[] = [];
     if (vaerData.temp) deler.push(vaerData.temp);
     if (vaerData.conditions) deler.push(vaerData.conditions);
     if (vaerData.wind) deler.push(`Vind ${vaerData.wind}`);
+    if (vaerData.precipitation) deler.push(`Nedbør ${vaerData.precipitation}`);
     return deler.length > 0 ? deler.join(", ") : null;
   }, [sjekkliste?.template?.objects, data]);
 
