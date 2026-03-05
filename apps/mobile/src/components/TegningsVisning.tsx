@@ -353,7 +353,7 @@ export function TegningsVisning({
           )}
         </View>
       ) : (
-        /* Bildevisning — gesture-systemene er separert */
+        /* Bildevisning — zoom og trykk fungerer sammen */
         <View
           ref={bildeRef}
           onLayout={håndterBildeLayout}
@@ -361,7 +361,7 @@ export function TegningsVisning({
         >
           {laster && renderLasting()}
 
-          {/* ScrollView med zoom */}
+          {/* ScrollView med zoom — trykk-håndtering er på bildecontaineren */}
           <ScrollView
             contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
             maximumZoomScale={5}
@@ -370,8 +370,15 @@ export function TegningsVisning({
             showsHorizontalScrollIndicator={false}
             showsVerticalScrollIndicator={false}
           >
-            {/* Bilde + markører i SAMME container — ingen kompensering nødvendig */}
-            <View style={{ width: bildeSt.width, height: bildeSt.height, position: "relative" }}>
+            {/* Bilde + markører + trykk i SAMME container */}
+            <View
+              style={{ width: bildeSt.width, height: bildeSt.height, position: "relative" }}
+              {...(onTrykk ? {
+                onStartShouldSetResponder: håndterTrykkStart,
+                onResponderMove: håndterBevegelse,
+                onResponderRelease: håndterBildeTrykk,
+              } : {})}
+            >
               <Image
                 source={{ uri: tegningUrl }}
                 style={{ width: bildeSt.width, height: bildeSt.height }}
@@ -384,16 +391,6 @@ export function TegningsVisning({
               </View>
             </View>
           </ScrollView>
-
-          {/* Trykk-overlegg — kun ekte tap (ikke drag/zoom) plasserer markør */}
-          {onTrykk && (
-            <View
-              style={StyleSheet.absoluteFill}
-              onStartShouldSetResponder={håndterTrykkStart}
-              onResponderMove={håndterBevegelse}
-              onResponderRelease={håndterBildeTrykk}
-            />
-          )}
         </View>
       )}
     </View>
