@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { createProjectSchema } from "@siteflow/shared";
 import { generateProjectNumber } from "@siteflow/shared";
 
@@ -17,7 +17,7 @@ export const prosjektRouter = router({
   }),
 
   // Hent alle prosjekter
-  hentAlle: publicProcedure.query(async ({ ctx }) => {
+  hentAlle: protectedProcedure.query(async ({ ctx }) => {
     return ctx.prisma.project.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -28,7 +28,7 @@ export const prosjektRouter = router({
   }),
 
   // Hent ett prosjekt med ID
-  hentMedId: publicProcedure
+  hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.project.findUniqueOrThrow({
@@ -49,7 +49,7 @@ export const prosjektRouter = router({
     }),
 
   // Opprett nytt prosjekt
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(createProjectSchema)
     .mutation(async ({ ctx, input }) => {
       // Tell eksisterende prosjekter for sekvensnummer
@@ -65,7 +65,7 @@ export const prosjektRouter = router({
     }),
 
   // Oppdater prosjekt
-  oppdater: publicProcedure
+  oppdater: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),

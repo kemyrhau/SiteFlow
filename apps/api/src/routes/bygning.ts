@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { createBuildingSchema } from "@siteflow/shared";
 
 export const bygningRouter = router({
   // Hent alle bygninger for et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({
       projectId: z.string().uuid(),
       type: z.string().optional(),
@@ -38,7 +38,7 @@ export const bygningRouter = router({
     }),
 
   // Hent én bygning med ID
-  hentMedId: publicProcedure
+  hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.building.findUniqueOrThrow({
@@ -51,7 +51,7 @@ export const bygningRouter = router({
     }),
 
   // Opprett ny bygning
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(createBuildingSchema)
     .mutation(async ({ ctx, input }) => {
       // Auto-generer nummer per prosjekt
@@ -67,7 +67,7 @@ export const bygningRouter = router({
     }),
 
   // Oppdater bygning
-  oppdater: publicProcedure
+  oppdater: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -82,7 +82,7 @@ export const bygningRouter = router({
     }),
 
   // Publiser bygning
-  publiser: publicProcedure
+  publiser: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.building.update({
@@ -92,7 +92,7 @@ export const bygningRouter = router({
     }),
 
   // Slett bygning (kun hvis tom — ingen tegninger eller sjekklister)
-  slett: publicProcedure
+  slett: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const bygning = await ctx.prisma.building.findUniqueOrThrow({

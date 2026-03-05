@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Prisma } from "@siteflow/db";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { reportObjectTypeSchema, templateZoneSchema, createTemplateSchema } from "@siteflow/shared";
 
 // Config-schema: aksepterer vilkårlig JSON for rapportobjekt-konfigurasjon
@@ -11,7 +11,7 @@ const configSchema = z.preprocess(
 
 export const malRouter = router({
   // Hent alle maler for et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.reportTemplate.findMany({
@@ -24,7 +24,7 @@ export const malRouter = router({
     }),
 
   // Hent én mal med alle objekter
-  hentMedId: publicProcedure
+  hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.reportTemplate.findUniqueOrThrow({
@@ -37,7 +37,7 @@ export const malRouter = router({
     }),
 
   // Opprett ny mal (med valgfri entreprisetilknytning via arbeidsforløp)
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(createTemplateSchema)
     .mutation(async ({ ctx, input }) => {
       const { workflowIds, ...malData } = input;
@@ -59,7 +59,7 @@ export const malRouter = router({
     }),
 
   // Oppdater mal (navn, beskrivelse, prefiks, fagområde)
-  oppdaterMal: publicProcedure
+  oppdaterMal: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -76,14 +76,14 @@ export const malRouter = router({
     }),
 
   // Slett mal
-  slettMal: publicProcedure
+  slettMal: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.reportTemplate.delete({ where: { id: input.id } });
     }),
 
   // Legg til rapportobjekt i mal
-  leggTilObjekt: publicProcedure
+  leggTilObjekt: protectedProcedure
     .input(
       z.object({
         templateId: z.string().uuid(),
@@ -107,7 +107,7 @@ export const malRouter = router({
     }),
 
   // Oppdater et enkelt rapportobjekt
-  oppdaterObjekt: publicProcedure
+  oppdaterObjekt: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -132,7 +132,7 @@ export const malRouter = router({
     }),
 
   // Oppdater rekkefølge, sone og parentId på objekter
-  oppdaterRekkefølge: publicProcedure
+  oppdaterRekkefølge: protectedProcedure
     .input(
       z.object({
         objekter: z.array(
@@ -183,7 +183,7 @@ export const malRouter = router({
     }),
 
   // Sjekk om et rapportobjekt (og evt. barn) har data i sjekklister/oppgaver
-  sjekkObjektBruk: publicProcedure
+  sjekkObjektBruk: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const objekt = await ctx.prisma.reportObject.findUnique({
@@ -258,7 +258,7 @@ export const malRouter = router({
     }),
 
   // Slett rapportobjekt
-  slettObjekt: publicProcedure
+  slettObjekt: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.reportObject.delete({ where: { id: input.id } });

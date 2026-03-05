@@ -1,11 +1,11 @@
 import { z } from "zod";
 import crypto from "crypto";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, publicProcedure, protectedProcedure } from "../trpc/trpc";
 import { sendInvitasjonsEpost } from "../services/epost";
 
 export const invitasjonRouter = router({
   // Hent alle invitasjoner for et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.projectInvitation.findMany({
@@ -89,7 +89,7 @@ export const invitasjonRouter = router({
     }),
 
   // Send invitasjon på nytt
-  sendPaNytt: publicProcedure
+  sendPaNytt: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const invitasjon = await ctx.prisma.projectInvitation.findUniqueOrThrow({
@@ -128,7 +128,7 @@ export const invitasjonRouter = router({
     }),
 
   // Trekk tilbake invitasjon
-  trekkTilbake: publicProcedure
+  trekkTilbake: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.projectInvitation.delete({

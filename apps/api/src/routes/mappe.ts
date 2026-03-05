@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { settMappeTilgangSchema } from "@siteflow/shared/validation";
 
 export const mappeRouter = router({
   // Hent alle mapper for et prosjekt (flat liste med parentId + tilgangsoppføringer)
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.folder.findMany({
@@ -24,7 +24,7 @@ export const mappeRouter = router({
     }),
 
   // Opprett ny mappe
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(
       z.object({
         projectId: z.string().uuid(),
@@ -43,7 +43,7 @@ export const mappeRouter = router({
     }),
 
   // Oppdater mappe (gi nytt navn)
-  oppdater: publicProcedure
+  oppdater: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -58,14 +58,14 @@ export const mappeRouter = router({
     }),
 
   // Slett mappe (kaskaderer til undermapper og dokumenter)
-  slett: publicProcedure
+  slett: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.folder.delete({ where: { id: input.id } });
     }),
 
   // Hent dokumenter for en mappe
-  hentDokumenter: publicProcedure
+  hentDokumenter: protectedProcedure
     .input(z.object({ folderId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.document.findMany({
@@ -75,7 +75,7 @@ export const mappeRouter = router({
     }),
 
   // Hent tilgangskonfigurasjon for én mappe
-  hentTilgang: publicProcedure
+  hentTilgang: protectedProcedure
     .input(z.object({ folderId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const mappe = await ctx.prisma.folder.findUniqueOrThrow({
@@ -96,7 +96,7 @@ export const mappeRouter = router({
     }),
 
   // Sett tilgang for en mappe (erstatter alle oppføringer)
-  settTilgang: publicProcedure
+  settTilgang: protectedProcedure
     .input(settMappeTilgangSchema)
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.$transaction(async (tx) => {

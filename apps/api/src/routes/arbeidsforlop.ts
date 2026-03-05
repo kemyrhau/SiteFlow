@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { createWorkflowSchema, updateWorkflowSchema } from "@siteflow/shared";
 
 export const arbeidsforlopRouter = router({
   // Hent alle arbeidsforløp for alle entrepriser i et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.workflow.findMany({
@@ -20,7 +20,7 @@ export const arbeidsforlopRouter = router({
     }),
 
   // Hent alle arbeidsforløp for en entreprise
-  hentForEntreprise: publicProcedure
+  hentForEntreprise: protectedProcedure
     .input(z.object({ enterpriseId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.workflow.findMany({
@@ -36,7 +36,7 @@ export const arbeidsforlopRouter = router({
     }),
 
   // Opprett nytt arbeidsforløp med valgfrie maler
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(createWorkflowSchema)
     .mutation(async ({ ctx, input }) => {
       const { templateIds, ...data } = input;
@@ -57,7 +57,7 @@ export const arbeidsforlopRouter = router({
     }),
 
   // Oppdater arbeidsforløp — navn, svarer-entreprise og/eller maltilknytninger
-  oppdater: publicProcedure
+  oppdater: protectedProcedure
     .input(updateWorkflowSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, templateIds, ...data } = input;
@@ -89,7 +89,7 @@ export const arbeidsforlopRouter = router({
     }),
 
   // Slett arbeidsforløp
-  slett: publicProcedure
+  slett: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.workflow.delete({ where: { id: input.id } });

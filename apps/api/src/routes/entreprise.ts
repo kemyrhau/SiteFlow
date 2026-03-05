@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import { createEnterpriseSchema, copyEnterpriseSchema } from "@siteflow/shared";
 
 export const entrepriseRouter = router({
   // Hent alle entrepriser for et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.enterprise.findMany({
@@ -31,7 +31,7 @@ export const entrepriseRouter = router({
     }),
 
   // Hent én entreprise med ID
-  hentMedId: publicProcedure
+  hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.enterprise.findUniqueOrThrow({
@@ -50,7 +50,7 @@ export const entrepriseRouter = router({
     }),
 
   // Opprett ny entreprise med auto-opprettet "Navnløst arbeidsforløp"
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(createEnterpriseSchema)
     .mutation(async ({ ctx, input }) => {
       const { memberIds, ...data } = input;
@@ -76,7 +76,7 @@ export const entrepriseRouter = router({
     }),
 
   // Oppdater entreprise
-  oppdater: publicProcedure
+  oppdater: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -94,7 +94,7 @@ export const entrepriseRouter = router({
     }),
 
   // Kopier entreprise fra et prosjekt til et annet (eller samme)
-  kopier: publicProcedure
+  kopier: protectedProcedure
     .input(copyEnterpriseSchema)
     .mutation(async ({ ctx, input }) => {
       const kilde = await ctx.prisma.enterprise.findUniqueOrThrow({
@@ -150,7 +150,7 @@ export const entrepriseRouter = router({
     }),
 
   // Slett entreprise
-  slett: publicProcedure
+  slett: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.enterprise.delete({ where: { id: input.id } });

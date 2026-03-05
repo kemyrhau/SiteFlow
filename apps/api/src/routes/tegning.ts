@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Prisma } from "@siteflow/db";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 import {
   drawingDisciplineSchema,
   drawingTypeSchema,
@@ -14,7 +14,7 @@ const tegningStatuser = drawingStatusSchema;
 
 export const tegningRouter = router({
   // Hent alle tegninger for et prosjekt
-  hentForProsjekt: publicProcedure
+  hentForProsjekt: protectedProcedure
     .input(
       z.object({
         projectId: z.string().uuid(),
@@ -43,7 +43,7 @@ export const tegningRouter = router({
     }),
 
   // Hent tegninger for en bygning
-  hentForBygning: publicProcedure
+  hentForBygning: protectedProcedure
     .input(z.object({ buildingId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.drawing.findMany({
@@ -54,7 +54,7 @@ export const tegningRouter = router({
     }),
 
   // Hent én tegning med revisjonshistorikk
-  hentMedId: publicProcedure
+  hentMedId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.drawing.findUniqueOrThrow({
@@ -71,7 +71,7 @@ export const tegningRouter = router({
     }),
 
   // Opprett ny tegning
-  opprett: publicProcedure
+  opprett: protectedProcedure
     .input(
       z.object({
         projectId: z.string().uuid(),
@@ -96,7 +96,7 @@ export const tegningRouter = router({
     }),
 
   // Oppdater tegningsmetadata
-  oppdater: publicProcedure
+  oppdater: protectedProcedure
     .input(
       z.object({
         id: z.string().uuid(),
@@ -119,7 +119,7 @@ export const tegningRouter = router({
     }),
 
   // Last opp ny revisjon av en tegning
-  lastOppRevisjon: publicProcedure
+  lastOppRevisjon: protectedProcedure
     .input(
       z.object({
         drawingId: z.string().uuid(),
@@ -170,7 +170,7 @@ export const tegningRouter = router({
     }),
 
   // Hent revisjonshistorikk for en tegning
-  hentRevisjoner: publicProcedure
+  hentRevisjoner: protectedProcedure
     .input(z.object({ drawingId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.drawingRevision.findMany({
@@ -181,7 +181,7 @@ export const tegningRouter = router({
     }),
 
   // Tilknytt eller fjern tegning fra bygning
-  tilknyttBygning: publicProcedure
+  tilknyttBygning: protectedProcedure
     .input(
       z.object({
         drawingId: z.string().uuid(),
@@ -196,7 +196,7 @@ export const tegningRouter = router({
     }),
 
   // Sett georeferanse for en tegning
-  settGeoReferanse: publicProcedure
+  settGeoReferanse: protectedProcedure
     .input(z.object({
       drawingId: z.string().uuid(),
       geoReference: geoReferanseSchema,
@@ -209,7 +209,7 @@ export const tegningRouter = router({
     }),
 
   // Fjern georeferanse fra en tegning
-  fjernGeoReferanse: publicProcedure
+  fjernGeoReferanse: protectedProcedure
     .input(z.object({ drawingId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.drawing.update({
@@ -219,7 +219,7 @@ export const tegningRouter = router({
     }),
 
   // Slett tegning
-  slett: publicProcedure
+  slett: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.prisma.drawing.delete({ where: { id: input.id } });

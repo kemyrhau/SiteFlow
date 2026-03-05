@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc/trpc";
+import { router, protectedProcedure } from "../trpc/trpc";
 
 const openMeteoResponseSchema = z.object({
   hourly: z.object({
@@ -12,7 +12,7 @@ const openMeteoResponseSchema = z.object({
 });
 
 export const vaerRouter = router({
-  hentVaerdata: publicProcedure
+  hentVaerdata: protectedProcedure
     .input(
       z.object({
         latitude: z.number().min(-90).max(90),
