@@ -16,6 +16,10 @@ import {
   Plus,
   Crosshair,
   Navigation,
+  Eye,
+  EyeOff,
+  Check,
+  X,
 } from "lucide-react-native";
 import * as Location from "expo-location";
 import { trpc } from "../../src/lib/trpc";
@@ -85,6 +89,7 @@ export default function LokasjonerSkjerm() {
   const [visOppgaveModal, setVisOppgaveModal] = useState(false);
   const [visMalVelger, setVisMalVelger] = useState(false);
   const [valgtMalId, setValgtMalId] = useState<string | null>(null);
+  const [visEksisterende, setVisEksisterende] = useState(true);
 
   // Hent alle bygninger for valgt prosjekt
   const bygningQuery = trpc.bygning.hentForProsjekt.useQuery(
@@ -134,16 +139,18 @@ export default function LokasjonerSkjerm() {
     [valgtTegningDetalj?.geoReference],
   );
 
-  // Bygg markørliste: eksisterende oppgaver (røde) + ny markør (grønn/rød)
+  // Bygg markørliste: eksisterende oppgaver (røde, valgfritt) + ny markør (grønn)
   const markører: Markør[] = useMemo(() => {
-    const liste: Markør[] = eksisterendeOppgaver
-      .filter((o) => o.positionX != null && o.positionY != null)
-      .map((o) => ({
-        id: o.id,
-        x: o.positionX,
-        y: o.positionY,
-        label: `${o.template?.prefix ?? ""}${o.template?.prefix ? "-" : ""}${String(o.number).padStart(3, "0")}`,
-      }));
+    const liste: Markør[] = visEksisterende
+      ? eksisterendeOppgaver
+          .filter((o) => o.positionX != null && o.positionY != null)
+          .map((o) => ({
+            id: o.id,
+            x: o.positionX,
+            y: o.positionY,
+            label: `${o.template?.prefix ?? ""}${o.template?.prefix ? "-" : ""}${String(o.number).padStart(3, "0")}`,
+          }))
+      : [];
 
     if (markørPosisjon) {
       liste.push({
@@ -155,7 +162,7 @@ export default function LokasjonerSkjerm() {
     }
 
     return liste;
-  }, [eksisterendeOppgaver, markørPosisjon]);
+  }, [eksisterendeOppgaver, markørPosisjon, visEksisterende]);
 
   // GPS-posisjon på tegning (kontinuerlig sporing for georefererte tegninger)
   const [gpsMarkør, setGpsMarkør] = useState<GpsMarkør | null>(null);
@@ -256,11 +263,10 @@ export default function LokasjonerSkjerm() {
     setPlasseringsmodus(false);
   }, []);
 
-  // Håndter trykk på tegning (kun i plasseringsmodus)
+  // Håndter trykk på tegning — plasser markør uten å åpne modal
   const håndterTegningTrykk = useCallback(
     (posX: number, posY: number) => {
       setMarkørPosisjon({ x: posX, y: posY });
-      setVisMalVelger(true);
     },
     [],
   );
@@ -269,11 +275,22 @@ export default function LokasjonerSkjerm() {
   const brukGpsPosisjon = useCallback(() => {
     if (gpsMarkør) {
       setMarkørPosisjon({ x: gpsMarkør.x, y: gpsMarkør.y });
-      setVisMalVelger(true);
     } else {
       Alert.alert("GPS ikke tilgjengelig", "Venter på GPS-posisjon. Prøv igjen om et øyeblikk.");
     }
   }, [gpsMarkør]);
+
+  // Bekreft markørposisjon → åpne malvelger
+  const bekreftPosisjon = useCallback(() => {
+    if (markørPosisjon) {
+      setVisMalVelger(true);
+    }
+  }, [markørPosisjon]);
+
+  // Avbryt markørplassering
+  const avbrytMarkør = useCallback(() => {
+    setMarkørPosisjon(null);
+  }, []);
 
   // Håndter trykk på eksisterende markør
   const håndterMarkørTrykk = useCallback((markørId: string) => {
@@ -354,19 +371,61 @@ export default function LokasjonerSkjerm() {
 
       {/* Plasseringsmodus-banner */}
       {visserTegning && plasseringsmodus && (
-        <View className="flex-row items-center justify-between bg-amber-50 px-4 py-2">
-          <Text className="text-xs text-amber-700">
-            Trykk på tegningen for å plassere markør
-          </Text>
-          {harGeoRef && gpsMarkør && (
-            <Pressable
-              onPress={brukGpsPosisjon}
-              className="flex-row items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1"
-            >
-              <Crosshair size={12} color="#1e40af" />
-              <Text className="text-xs font-medium text-blue-700">Bruk GPS</Text>
-            </Pressable>
-          )}
+        <View className="bg-amber-50 px-4 py-2">
+          <View className="flex-row items-center justify-between">
+            {markørPosisjon ? (
+              <>
+                <Text className="text-xs text-amber-700">
+                  Verifiser posisjon
+                </Text>
+                <View className="flex-row items-center gap-2">
+                  <Pressable
+                    onPress={avbrytMarkør}
+                    className="flex-row items-center gap-1 rounded-full bg-gray-200 px-2.5 py-1"
+                  >
+                    <X size={12} color="#6b7280" />
+                    <Text className="text-xs font-medium text-gray-600">Flytt</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={bekreftPosisjon}
+                    className="flex-row items-center gap-1 rounded-full bg-green-600 px-3 py-1"
+                  >
+                    <Check size={12} color="#ffffff" />
+                    <Text className="text-xs font-medium text-white">Bekreft</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text className="text-xs text-amber-700">
+                  Trykk på tegningen for å plassere markør
+                </Text>
+                {harGeoRef && gpsMarkør && (
+                  <Pressable
+                    onPress={brukGpsPosisjon}
+                    className="flex-row items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1"
+                  >
+                    <Crosshair size={12} color="#1e40af" />
+                    <Text className="text-xs font-medium text-blue-700">Bruk GPS</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
+          </View>
+          {/* Toggle for eksisterende oppgaver */}
+          <Pressable
+            onPress={() => setVisEksisterende(!visEksisterende)}
+            className="mt-1.5 flex-row items-center gap-1.5"
+          >
+            {visEksisterende ? (
+              <Eye size={12} color="#6b7280" />
+            ) : (
+              <EyeOff size={12} color="#6b7280" />
+            )}
+            <Text className="text-xs text-gray-500">
+              {visEksisterende ? "Skjul tidligere oppgaver" : "Vis tidligere oppgaver"}
+            </Text>
+          </Pressable>
         </View>
       )}
 

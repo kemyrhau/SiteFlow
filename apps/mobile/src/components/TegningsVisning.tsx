@@ -17,7 +17,7 @@ import type {
 } from "react-native";
 import { WebView } from "react-native-webview";
 import type { WebViewMessageEvent } from "react-native-webview";
-import { X, MapPin, AlertTriangle, RefreshCw } from "lucide-react-native";
+import { X, AlertTriangle, RefreshCw } from "lucide-react-native";
 
 const LASTING_TIMEOUT_MS = 15_000;
 
@@ -207,7 +207,7 @@ export function TegningsVisning({
     true;
   `;
 
-  // Render markører som absolutt posisjonerte pinner (klikkbare)
+  // Render markører som absolutt posisjonerte prikker (klikkbare)
   const renderMarkører = (bildeW: number, bildeH: number) => {
     return markører.map((m) => {
       const farge = m.farge || "#ef4444";
@@ -215,19 +215,17 @@ export function TegningsVisning({
         <Pressable
           key={m.id}
           onPress={() => onMarkørTrykk?.(m.id)}
-          hitSlop={8}
+          hitSlop={12}
           style={{
             position: "absolute",
-            left: (m.x / 100) * bildeW - 12,
-            top: (m.y / 100) * bildeH - 24,
+            left: (m.x / 100) * bildeW - 8,
+            top: (m.y / 100) * bildeH - 8,
             alignItems: "center",
           }}
         >
-          <MapPin size={24} color={farge} fill={farge} />
+          <View style={[stiler.markørPrikk, { backgroundColor: farge, borderColor: farge === "#10b981" ? "#ffffff" : "#ffffff" }]} />
           {m.label && (
-            <View style={{ backgroundColor: "rgba(0,0,0,0.7)", borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1, marginTop: -2 }}>
-              <Text style={{ color: "#fff", fontSize: 9, fontWeight: "600" }}>{m.label}</Text>
-            </View>
+            <Text style={stiler.markørLabel}>{m.label}</Text>
           )}
         </Pressable>
       );
@@ -450,6 +448,24 @@ const stiler = StyleSheet.create({
     color: "#d1d5db",
     fontSize: 14,
     marginTop: 12,
+  },
+  markørPrikk: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#ffffff",
+  },
+  markørLabel: {
+    color: "#1f2937",
+    fontSize: 8,
+    fontWeight: "700",
+    marginTop: 1,
+    backgroundColor: "rgba(255,255,255,0.85)",
+    borderRadius: 3,
+    paddingHorizontal: 3,
+    paddingVertical: 0.5,
+    overflow: "hidden",
   },
   gpsPrikk: {
     width: 20,
