@@ -27,12 +27,18 @@ export interface Markør {
   id: string;
 }
 
+export interface GpsMarkør {
+  x: number;
+  y: number;
+}
+
 interface TegningsVisningProps {
   tegningUrl: string;
   tegningNavn: string;
   onLukk: () => void;
   onTrykk?: (posX: number, posY: number) => void;
   markører?: Markør[];
+  gpsMarkør?: GpsMarkør | null;
 }
 
 function erPdf(url: string): boolean {
@@ -45,6 +51,7 @@ export function TegningsVisning({
   onLukk,
   onTrykk,
   markører = [],
+  gpsMarkør,
 }: TegningsVisningProps) {
   const [laster, setLaster] = useState(true);
   const [feil, setFeil] = useState(false);
@@ -174,6 +181,24 @@ export function TegningsVisning({
     ));
   };
 
+  // Render GPS-posisjon som blå prikk med ring
+  const renderGpsMarkør = (containerW: number, containerH: number) => {
+    if (!gpsMarkør) return null;
+    return (
+      <View
+        style={{
+          position: "absolute",
+          left: (gpsMarkør.x / 100) * containerW - 10,
+          top: (gpsMarkør.y / 100) * containerH - 10,
+        }}
+      >
+        <View style={stiler.gpsPrikk}>
+          <View style={stiler.gpsPrikkInner} />
+        </View>
+      </View>
+    );
+  };
+
   // Feilvisning med "Prøv igjen"-knapp
   const renderFeilVisning = () => (
     <View style={stiler.feilContainer}>
@@ -237,6 +262,10 @@ export function TegningsVisning({
                 style={{ flex: 1, width: "100%", height: "100%", border: "none" }}
                 onLoad={håndterLastetFerdig}
               />
+              <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                {renderMarkører(width, height * 0.8)}
+                {renderGpsMarkør(width, height * 0.8)}
+              </View>
               {onTrykk && (
                 <Pressable
                   style={StyleSheet.absoluteFill}
@@ -249,9 +278,7 @@ export function TegningsVisning({
                       Math.max(0, Math.min(100, posY)),
                     );
                   }}
-                >
-                  {renderMarkører(width, height * 0.8)}
-                </Pressable>
+                />
               )}
             </View>
           ) : (
@@ -269,6 +296,7 @@ export function TegningsVisning({
               />
               <View pointerEvents="none" style={StyleSheet.absoluteFill}>
                 {renderMarkører(width, height * 0.8)}
+                {renderGpsMarkør(width, height * 0.8)}
               </View>
             </View>
           )}
@@ -304,9 +332,13 @@ export function TegningsVisning({
             />
           </ScrollView>
 
-          {/* Markører som eget overlegg — blokkerer ikke gestures */}
+          {/* Markører og GPS-posisjon som eget overlegg — blokkerer ikke gestures */}
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             {renderMarkører(
+              bildeDimensjoner.width || width,
+              bildeDimensjoner.height || height * 0.8,
+            )}
+            {renderGpsMarkør(
               bildeDimensjoner.width || width,
               bildeDimensjoner.height || height * 0.8,
             )}
@@ -375,5 +407,21 @@ const stiler = StyleSheet.create({
     color: "#d1d5db",
     fontSize: 14,
     marginTop: 12,
+  },
+  gpsPrikk: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(59, 130, 246, 0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  gpsPrikkInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#3b82f6",
+    borderWidth: 2,
+    borderColor: "#ffffff",
   },
 });

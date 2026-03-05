@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import { useProsjekt } from "../../src/kontekst/ProsjektKontekst";
 import { AUTH_CONFIG } from "../../src/config/auth";
 import { KartVisning } from "../../src/components/KartVisning";
 import { TegningsVisning } from "../../src/components/TegningsVisning";
-import type { Markør } from "../../src/components/TegningsVisning";
+import type { Markør, GpsMarkør } from "../../src/components/TegningsVisning";
 import { TegningsVelger } from "../../src/components/TegningsVelger";
 import { OppgaveModal } from "../../src/components/OppgaveModal";
 import { MalVelger } from "../../src/components/MalVelger";
@@ -113,6 +113,56 @@ export default function LokasjonerSkjerm() {
     const farge = valgtTegningDetalj?.geoReference ? "#10b981" : undefined;
     return [{ x: markørPosisjon.x, y: markørPosisjon.y, id: "ny-oppgave", farge }];
   }, [markørPosisjon, valgtTegningDetalj?.geoReference]);
+
+  // GPS-posisjon på tegning (kontinuerlig sporing for georefererte tegninger)
+  const [gpsMarkør, setGpsMarkør] = useState<GpsMarkør | null>(null);
+  const gpsAbonnementRef = useRef<Location.LocationSubscription | null>(null);
+
+  useEffect(() => {
+    // Start GPS-sporing kun for georefererte tegninger
+    if (!valgtTegningDetalj?.geoReference) {
+      setGpsMarkør(null);
+      return;
+    }
+
+    let aktiv = true;
+
+    async function startSporing() {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted" || !aktiv) return;
+
+      const geoRef = valgtTegningDetalj!.geoReference as GeoReferanse;
+      const transformasjon = beregnTransformasjon(geoRef);
+
+      gpsAbonnementRef.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 2,
+          timeInterval: 3000,
+        },
+        (lokasjon) => {
+          if (!aktiv) return;
+          const gps = {
+            lat: lokasjon.coords.latitude,
+            lng: lokasjon.coords.longitude,
+          };
+          const posisjon = gpsTilTegning(gps, transformasjon);
+          setGpsMarkør({ x: posisjon.x, y: posisjon.y });
+        },
+      );
+    }
+
+    startSporing();
+
+    return () => {
+      aktiv = false;
+      if (gpsAbonnementRef.current) {
+        gpsAbonnementRef.current.remove();
+        gpsAbonnementRef.current = null;
+      }
+      setGpsMarkør(null);
+    };
+  }, [valgtTegningDetalj?.geoReference]);
 
   // Treprikk-meny
   const visTreprikkmeny = useCallback(() => {
@@ -281,6 +331,7 @@ export default function LokasjonerSkjerm() {
             onLukk={håndterLukkTegning}
             onTrykk={håndterTegningTrykk}
             markører={markører}
+            gpsMarkør={gpsMarkør}
           />
         ) : (
           <KartVisning />
