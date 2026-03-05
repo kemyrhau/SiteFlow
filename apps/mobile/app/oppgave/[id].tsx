@@ -24,6 +24,7 @@ import {
   Cloud,
   ClipboardCheck,
   MapPin,
+  Trash2,
 } from "lucide-react-native";
 import { harBetingelse, harForelderObjekt } from "@siteflow/shared";
 import { hentStatusHandlinger } from "@siteflow/shared";
@@ -109,6 +110,29 @@ export default function OppgaveDetalj() {
       utils.oppgave.hentMedId.invalidate({ id: id! });
     },
   });
+
+  const slettMutasjon = trpc.oppgave.slett.useMutation({
+    onSuccess: () => {
+      utils.oppgave.hentForProsjekt.invalidate();
+      utils.oppgave.hentForTegning.invalidate();
+      router.back();
+    },
+  });
+
+  const håndterSlett = useCallback(() => {
+    Alert.alert(
+      "Slett oppgave",
+      "Er du sikker på at du vil slette denne oppgaven? Dette kan ikke angres.",
+      [
+        { text: "Avbryt", style: "cancel" },
+        {
+          text: "Slett",
+          style: "destructive",
+          onPress: () => slettMutasjon.mutate({ id: id! }),
+        },
+      ],
+    );
+  }, [id, slettMutasjon]);
 
   const håndterStatusEndring = useCallback(
     (handling: StatusHandling) => {
@@ -554,6 +578,20 @@ export default function OppgaveDetalj() {
           >
             <Text className="font-medium text-white">
               {erLagrer ? "Lagrer..." : "Lagre utfylling"}
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Slett-knapp (kun utkast) */}
+        {oppgave?.status === "draft" && (
+          <Pressable
+            onPress={håndterSlett}
+            disabled={slettMutasjon.isPending}
+            className="mt-2 flex-row items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 py-3"
+          >
+            <Trash2 size={16} color="#dc2626" />
+            <Text className="font-medium text-red-600">
+              {slettMutasjon.isPending ? "Sletter..." : "Slett oppgave"}
             </Text>
           </Pressable>
         )}

@@ -241,6 +241,13 @@ export const sjekklisteRouter = router({
         sjekkliste.template.domain,
       );
 
+      if (sjekkliste.status !== "draft") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Kun sjekklister i utkast-status kan slettes",
+        });
+      }
+
       if (sjekkliste._count.tasks > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",

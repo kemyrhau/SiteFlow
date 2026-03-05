@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Save, Check, AlertTriangle, Clock, CloudOff, Cloud } from "lucide-react-native";
+import { ArrowLeft, Save, Check, AlertTriangle, Clock, CloudOff, Cloud, Trash2 } from "lucide-react-native";
 import { harBetingelse, harForelderObjekt } from "@siteflow/shared";
 import { hentStatusHandlinger } from "@siteflow/shared";
 import type { StatusHandling } from "@siteflow/shared";
@@ -106,6 +106,28 @@ export default function SjekklisteUtfylling() {
       utils.sjekkliste.hentForProsjekt.invalidate();
     },
   });
+
+  const slettMutasjon = trpc.sjekkliste.slett.useMutation({
+    onSuccess: () => {
+      utils.sjekkliste.hentForProsjekt.invalidate();
+      router.back();
+    },
+  });
+
+  const håndterSlett = useCallback(() => {
+    Alert.alert(
+      "Slett sjekkliste",
+      "Er du sikker på at du vil slette denne sjekklisten? Dette kan ikke angres.",
+      [
+        { text: "Avbryt", style: "cancel" },
+        {
+          text: "Slett",
+          style: "destructive",
+          onPress: () => slettMutasjon.mutate({ id: id! }),
+        },
+      ],
+    );
+  }, [id, slettMutasjon]);
 
   const håndterStatusEndring = useCallback(
     (handling: StatusHandling) => {
@@ -456,6 +478,20 @@ export default function SjekklisteUtfylling() {
           >
             <Text className="font-medium text-white">
               {erLagrer ? "Lagrer..." : "Lagre utfylling"}
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Slett-knapp (kun utkast) */}
+        {sjekkliste?.status === "draft" && (
+          <Pressable
+            onPress={håndterSlett}
+            disabled={slettMutasjon.isPending}
+            className="mt-2 flex-row items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 py-3"
+          >
+            <Trash2 size={16} color="#dc2626" />
+            <Text className="font-medium text-red-600">
+              {slettMutasjon.isPending ? "Sletter..." : "Slett sjekkliste"}
             </Text>
           </Pressable>
         )}

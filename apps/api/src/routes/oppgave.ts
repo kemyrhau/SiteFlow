@@ -334,4 +334,39 @@ export const oppgaveRouter = router({
         return oppdatert;
       });
     }),
+
+  // Slett oppgave (kun i utkast-status)
+  slett: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const oppgave = await ctx.prisma.task.findUniqueOrThrow({
+        where: { id: input.id },
+        include: {
+          creatorEnterprise: { select: { projectId: true } },
+          template: { select: { domain: true } },
+        },
+      });
+
+      await verifiserDokumentTilgang(
+        ctx.userId,
+        oppgave.creatorEnterprise.projectId,
+        oppgave.creatorEnterpriseId,
+        oppgave.responderEnterpriseId,
+        oppgave.template?.domain,
+      );
+
+      if (oppgave.status !== "draft") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Kun oppgaver i utkast-status kan slettes",
+        });
+      }
+
+      return ctx.prisma.$transaction(async (tx) => {
+        await tx.documentTransfer.deleteMany({ where: { taskId: input.id } });
+        await tx.image.deleteMany({ where: { taskId: input.id } });
+        await tx.task.delete({ where: { id: input.id } });
+        return { success: true };
+      });
+    }),
 });
