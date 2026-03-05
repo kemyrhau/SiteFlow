@@ -22,6 +22,9 @@ import { FeltWrapper } from "../../src/components/rapportobjekter/FeltWrapper";
 import { MalVelger } from "../../src/components/MalVelger";
 import { OpprettDokumentModal } from "../../src/components/OpprettDokumentModal";
 import { trpc } from "../../src/lib/trpc";
+import { hentDatabase } from "../../src/db/database";
+import { sjekklisteFeltdata, opplastingsKo } from "../../src/db/schema";
+import { eq } from "drizzle-orm";
 
 interface Transfer {
   id: string;
@@ -109,6 +112,16 @@ export default function SjekklisteUtfylling() {
 
   const slettMutasjon = trpc.sjekkliste.slett.useMutation({
     onSuccess: () => {
+      // Rydd opp lokal SQLite-data
+      const db = hentDatabase();
+      if (db && id) {
+        try {
+          db.delete(sjekklisteFeltdata).where(eq(sjekklisteFeltdata.sjekklisteId, id)).run();
+          db.delete(opplastingsKo).where(eq(opplastingsKo.sjekklisteId, id)).run();
+        } catch {
+          // Ignorer SQLite-feil ved opprydding
+        }
+      }
       utils.sjekkliste.hentForProsjekt.invalidate();
       router.back();
     },

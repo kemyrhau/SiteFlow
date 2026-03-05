@@ -36,6 +36,9 @@ import { StatusMerkelapp } from "../../src/components/StatusMerkelapp";
 import { RapportObjektRenderer, DISPLAY_TYPER } from "../../src/components/rapportobjekter";
 import { FeltWrapper } from "../../src/components/rapportobjekter/FeltWrapper";
 import { trpc } from "../../src/lib/trpc";
+import { hentDatabase } from "../../src/db/database";
+import { oppgaveFeltdata, opplastingsKo } from "../../src/db/schema";
+import { eq } from "drizzle-orm";
 
 const PRIORITETER = [
   { verdi: "low", label: "Lav", farge: "bg-gray-200 text-gray-700" },
@@ -113,6 +116,16 @@ export default function OppgaveDetalj() {
 
   const slettMutasjon = trpc.oppgave.slett.useMutation({
     onSuccess: () => {
+      // Rydd opp lokal SQLite-data
+      const db = hentDatabase();
+      if (db && id) {
+        try {
+          db.delete(oppgaveFeltdata).where(eq(oppgaveFeltdata.oppgaveId, id)).run();
+          db.delete(opplastingsKo).where(eq(opplastingsKo.oppgaveId, id)).run();
+        } catch {
+          // Ignorer SQLite-feil ved opprydding
+        }
+      }
       utils.oppgave.hentForProsjekt.invalidate();
       utils.oppgave.hentForTegning.invalidate();
       router.back();
