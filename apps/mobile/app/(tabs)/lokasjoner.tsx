@@ -107,20 +107,26 @@ export default function LokasjonerSkjerm() {
     [tegninger, valgtTegningId],
   );
 
+  // Stabil boolean/streng for georeferanse — unngår at objektreferanse trigger re-renders
+  const harGeoRef = !!valgtTegningDetalj?.geoReference;
+  const geoRefStringifisert = useMemo(
+    () => (valgtTegningDetalj?.geoReference ? JSON.stringify(valgtTegningDetalj.geoReference) : null),
+    [valgtTegningDetalj?.geoReference],
+  );
+
   // Bygg markørliste fra state — grønn farge for georefererte tegninger
   const markører: Markør[] = useMemo(() => {
     if (!markørPosisjon) return [];
-    const farge = valgtTegningDetalj?.geoReference ? "#10b981" : undefined;
+    const farge = harGeoRef ? "#10b981" : undefined;
     return [{ x: markørPosisjon.x, y: markørPosisjon.y, id: "ny-oppgave", farge }];
-  }, [markørPosisjon, valgtTegningDetalj?.geoReference]);
+  }, [markørPosisjon, harGeoRef]);
 
   // GPS-posisjon på tegning (kontinuerlig sporing for georefererte tegninger)
   const [gpsMarkør, setGpsMarkør] = useState<GpsMarkør | null>(null);
   const gpsAbonnementRef = useRef<Location.LocationSubscription | null>(null);
 
   useEffect(() => {
-    // Start GPS-sporing kun for georefererte tegninger
-    if (!valgtTegningDetalj?.geoReference) {
+    if (!harGeoRef || !geoRefStringifisert) {
       setGpsMarkør(null);
       return;
     }
@@ -131,7 +137,7 @@ export default function LokasjonerSkjerm() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted" || !aktiv) return;
 
-      const geoRef = valgtTegningDetalj!.geoReference as GeoReferanse;
+      const geoRef = JSON.parse(geoRefStringifisert!) as GeoReferanse;
       const transformasjon = beregnTransformasjon(geoRef);
 
       gpsAbonnementRef.current = await Location.watchPositionAsync(
@@ -162,7 +168,7 @@ export default function LokasjonerSkjerm() {
       }
       setGpsMarkør(null);
     };
-  }, [valgtTegningDetalj?.geoReference]);
+  }, [harGeoRef, geoRefStringifisert]);
 
   // Treprikk-meny
   const visTreprikkmeny = useCallback(() => {
