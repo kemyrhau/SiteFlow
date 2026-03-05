@@ -7,10 +7,11 @@ let dbInstans: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let initForsok = false;
 
 /**
- * Sjekk om SQLite er tilgjengelig (kun iOS/Android med SharedArrayBuffer).
+ * Sjekk om SQLite er tilgjengelig (kun iOS/Android).
+ * expo-sqlite bruker JSI — krever IKKE SharedArrayBuffer.
  */
 export function erDatabaseTilgjengelig(): boolean {
-  return Platform.OS !== "web" && typeof SharedArrayBuffer !== "undefined";
+  return Platform.OS !== "web";
 }
 
 /**
@@ -24,9 +25,12 @@ export function hentDatabase() {
       try {
         const sqliteDb = openDatabaseSync("siteflow.db");
         dbInstans = drizzle(sqliteDb, { schema });
+        console.log("[DB] SQLite-database åpnet OK");
       } catch (feil) {
-        console.warn("Kunne ikke åpne SQLite-database:", feil);
+        console.warn("[DB] Kunne ikke åpne SQLite-database:", feil);
       }
+    } else {
+      console.log("[DB] SQLite ikke tilgjengelig, Platform.OS:", Platform.OS);
     }
   }
   return dbInstans;
