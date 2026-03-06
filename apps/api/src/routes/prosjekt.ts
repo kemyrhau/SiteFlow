@@ -16,9 +16,10 @@ export const prosjektRouter = router({
     });
   }),
 
-  // Hent alle prosjekter
+  // Hent alle prosjekter (kun der bruker er medlem)
   hentAlle: protectedProcedure.query(async ({ ctx }) => {
     return ctx.prisma.project.findMany({
+      where: { members: { some: { userId: ctx.userId } } },
       orderBy: { createdAt: "desc" },
       include: {
         enterprises: true,
@@ -60,6 +61,12 @@ export const prosjektRouter = router({
         data: {
           ...input,
           projectNumber: prosjektnummer,
+          members: {
+            create: {
+              userId: ctx.userId!,
+              role: "admin",
+            },
+          },
         },
       });
     }),
