@@ -1029,15 +1029,21 @@ function EntrepriseVeiviser({
               </div>
             </div>
 
-            <Select
-              label="Bransje"
-              options={[
-                { value: "", label: "Velg bransje..." },
-                ...ENTERPRISE_INDUSTRIES.map((b) => ({ value: b, label: b })),
-              ]}
-              value={nyBransje}
-              onChange={(e) => setNyBransje(e.target.value)}
-            />
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Bransje</label>
+              <input
+                list="bransje-liste-ny"
+                placeholder="Velg eller skriv inn bransje..."
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={nyBransje}
+                onChange={(e) => setNyBransje(e.target.value)}
+              />
+              <datalist id="bransje-liste-ny">
+                {ENTERPRISE_INDUSTRIES.map((b) => (
+                  <option key={b} value={b} />
+                ))}
+              </datalist>
+            </div>
 
             <Input
               label="Firma"
@@ -1467,15 +1473,21 @@ export default function EntrepriserSide() {
             </div>
           </div>
 
-          <Select
-            label="Bransje"
-            options={[
-              { value: "", label: "Velg bransje..." },
-              ...ENTERPRISE_INDUSTRIES.map((b) => ({ value: b, label: b })),
-            ]}
-            value={redigerBransje}
-            onChange={(e) => setRedigerBransje(e.target.value)}
-          />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Bransje</label>
+            <input
+              list="bransje-liste-rediger"
+              placeholder="Velg eller skriv inn bransje..."
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={redigerBransje}
+              onChange={(e) => setRedigerBransje(e.target.value)}
+            />
+            <datalist id="bransje-liste-rediger">
+              {ENTERPRISE_INDUSTRIES.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
+          </div>
 
           <Input
             label="Firma"
