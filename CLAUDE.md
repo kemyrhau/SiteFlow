@@ -1204,6 +1204,68 @@ Mobilappen skal bruke samme fargepalett som web-appen. Primærfargen er SiteDoc-
 
 Bruk den blå primærfargen (`#1e40af`) konsekvent på tvers av web og mobil for et enhetlig utseende.
 
+## Infrastruktur og deploy
+
+### Domene og hosting
+
+- **Domene:** sitedoc.no (registrert hos Domeneshop, DNS via Cloudflare)
+- **Server:** Windows PC med WSL (Ubuntu) — kjører database, API og web
+- **Tunnel:** Cloudflare Tunnel eksponerer tjenester til internett med automatisk SSL
+- **Prosesshåndtering:** PM2 (auto-restart ved krasj)
+
+### Serverarkitektur
+
+```
+Mac (utvikling) → git push → GitHub → ssh sitedoc → git pull + build + pm2 restart
+                                    → eas build → TestFlight
+
+PC/WSL (server):
+  Next.js   :3100 → sitedoc.no      (Cloudflare Tunnel)
+  Fastify   :3001 → api.sitedoc.no  (Cloudflare Tunnel)
+  SSH       :22   → ssh.sitedoc.no  (Cloudflare Tunnel)
+  PostgreSQL :5432 (lokal, db: sitedoc, bruker: kemyr)
+```
+
+### Serverdetaljer
+
+- **SSH:** `ssh sitedoc` fra Mac (via Cloudflare Tunnel, nøkkel `~/.ssh/sitedoc_server`)
+- **Prosjektmappe:** `~/programmering/sitedoc` på serveren
+- **PM2:** ecosystem.config.js i prosjektroten, prosesser: `sitedoc-web`, `sitedoc-api`
+- **Cloudflare Tunnel:** Systemd-tjeneste, config i `/etc/cloudflared/config.yml`, tunnel ID `189a5af2-59f9-48df-a834-8e934313aa51`
+
+### Deploy
+
+Én-kommando deploy fra Mac:
+```bash
+./deploy.sh
+```
+Gjør: `git push` → `ssh sitedoc` → `git pull && pnpm install --frozen-lockfile && pnpm build && pm2 restart all`
+
+### EAS Build og TestFlight
+
+- **Expo-konto:** kemyrhau (kemyrhau@gmail.com)
+- **Apple App ID:** 6760205962
+- **Bundle ID:** com.kemyrhau.sitedoc (iOS), com.sitedoc.app (Android)
+- **EAS prosjekt-ID:** a54b16c0-5d4d-402e-95b1-966bc15f20cd
+- **Bygg iOS:** `cd apps/mobile && eas build --platform ios --profile production`
+- **Send til TestFlight:** `eas submit --platform ios --latest`
+- EAS bygger i skyen (Expo sin infrastruktur), krever ikke Xcode lokalt
+- TestFlight: testere inviteres via App Store Connect, installerer via TestFlight-appen (opptil 10 000 testere)
+
+### Google OAuth
+
+- **Web client:** `973406216782-3l2k...` — redirect URI: `https://sitedoc.no/api/auth/callback/google` + `http://localhost:3100/api/auth/callback/google`
+- **iOS client:** `973406216782-ej49...`
+- **Consent screen:** SiteDoc
+
+### Env-filer på server
+
+| Fil | Nøkkelvariabler |
+|-----|----------------|
+| `apps/api/.env` | DATABASE_URL, PORT, HOST, AUTH_SECRET, RESEND_API_KEY, RESEND_FROM_EMAIL, APP_URL |
+| `apps/web/.env.local` | AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, DATABASE_URL, AUTH_TRUST_HOST |
+| `packages/db/.env` | DATABASE_URL |
+
 ## Viktige regler
 
 - ALDRI commit `.env`-filer
