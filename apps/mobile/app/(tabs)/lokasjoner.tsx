@@ -35,8 +35,8 @@ import { useRouter } from "expo-router";
 import {
   beregnTransformasjon,
   gpsTilTegning,
-} from "@siteflow/shared/utils";
-import type { GeoReferanse } from "@siteflow/shared";
+} from "@sitedoc/shared/utils";
+import type { GeoReferanse } from "@sitedoc/shared";
 
 // Type-casts for å unngå TS2589 (excessively deep type instantiation)
 interface BygningData {
@@ -338,7 +338,7 @@ export default function LokasjonerSkjerm() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       {/* Blå header */}
-      <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
+      <View className="flex-row items-center justify-between bg-sitedoc-blue px-4 py-3">
         <Text className="text-sm font-semibold text-white">Lokasjoner</Text>
         <View className="flex-row items-center gap-3">
           {/* Plasseringsmodus-toggle (kun når tegning vises) */}
@@ -357,7 +357,7 @@ export default function LokasjonerSkjerm() {
                 ) : (
                   <Navigation size={14} color="#ffffff" />
                 )}
-                <Text className={`text-xs font-medium ${plasseringsmodus ? "text-siteflow-blue" : "text-white"}`}>
+                <Text className={`text-xs font-medium ${plasseringsmodus ? "text-sitedoc-blue" : "text-white"}`}>
                   {plasseringsmodus ? "Plassering" : "Navigering"}
                 </Text>
               </View>

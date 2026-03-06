@@ -2,8 +2,8 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { REPORT_OBJECT_TYPE_META, type ReportObjectType, erKontainerType } from "@siteflow/shared";
-import { Badge } from "@siteflow/ui";
+import { REPORT_OBJECT_TYPE_META, type ReportObjectType, erKontainerType } from "@sitedoc/shared";
+import { Badge } from "@sitedoc/ui";
 import { TreprikkMeny } from "./TreprikkMeny";
 import type { ReactNode } from "react";
 

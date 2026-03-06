@@ -3,7 +3,7 @@
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc";
-import { Spinner, StatusBadge } from "@siteflow/ui";
+import { Spinner, StatusBadge } from "@sitedoc/ui";
 
 const faner = [
   { href: "", label: "Oversikt" },
@@ -61,7 +61,7 @@ export default function ProsjektLayout({ children }: { children: React.ReactNode
               href={fullPath}
               className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 erAktiv
-                  ? "border-siteflow-primary text-siteflow-primary"
+                  ? "border-sitedoc-primary text-sitedoc-primary"
                   : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
               }`}
             >

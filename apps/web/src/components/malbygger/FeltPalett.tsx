@@ -4,7 +4,7 @@ import {
   REPORT_OBJECT_TYPES,
   REPORT_OBJECT_TYPE_META,
   type ReportObjectCategory,
-} from "@siteflow/shared";
+} from "@sitedoc/shared";
 import { PalettElement } from "./PalettElement";
 
 const kategoriLabels: Record<ReportObjectCategory, string> = {

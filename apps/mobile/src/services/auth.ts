@@ -5,8 +5,8 @@ import { AUTH_CONFIG, GOOGLE_AUTH, MICROSOFT_AUTH } from "../config/auth";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const SESSION_TOKEN_KEY = "siteflow_session_token";
-const USER_DATA_KEY = "siteflow_user_data";
+const SESSION_TOKEN_KEY = "sitedoc_session_token";
+const USER_DATA_KEY = "sitedoc_user_data";
 
 export interface BrukerData {
   id: string;
@@ -80,7 +80,7 @@ function hentRedirectUri(): string {
     // På web: bruk origin + /logg-inn (der vi håndterer callback)
     return `${window.location.origin}/logg-inn`;
   }
-  return AuthSession.makeRedirectUri({ scheme: "siteflow" });
+  return AuthSession.makeRedirectUri({ scheme: "sitedoc" });
 }
 
 export function loggInnMedGoogleWeb(): void {

@@ -3,11 +3,11 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
-import { SearchInput, Spinner } from "@siteflow/ui";
+import { SearchInput, Spinner } from "@sitedoc/ui";
 import { useMemo, useState } from "react";
 import { FolderOpen, ChevronDown, ChevronRight, File, Lock } from "lucide-react";
-import { beregnSynligeMapper } from "@siteflow/shared/utils";
-import type { MappeTilgangInput, BrukerTilgangInfo } from "@siteflow/shared/utils";
+import { beregnSynligeMapper } from "@sitedoc/shared/utils";
+import type { MappeTilgangInput, BrukerTilgangInfo } from "@sitedoc/shared/utils";
 
 interface MappeTreData {
   id: string;
@@ -40,7 +40,7 @@ function MappeRad({
         onClick={() => onVelg(mappe.id)}
         className={`flex cursor-pointer items-center gap-1 rounded-md py-1.5 pr-2 text-sm ${
           erValgt
-            ? "bg-siteflow-primary/10 text-siteflow-primary"
+            ? "bg-sitedoc-primary/10 text-sitedoc-primary"
             : erKunSti
               ? "text-gray-400 hover:bg-gray-50"
               : "hover:bg-gray-50"
@@ -67,7 +67,7 @@ function MappeRad({
         {erKunSti ? (
           <Lock className="h-3.5 w-3.5 flex-shrink-0 text-gray-300" />
         ) : (
-          <FolderOpen className={`h-3.5 w-3.5 flex-shrink-0 ${erValgt ? "text-siteflow-primary" : "text-amber-500"}`} />
+          <FolderOpen className={`h-3.5 w-3.5 flex-shrink-0 ${erValgt ? "text-sitedoc-primary" : "text-amber-500"}`} />
         )}
         <span className={`flex-1 truncate ${erValgt ? "font-medium" : erKunSti ? "text-gray-400" : "text-gray-700"}`}>
           {mappe.name}

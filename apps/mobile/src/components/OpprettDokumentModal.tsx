@@ -303,7 +303,7 @@ export function OpprettDokumentModal({
     <Modal visible={synlig} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
         {/* Header */}
-        <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
+        <View className="flex-row items-center justify-between bg-sitedoc-blue px-4 py-3">
           <Pressable onPress={håndterAvbryt} hitSlop={8}>
             <Text className="text-sm font-medium text-white">Avbryt</Text>
           </Pressable>

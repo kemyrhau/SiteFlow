@@ -79,7 +79,7 @@ export function TegningsSkjermbilde({ prosjektId, onFerdig, onAvbryt }: Tegnings
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
+      <View className="flex-row items-center justify-between bg-sitedoc-blue px-4 py-3">
         <Pressable onPress={onAvbryt} hitSlop={12}>
           <X size={22} color="#ffffff" />
         </Pressable>

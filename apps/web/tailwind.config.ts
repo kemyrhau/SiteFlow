@@ -8,7 +8,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        siteflow: {
+        sitedoc: {
           primary: "#1e40af",
           secondary: "#3b82f6",
           accent: "#f59e0b",

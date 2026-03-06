@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc";
-import { Card, Button, Input, Textarea, Modal, Spinner, EmptyState, Badge } from "@siteflow/ui";
+import { Card, Button, Input, Textarea, Modal, Spinner, EmptyState, Badge } from "@sitedoc/ui";
 
 export default function MalerSide() {
   const params = useParams<{ id: string }>();

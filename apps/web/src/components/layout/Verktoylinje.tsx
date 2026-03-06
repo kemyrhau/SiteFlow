@@ -1,7 +1,7 @@
 "use client";
 
 import { useNavigasjon } from "@/kontekst/navigasjon-kontekst";
-import { Button } from "@siteflow/ui";
+import { Button } from "@sitedoc/ui";
 
 export function Verktoylinje() {
   const { verktoylinjeHandlinger } = useNavigasjon();

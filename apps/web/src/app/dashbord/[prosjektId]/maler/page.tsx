@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Button, Input, Textarea, Modal, Spinner, EmptyState, Badge, Table } from "@siteflow/ui";
+import { Button, Input, Textarea, Modal, Spinner, EmptyState, Badge, Table } from "@sitedoc/ui";
 import { useVerktoylinje } from "@/hooks/useVerktoylinje";
 import { Plus } from "lucide-react";
 

@@ -97,7 +97,7 @@ export default function MerSkjerm() {
         {/* Brukerprofil */}
         <View className="mx-4 mt-6 rounded-xl bg-white p-4">
           <View className="flex-row items-center gap-3">
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-siteflow-blue">
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-sitedoc-blue">
               <Text className="text-base font-bold text-white">
                 {initialer}
               </Text>

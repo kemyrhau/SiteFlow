@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
-import type { Permission } from "@siteflow/shared";
+import type { Permission } from "@sitedoc/shared";
 
 interface NavElement {
   label: string;
@@ -135,7 +135,7 @@ export default function OppsettLayout({
                           href={element.href}
                           className={`flex flex-1 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors ${
                             aktiv
-                              ? "bg-siteflow-primary/10 text-siteflow-primary"
+                              ? "bg-sitedoc-primary/10 text-sitedoc-primary"
                               : "text-gray-700 hover:bg-gray-100"
                           }`}
                         >
@@ -154,7 +154,7 @@ export default function OppsettLayout({
                       href={element.href}
                       className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 pl-[30px] text-sm font-medium transition-colors ${
                         aktiv
-                          ? "bg-siteflow-primary/10 text-siteflow-primary"
+                          ? "bg-sitedoc-primary/10 text-sitedoc-primary"
                           : "text-gray-700 hover:bg-gray-100"
                       }`}
                     >
@@ -173,7 +173,7 @@ export default function OppsettLayout({
                         href={barn.href}
                         className={`flex items-center rounded-md px-2.5 py-1.5 text-sm transition-colors ${
                           erAktiv(barn.href)
-                            ? "font-medium text-siteflow-primary"
+                            ? "font-medium text-sitedoc-primary"
                             : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                         }`}
                       >

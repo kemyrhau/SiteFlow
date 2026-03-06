@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Card, Button, Input, Textarea, Select, Modal, Spinner, EmptyState, StatusBadge, Badge } from "@siteflow/ui";
+import { Card, Button, Input, Textarea, Select, Modal, Spinner, EmptyState, StatusBadge, Badge } from "@sitedoc/ui";
 
 const prioriteter = [
   { value: "low", label: "Lav" },

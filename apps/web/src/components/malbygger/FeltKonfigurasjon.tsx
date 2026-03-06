@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { REPORT_OBJECT_TYPE_META, type ReportObjectType } from "@siteflow/shared";
-import { Input, Button, Badge } from "@siteflow/ui";
+import { REPORT_OBJECT_TYPE_META, type ReportObjectType } from "@sitedoc/shared";
+import { Input, Button, Badge } from "@sitedoc/ui";
 import type { MalObjekt } from "./DraggbartFelt";
 
 // Hent streng-verdi fra opsjon (støtter både string og {label, value}-format)

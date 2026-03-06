@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc";
-import { Card, Spinner } from "@siteflow/ui";
+import { Card, Spinner } from "@sitedoc/ui";
 
 export default function ProsjektOversikt() {
   const params = useParams<{ id: string }>();
@@ -45,7 +45,7 @@ export default function ProsjektOversikt() {
         {kort.map((k) => (
           <Link key={k.label} href={k.href}>
             <Card className="text-center transition-shadow hover:shadow-md">
-              <p className="text-3xl font-bold text-siteflow-primary">{k.verdi}</p>
+              <p className="text-3xl font-bold text-sitedoc-primary">{k.verdi}</p>
               <p className="text-sm text-gray-500">{k.label}</p>
             </Card>
           </Link>

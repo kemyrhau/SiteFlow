@@ -10,7 +10,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 
-const STORAGE_KEY = "siteflow-valgt-prosjekt";
+const STORAGE_KEY = "sitedoc-valgt-prosjekt";
 
 interface Prosjekt {
   id: string;

@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Card, Spinner, StatusBadge, Badge } from "@siteflow/ui";
+import { Card, Spinner, StatusBadge, Badge } from "@sitedoc/ui";
 
 export default function SjekklisteDetaljSide() {
   const params = useParams<{ id: string; sjekklisteId: string }>();

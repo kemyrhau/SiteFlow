@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Spinner, EmptyState, Badge, Table } from "@siteflow/ui";
+import { Spinner, EmptyState, Badge, Table } from "@sitedoc/ui";
 
 export default function EntrepriserSide() {
   const params = useParams<{ prosjektId: string }>();

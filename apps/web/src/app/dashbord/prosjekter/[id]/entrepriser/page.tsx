@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Card, Button, Input, Modal, Spinner, EmptyState, Badge } from "@siteflow/ui";
+import { Card, Button, Input, Modal, Spinner, EmptyState, Badge } from "@sitedoc/ui";
 
 export default function EntrepriserSide() {
   const params = useParams<{ id: string }>();

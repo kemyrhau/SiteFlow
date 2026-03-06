@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useMemo, useCallback } from "react";
-import { Spinner, StatusBadge, Card } from "@siteflow/ui";
+import { Spinner, StatusBadge, Card } from "@sitedoc/ui";
 import { Check, AlertCircle, Loader2, Printer, FileText, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useSjekklisteSkjema } from "@/hooks/useSjekklisteSkjema";

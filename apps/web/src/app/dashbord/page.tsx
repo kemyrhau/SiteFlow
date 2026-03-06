@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
-import { Card, Spinner, StatusBadge, Button, EmptyState } from "@siteflow/ui";
+import { Card, Spinner, StatusBadge, Button, EmptyState } from "@sitedoc/ui";
 import { SekundaertPanel } from "@/components/layout/SekundaertPanel";
 import { DashbordPanel } from "@/components/paneler/DashbordPanel";
 import { Plus } from "lucide-react";
@@ -48,17 +48,17 @@ export default function DashbordSide() {
           <>
             <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Card className="text-center">
-                <p className="text-3xl font-bold text-siteflow-primary">
+                <p className="text-3xl font-bold text-sitedoc-primary">
                   {prosjekter.length}
                 </p>
                 <p className="mt-1 text-sm text-gray-500">Prosjekter</p>
               </Card>
               <Card className="text-center">
-                <p className="text-3xl font-bold text-siteflow-secondary">0</p>
+                <p className="text-3xl font-bold text-sitedoc-secondary">0</p>
                 <p className="mt-1 text-sm text-gray-500">Aktive sjekklister</p>
               </Card>
               <Card className="text-center">
-                <p className="text-3xl font-bold text-siteflow-accent">0</p>
+                <p className="text-3xl font-bold text-sitedoc-accent">0</p>
                 <p className="mt-1 text-sm text-gray-500">Åpne oppgaver</p>
               </Card>
             </div>

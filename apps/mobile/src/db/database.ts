@@ -23,7 +23,7 @@ export function hentDatabase() {
     initForsok = true;
     if (erDatabaseTilgjengelig()) {
       try {
-        const sqliteDb = openDatabaseSync("siteflow.db");
+        const sqliteDb = openDatabaseSync("sitedoc.db");
         dbInstans = drizzle(sqliteDb, { schema });
         console.log("[DB] SQLite-database åpnet OK");
       } catch (feil) {

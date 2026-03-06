@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Target, MapPin } from "lucide-react";
 import { useBygning } from "@/kontekst/bygning-kontekst";
 import type { RapportObjektProps } from "./typer";
-import type { TegningPosisjonVerdi } from "@siteflow/shared";
+import type { TegningPosisjonVerdi } from "@sitedoc/shared";
 
 export function TegningPosisjonObjekt({
   objekt,

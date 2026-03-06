@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { SekundaertPanel } from "@/components/layout/SekundaertPanel";
 import { SjekklisterPanel } from "@/components/paneler/SjekklisterPanel";
-import { Spinner } from "@siteflow/ui";
+import { Spinner } from "@sitedoc/ui";
 
 export default function SjekklisterLayout({
   children,

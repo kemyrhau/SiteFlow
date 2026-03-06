@@ -20,10 +20,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={inputId}
           rows={3}
-          className={`rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors placeholder:text-gray-400 focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary disabled:cursor-not-allowed disabled:bg-gray-50 ${error ? "border-siteflow-error focus:border-siteflow-error focus:ring-siteflow-error" : ""} ${className}`}
+          className={`rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors placeholder:text-gray-400 focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary disabled:cursor-not-allowed disabled:bg-gray-50 ${error ? "border-sitedoc-error focus:border-sitedoc-error focus:ring-sitedoc-error" : ""} ${className}`}
           {...props}
         />
-        {error && <p className="text-xs text-siteflow-error">{error}</p>}
+        {error && <p className="text-xs text-sitedoc-error">{error}</p>}
       </div>
     );
   },

@@ -1,7 +1,7 @@
 "use client";
 
 import { createTRPCReact, httpBatchLink } from "@trpc/react-query";
-import type { AppRouter } from "@siteflow/api/src/trpc/router";
+import type { AppRouter } from "@sitedoc/api/src/trpc/router";
 
 export const trpc = createTRPCReact<AppRouter>();
 

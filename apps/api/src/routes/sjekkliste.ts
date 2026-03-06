@@ -1,8 +1,8 @@
 import { z } from "zod";
-import type { Prisma } from "@siteflow/db";
+import type { Prisma } from "@sitedoc/db";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { documentStatusSchema } from "@siteflow/shared";
-import { isValidStatusTransition } from "@siteflow/shared";
+import { documentStatusSchema } from "@sitedoc/shared";
+import { isValidStatusTransition } from "@sitedoc/shared";
 import { TRPCError } from "@trpc/server";
 import {
   byggTilgangsFilter,

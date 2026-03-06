@@ -64,7 +64,7 @@ async function start() {
 
   try {
     await server.listen({ port, host });
-    server.log.info(`SiteFlow API kjører på http://${host}:${port}`);
+    server.log.info(`SiteDoc API kjører på http://${host}:${port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchInput, Spinner } from "@siteflow/ui";
+import { SearchInput, Spinner } from "@sitedoc/ui";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";

@@ -1,4 +1,4 @@
-# SiteFlow
+# SiteDoc
 
 Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobil, nettbrett) med offline-støtte, bildekomprimering, GPS-tagging og entreprisearbeidsflyt.
 
@@ -37,8 +37,8 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 
 ```bash
 # Klon repoet
-git clone https://github.com/kemyrhau/SiteFlow.git
-cd SiteFlow
+git clone https://github.com/kemyrhau/SiteDoc.git
+cd SiteDoc
 
 # Installer avhengigheter
 pnpm install
@@ -74,7 +74,7 @@ Se `.env.example` for alle nødvendige variabler. Minimum:
 ## Prosjektstruktur
 
 ```
-siteflow/
+sitedoc/
 ├── apps/
 │   ├── web/            # Next.js web-applikasjon
 │   ├── mobile/         # Expo React Native app
@@ -92,8 +92,8 @@ siteflow/
 
 ```bash
 pnpm dev                    # Start alle apps i dev-modus
-pnpm dev --filter @siteflow/web    # Kun web
-pnpm dev --filter @siteflow/api    # Kun API
+pnpm dev --filter @sitedoc/web    # Kun web
+pnpm dev --filter @sitedoc/api    # Kun API
 pnpm build                  # Bygg alle apps
 pnpm typecheck              # TypeScript typesjekk
 pnpm lint                   # ESLint
@@ -108,7 +108,7 @@ Web-appen bruker et Dalux-inspirert tre-kolonne layout:
 
 ```
 +----------------------------------------------------------+
-| TOPPBAR: [SiteFlow] [Prosjektvelger v]     [Bruker v]    |
+| TOPPBAR: [SiteDoc] [Prosjektvelger v]     [Bruker v]    |
 +------+------------------+--------------------------------+
 | IKON | SEKUNDÆRT PANEL  | HOVEDINNHOLD                   |
 | 60px | 280px            | Verktøylinje + tabell/detalj   |

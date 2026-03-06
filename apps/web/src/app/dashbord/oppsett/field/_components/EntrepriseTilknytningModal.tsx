@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Button, Modal, Spinner } from "@siteflow/ui";
+import { Button, Modal, Spinner } from "@sitedoc/ui";
 import { ChevronDown, ChevronRight, Workflow as WorkflowIcon } from "lucide-react";
 import { hentFarge } from "./entreprise-farger";
 
@@ -175,7 +175,7 @@ function EntrepriseGruppe({
               >
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-siteflow-primary accent-siteflow-primary"
+                  className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary accent-sitedoc-primary"
                   checked={lokaleValg.has(af.id)}
                   onChange={() => onToggle(af.id)}
                 />

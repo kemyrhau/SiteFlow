@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "SiteFlow",
-    "slug": "siteflow",
+    "name": "SiteDoc",
+    "slug": "sitedoc",
     "version": "1.0.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
-    "scheme": "siteflow",
+    "scheme": "sitedoc",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kemyrhau.siteflow"
+      "bundleIdentifier": "com.kemyrhau.sitedoc"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#1e40af"
       },
-      "package": "com.siteflow.app"
+      "package": "com.sitedoc.app"
     },
     "plugins": [
       "expo-router",
@@ -24,7 +24,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "SiteFlow trenger tilgang til posisjonen din for GPS-tagging av bilder."
+          "locationAlwaysAndWhenInUsePermission": "SiteDoc trenger tilgang til posisjonen din for GPS-tagging av bilder."
         }
       ],
       "expo-sqlite",
@@ -38,8 +38,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "SiteFlow trenger tilgang til bildegalleriet for vedlegg.",
-          "cameraPermission": "SiteFlow trenger tilgang til kameraet for å ta bilder."
+          "photosPermission": "SiteDoc trenger tilgang til bildegalleriet for vedlegg.",
+          "cameraPermission": "SiteDoc trenger tilgang til kameraet for å ta bilder."
         }
       ]
     ]

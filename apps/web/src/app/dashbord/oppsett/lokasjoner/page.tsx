@@ -3,11 +3,11 @@
 import { useState, useRef, useCallback } from "react";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
-import { Button, Input, Select, Textarea, Modal, Spinner, EmptyState } from "@siteflow/ui";
+import { Button, Input, Select, Textarea, Modal, Spinner, EmptyState } from "@sitedoc/ui";
 import {
   DRAWING_DISCIPLINES,
   DRAWING_TYPES,
-} from "@siteflow/shared";
+} from "@sitedoc/shared";
 import {
   Plus,
   LayoutGrid,
@@ -349,7 +349,7 @@ function RedigerLokasjon({
             onClick={() => setVisGeoEditor(!visGeoEditor)}
             className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
               visGeoEditor
-                ? "bg-siteflow-primary/10 text-siteflow-primary font-medium"
+                ? "bg-sitedoc-primary/10 text-sitedoc-primary font-medium"
                 : "text-gray-500 hover:bg-gray-100"
             }`}
           >
@@ -446,7 +446,7 @@ function RedigerLokasjon({
                               onClick={() => velgTegning(valgtTegningId === tegning.id ? null : tegning.id)}
                               className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                                 valgtTegningId === tegning.id
-                                  ? "bg-siteflow-primary/10 text-siteflow-primary"
+                                  ? "bg-sitedoc-primary/10 text-sitedoc-primary"
                                   : "text-gray-700 hover:bg-gray-50"
                               }`}
                             >
@@ -672,7 +672,7 @@ function PublisertLokasjonKort({
       onDoubleClick={onRediger}
       className={`flex w-[220px] flex-col overflow-hidden rounded-lg border bg-white text-left transition-shadow hover:shadow-md ${
         erValgt
-          ? "border-siteflow-primary ring-1 ring-siteflow-primary"
+          ? "border-sitedoc-primary ring-1 ring-sitedoc-primary"
           : "border-gray-200"
       }`}
     >
@@ -900,7 +900,7 @@ export default function LokasjonerSide() {
                         onDoubleClick={() => setRedigerLokasjonId(lokasjon.id)}
                         className={`cursor-pointer border-b border-gray-100 last:border-0 ${
                           valgtId === lokasjon.id
-                            ? "bg-siteflow-primary/5"
+                            ? "bg-sitedoc-primary/5"
                             : "hover:bg-gray-50"
                         }`}
                       >

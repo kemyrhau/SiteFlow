@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Modal, Select, Button } from "@siteflow/ui";
+import { Modal, Select, Button } from "@sitedoc/ui";
 import { trpc } from "@/lib/trpc";
 
 interface ArbeidsflopMal {

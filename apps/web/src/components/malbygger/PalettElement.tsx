@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import type { ReportObjectType, ReportObjectTypeMeta } from "@siteflow/shared";
+import type { ReportObjectType, ReportObjectTypeMeta } from "@sitedoc/shared";
 
 interface PalettElementProps {
   type: ReportObjectType;

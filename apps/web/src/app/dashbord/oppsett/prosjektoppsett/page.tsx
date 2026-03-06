@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
-import { Button, Input, Spinner } from "@siteflow/ui";
+import { Button, Input, Spinner } from "@sitedoc/ui";
 import {
   Save,
   MapPin,
@@ -304,7 +304,7 @@ export default function ProsjektoppsettSide() {
                 Beskrivelse
               </label>
               <textarea
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                 rows={3}
                 placeholder="Kort beskrivelse av prosjektet..."
                 value={beskrivelse}
@@ -377,14 +377,14 @@ export default function ProsjektoppsettSide() {
               type="checkbox"
               checked={visInterntNummer}
               onChange={(e) => handleFeltEndring(setVisInterntNummer)(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-siteflow-primary focus:ring-siteflow-primary"
+              className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary focus:ring-sitedoc-primary"
             />
             <div>
               <p className="text-sm font-medium text-gray-700">
                 Vis internt prosjektnummer på rapport
               </p>
               <p className="text-xs text-gray-500">
-                Deaktiver for å skjule SiteFlow-prosjektnummeret (SF-...) i utskriftshodet
+                Deaktiver for å skjule SiteDoc-prosjektnummeret (SD-...) i utskriftshodet
               </p>
             </div>
           </label>

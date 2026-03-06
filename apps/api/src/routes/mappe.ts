@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { settMappeTilgangSchema } from "@siteflow/shared/validation";
+import { settMappeTilgangSchema } from "@sitedoc/shared/validation";
 
 export const mappeRouter = router({
   // Hent alle mapper for et prosjekt (flat liste med parentId + tilgangsoppføringer)

@@ -83,7 +83,7 @@ export default function SjekklisteListe() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       {/* Header */}
-      <View className="flex-row items-center bg-siteflow-blue px-4 py-3">
+      <View className="flex-row items-center bg-sitedoc-blue px-4 py-3">
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <ArrowLeft size={22} color="#ffffff" />
         </Pressable>

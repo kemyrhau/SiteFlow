@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
-import { SearchInput, Spinner } from "@siteflow/ui";
+import { SearchInput, Spinner } from "@sitedoc/ui";
 import { useState } from "react";
 import { FolderOpen } from "lucide-react";
 

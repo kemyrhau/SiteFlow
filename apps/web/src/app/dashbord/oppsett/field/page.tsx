@@ -144,7 +144,7 @@ function FieldKort({ kategori }: { kategori: FieldKategori }) {
               <li key={lenke.label}>
                 <Link
                   href={lenke.href}
-                  className="text-sm text-gray-900 hover:text-siteflow-primary hover:underline"
+                  className="text-sm text-gray-900 hover:text-sitedoc-primary hover:underline"
                 >
                   {lenke.label}
                 </Link>

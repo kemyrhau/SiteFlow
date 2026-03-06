@@ -3,7 +3,7 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SiteFlow",
+  title: "SiteDoc",
   description: "Rapport- og kvalitetsstyringssystem for byggeprosjekter",
 };
 

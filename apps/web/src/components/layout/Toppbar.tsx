@@ -21,14 +21,14 @@ export function Toppbar() {
   }, []);
 
   return (
-    <header className="flex h-12 items-center justify-between bg-siteflow-primary px-4">
+    <header className="flex h-12 items-center justify-between bg-sitedoc-primary px-4">
       {/* Venstre: Logo + Prosjektvelger */}
       <div className="flex items-center gap-4">
         <div className="flex w-[60px] items-center justify-center">
           <HardHat className="h-6 w-6 text-white" />
         </div>
         <span className="text-sm font-bold tracking-wide text-white">
-          SiteFlow
+          SiteDoc
         </span>
         <div className="mx-2 h-5 w-px bg-white/20" />
         <ProsjektVelger />

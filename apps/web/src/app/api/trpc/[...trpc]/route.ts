@@ -1,6 +1,6 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { appRouter } from "@siteflow/api/src/trpc/router";
-import { prisma } from "@siteflow/db";
+import { appRouter } from "@sitedoc/api/src/trpc/router";
+import { prisma } from "@sitedoc/db";
 import { auth } from "@/auth";
 
 /**

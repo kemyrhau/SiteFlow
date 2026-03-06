@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@siteflow/shared", "@siteflow/ui", "pdfjs-dist"],
+  transpilePackages: ["@sitedoc/shared", "@sitedoc/ui", "pdfjs-dist"],
   webpack: (config) => {
     // pdfjs-dist bruker canvas som optional dependency — ignorer i webpack
     config.resolve.alias.canvas = false;

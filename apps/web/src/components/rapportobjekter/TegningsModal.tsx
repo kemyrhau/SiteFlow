@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { Modal } from "@siteflow/ui";
+import { Modal } from "@sitedoc/ui";
 import { trpc } from "@/lib/trpc";
 import { Loader2 } from "lucide-react";
 import type { Vedlegg } from "./typer";

@@ -2,10 +2,10 @@ import { type ButtonHTMLAttributes, forwardRef } from "react";
 
 const varianter = {
   primary:
-    "bg-siteflow-primary text-white hover:bg-blue-700 focus:ring-siteflow-primary",
+    "bg-sitedoc-primary text-white hover:bg-blue-700 focus:ring-sitedoc-primary",
   secondary:
     "bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-300",
-  danger: "bg-siteflow-error text-white hover:bg-red-600 focus:ring-red-400",
+  danger: "bg-sitedoc-error text-white hover:bg-red-600 focus:ring-red-400",
   ghost: "bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-300",
 } as const;
 

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Button, Select, Modal, Spinner, EmptyState, StatusBadge, Table } from "@siteflow/ui";
+import { Button, Select, Modal, Spinner, EmptyState, StatusBadge, Table } from "@sitedoc/ui";
 import { useVerktoylinje } from "@/hooks/useVerktoylinje";
 import { useBygning } from "@/kontekst/bygning-kontekst";
 import type { VerktoylinjeHandling } from "@/kontekst/navigasjon-kontekst";

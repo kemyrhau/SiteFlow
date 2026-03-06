@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { SearchInput, Spinner } from "@siteflow/ui";
+import { SearchInput, Spinner } from "@sitedoc/ui";
 import { useState } from "react";
 import { Building2 } from "lucide-react";
 

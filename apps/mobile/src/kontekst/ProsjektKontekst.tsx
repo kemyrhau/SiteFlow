@@ -8,7 +8,7 @@ import {
 import type { ReactNode } from "react";
 import { Platform } from "react-native";
 
-const VALGT_PROSJEKT_KEY = "siteflow_valgt_prosjekt";
+const VALGT_PROSJEKT_KEY = "sitedoc_valgt_prosjekt";
 
 async function lagreVerdi(key: string, value: string): Promise<void> {
   if (Platform.OS === "web") {

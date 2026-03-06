@@ -1,4 +1,4 @@
-# SiteFlow
+# SiteDoc
 
 Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobil, nettbrett) med offline-støtte, bildekomprimering, GPS-tagging og entreprisearbeidsflyt.
 
@@ -26,7 +26,7 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 ## Prosjektstruktur
 
 ```
-siteflow/
+sitedoc/
 ├── apps/
 │   ├── web/              # Next.js PC-applikasjon
 │   │   └── src/
@@ -138,7 +138,7 @@ siteflow/
 | `accounts` | OAuth-tilkoblinger (Google, Microsoft Entra ID) |
 | `sessions` | Database-sesjoner for Auth.js |
 | `verification_tokens` | E-postverifiseringstokens |
-| `projects` | Prosjekter med prosjektnummer (SF-YYYYMMDD-XXXX), status, valgfri lokasjon (`latitude`, `longitude`), valgfritt eksternt prosjektnummer (`external_project_number`), valgfri firmalogo (`logo_url`), `show_internal_project_number` (Boolean, default true) |
+| `projects` | Prosjekter med prosjektnummer (SD-YYYYMMDD-XXXX), status, valgfri lokasjon (`latitude`, `longitude`), valgfritt eksternt prosjektnummer (`external_project_number`), valgfri firmalogo (`logo_url`), `show_internal_project_number` (Boolean, default true) |
 | `project_members` | Prosjektmedlemmer med rolle (member/admin), entrepriser via `member_enterprises` |
 | `member_enterprises` | Mange-til-mange join-tabell mellom `project_members` og `enterprises` |
 | `enterprises` | Entrepriser med `enterprise_number` (Dalux-format: "04 Tømrer, Econor"), bransje, firma, farge |
@@ -238,9 +238,9 @@ Maler har et `domain`-felt (`"bygg"` | `"hms"` | `"kvalitet"`, default `"bygg"`)
 
 **Konsept:** HMS-gruppen (domains=["hms"], ingen entrepriser) ser **alle** HMS-dokumenter i prosjektet tverrgående. Bygg-grupper (domains=["bygg"], med entrepriser) ser kun egne entreprisers bygg-dokumenter.
 
-**Tillatelsestyper:** `Permission` = `"manage_field"` | `"create_tasks"` | `"create_checklists"` | `"view_field"`. Definert i `@siteflow/shared`.
+**Tillatelsestyper:** `Permission` = `"manage_field"` | `"create_tasks"` | `"create_checklists"` | `"view_field"`. Definert i `@sitedoc/shared`.
 
-**Statusoverganger** valideres via `isValidStatusTransition()` fra `@siteflow/shared`:
+**Statusoverganger** valideres via `isValidStatusTransition()` fra `@sitedoc/shared`:
 ```
 draft → sent → received → in_progress → responded → approved | rejected → closed
                                                       rejected → in_progress (tilbake til arbeid)
@@ -352,7 +352,7 @@ Prosjektgrupper kategoriserer brukere med tilhørende tillatelser. Gruppekategor
 - **Feltarbeid-registrator** (`field-observatorer`) — `view_field`
 - **HMS** (`hms-ledere`) — `create_tasks`, `create_checklists`
 
-Standardgruppene er definert i `@siteflow/shared` (`STANDARD_PROJECT_GROUPS`).
+Standardgruppene er definert i `@sitedoc/shared` (`STANDARD_PROJECT_GROUPS`).
 
 ### Tegningsmarkører (mobil)
 
@@ -584,8 +584,8 @@ Drag-and-drop-editor for å bygge maler med rekursiv kontainer-nesting (Dalux-st
 - Sletting av kontainerfelt kaskaderer via DB CASCADE — barn slettes automatisk
 - **Slett-validering:** Sletting av rapportobjekter blokkeres hvis sjekklister/oppgaver inneholder data for feltet. `mal.sjekkObjektBruk` query sjekker bruk via JSONB `?|` operator (inkludert alle etterkommere). `SlettBekreftelse`-modal viser liste over berørte dokumenter — slett-knappen skjules helt ved bruk
 - Trebygging: flat array → tre med `byggTre()` i MalBygger, splittes i topptekst/datafelter
-- **Rekkefølge-sortering:** `sortOrder` lagres globalt (topptekst først, deretter datafelter) slik at mobil, web-utfylling og print viser felter i riktig rekkefølge. `byggObjektTre()` i `@siteflow/shared` og alle konsumenter sorterer etter sone (`config.zone === "topptekst"` → 0, ellers 1) før `sortOrder` innenfor sone
-- `harForelderObjekt(obj)` fra `@siteflow/shared` sjekker `obj.parentId != null`
+- **Rekkefølge-sortering:** `sortOrder` lagres globalt (topptekst først, deretter datafelter) slik at mobil, web-utfylling og print viser felter i riktig rekkefølge. `byggObjektTre()` i `@sitedoc/shared` og alle konsumenter sorterer etter sone (`config.zone === "topptekst"` → 0, ellers 1) før `sortOrder` innenfor sone
+- `harForelderObjekt(obj)` fra `@sitedoc/shared` sjekker `obj.parentId != null`
 - `harBetingelse(config)` er deprecated — bruk `harForelderObjekt()` for nye kall
 
 **Opsjon-normalisering:**
@@ -751,7 +751,7 @@ Sjekkliste-detaljsiden (`/dashbord/[prosjektId]/sjekklister/[sjekklisteId]`) har
 - Canvas API fanger tegningsbildet som PNG → laster opp via `/api/trpc/../../../upload` → returnerer vedlegg via callback
 - Krever `prosjektId` for å hente tegninger — `FeltWrapper` sender dette fra sjekkliste-detaljsiden (`params.prosjektId`)
 - Bruker `crossOrigin="anonymous"` på `<img>` for å unngå tainted canvas ved Canvas API-eksport
-- `Modal` fra `@siteflow/ui` med `max-w-2xl` for bredere visning
+- `Modal` fra `@sitedoc/ui` med `max-w-2xl` for bredere visning
 
 **Modal tekstredigering (mobil):**
 - Alle tekstfelt i sjekkliste-utfylling bruker tappbar visning → fullskjerm modal med "Ferdig"-knapp
@@ -873,7 +873,7 @@ Mobil-appen bruker SQLite (expo-sqlite + Drizzle ORM) for lokal-first lagring. F
 - Konflikthåndtering: last-write-wins med `sistEndretLokalt`-tidsstempel
 
 **Bakgrunnskø (OpplastingsKoProvider):**
-- Bilder lagres lokalt (`documentDirectory/siteflow-bilder/`) og legges i opplastingskø
+- Bilder lagres lokalt (`documentDirectory/sitedoc-bilder/`) og legges i opplastingskø
 - Køen prosesserer én fil av gangen med eksponentiell backoff (maks 5 forsøk, maks 30s ventetid)
 - Ved suksess: server-URL erstatter lokal URL i feltdata, lokal fil slettes
 - Ved nettverksovergang: køen starter automatisk når nett kommer tilbake
@@ -900,7 +900,7 @@ Dalux-inspirert tre-kolonne layout:
 
 ```
 +----------------------------------------------------------+
-| TOPPBAR: [SiteFlow] [Prosjektvelger v]     [Bruker v]    |
+| TOPPBAR: [SiteDoc] [Prosjektvelger v]     [Bruker v]    |
 +------+------------------+--------------------------------+
 | IKON | SEKUNDÆRT PANEL  | HOVEDINNHOLD                   |
 | 60px | 280px            | Verktøylinje: [Opprett] [...]  |
@@ -1004,7 +1004,7 @@ Admin-sjekk via `trpc.medlem.hentForProsjekt` matchet mot `bruker.email`.
 
 ## Pakker
 
-### @siteflow/ui — UI-komponentbibliotek
+### @sitedoc/ui — UI-komponentbibliotek
 
 14 delte React-komponenter i `packages/ui/src/`:
 
@@ -1025,7 +1025,7 @@ Admin-sjekk via `trpc.medlem.hentForProsjekt` matchet mot `bruker.email`.
 | `Table<T>` | Generisk tabell med kolonnedefinisjoner, radklikk, tom-melding |
 | `SearchInput` | Søkefelt med innebygd søkeikon |
 
-### @siteflow/shared — Delte typer, validering og utils
+### @sitedoc/shared — Delte typer, validering og utils
 
 Tre eksportpunkter: `types`, `validation`, `utils`
 
@@ -1090,7 +1090,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `GROUP_CATEGORIES` — Konstantarray for gruppekategorier
 
 **Utilities** (`packages/shared/src/utils/`):
-- `generateProjectNumber(sekvens)` — Format: `SF-YYYYMMDD-XXXX`
+- `generateProjectNumber(sekvens)` — Format: `SD-YYYYMMDD-XXXX`
 - `isValidStatusTransition(current, next)` — Validerer lovlige statusoverganger
 - `vaerkodeTilTekst(code)` — WMO-værkode → norsk tekst (Klart, Overskyet, Lett regn, osv.)
 - `beregnSynligeMapper(mapper, bruker)` — Beregner synlige mapper basert på tilgangsregler med arv. Returnerer `{ synlige: Set<string>, kunSti: Set<string> }`. Admin ser alt, `inherit` gir arv oppover, `custom` sjekker entreprise/gruppe/bruker-match
@@ -1135,7 +1135,7 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 ### TypeScript-mønstre
 
 - **tRPC mutation-callbacks:** Bruk `_data: unknown, variabler: { id: string }` for å unngå TS2589 (excessively deep type instantiation)
-- **Prisma-migreringer:** Bruk prosjektets lokale Prisma (`pnpm --filter @siteflow/db exec prisma migrate dev`), IKKE global `npx prisma` (versjonskonflikter med Prisma 7)
+- **Prisma-migreringer:** Bruk prosjektets lokale Prisma (`pnpm --filter @sitedoc/db exec prisma migrate dev`), IKKE global `npx prisma` (versjonskonflikter med Prisma 7)
 - **MalRad-type:** Cast `alleMaler as MalRad[]` ved filtrering siden tRPC-inferens kan bli for dyp
 - **Ikon-typer:** Bruk `JSX.Element` for ikon-props i interfaces, ikke `React.ReactNode` (unngår `@types/react` v18/v19-kollisjon i monorepoet)
 
@@ -1157,12 +1157,12 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Utomhus-tegning:** Tegning med `geoReference` (georeferert). Vises i "Utomhus"-gruppen i tegningslisten. GPS auto-plassering i mobilappen. Viser brukerens GPS-posisjon som blå prikk (Google Maps-stil) via `watchPositionAsync` (3s/2m intervall). Admin kalibrerer med GeoReferanseEditor i redigeringsvisningen
 - **Etasje-tegning:** Tegning uten `geoReference`. Grupperes etter `floor`-feltet. Manuell trykk-plassering i mobilappen
 - **Georeferanse:** Kalibrering av en tegning med 2 referansepunkter (pixel ↔ GPS). Lagres som `geoReference` JSON på Drawing-modellen. Brukes til automatisk markørplassering fra GPS i mobilappen. Format: `{ point1: { pixel: {x,y}, gps: {lat,lng} }, point2: ... }`. GeoReferanseEditor-komponenten har zoom/pan-navigering (håndverktøy, +/- knapper, musehjul med zoom-mot-markør) og støtter koordinat-innliming fra Norgeskart (UTM33 EUREF89), Google Maps (DMS) og desimalformat. PDF-tegninger har permanent overlay som fanger alle events — viewport fyller `calc(100vh - 350px)` med `scrolling="no"` på iframe. Markører rendres utenfor transformert div for konstant størrelse (12px prikker). Bruker `transformOrigin: 0 0` for enkel koordinatmatematikk: `vx = lx * zoom + pan.x`, `lx = (vx - pan.x) / zoom`. Wheel-zoom bruker native `addEventListener` med `{ passive: false }` for å garantere `preventDefault()`. Zoom-knapper zoomer mot synlig senter. Drag-deteksjon via `harDratt`-ref forhindrer utilsiktet punktplassering etter panoring
-- **Similaritetstransformasjon:** 2D-transformasjon (skalering + rotasjon + translasjon) som mapper mellom tegningskoordinater (prosent 0-100) og GPS-koordinater. Beregnes fra 2 referansepunkter via `beregnTransformasjon()` i `@siteflow/shared`
-- **Prosjektnummer:** Unikt, autogenerert nummer på format `SF-YYYYMMDD-XXXX`
+- **Similaritetstransformasjon:** 2D-transformasjon (skalering + rotasjon + translasjon) som mapper mellom tegningskoordinater (prosent 0-100) og GPS-koordinater. Beregnes fra 2 referansepunkter via `beregnTransformasjon()` i `@sitedoc/shared`
+- **Prosjektnummer:** Unikt, autogenerert nummer på format `SD-YYYYMMDD-XXXX`
 - **Prefiks:** Kort kode for en mal (f.eks. BHO, S-BET, KBO)
 - **Invitasjon (ProjectInvitation):** E-postinvitasjon til et prosjekt med unik token, utløpsdato og status (pending/accepted/expired)
 - **Prosjektgruppe (ProjectGroup):** Navngitt gruppe med kategori, tillatelser, fagområder (`domains`) og valgfri entreprise-tilknytning (`groupEnterprises`). Brukes for rollestyring (f.eks. Field-admin, HMS-ledere). Grupper uten entrepriser gir tverrgående tilgang til sine fagområder
-- **Fagområde (domain):** Klassifisering av maler som `"bygg"`, `"hms"` eller `"kvalitet"`. Styrer hvem som ser dokumenter basert på gruppemedlemskap. Definert i `@siteflow/shared` som `DOMAINS`
+- **Fagområde (domain):** Klassifisering av maler som `"bygg"`, `"hms"` eller `"kvalitet"`. Styrer hvem som ser dokumenter basert på gruppemedlemskap. Definert i `@sitedoc/shared` som `DOMAINS`
 - **Tverrgående tilgang:** Gruppe uten entrepriser ser ALLE dokumenter med matchende fagområde, uavhengig av oppretter/svarer-entreprise. F.eks. HMS-gruppen ser alle HMS-sjekklister
 - **GroupEnterprise:** Mange-til-mange kobling mellom `ProjectGroup` og `Enterprise`. Begrenser gruppens tilgang til kun dokumenter der tilknyttede entrepriser er oppretter/svarer
 - **Tillatelse (Permission):** Rettighet tildelt via prosjektgrupper: `manage_field`, `create_tasks`, `create_checklists`, `view_field`. Admin har alle tillatelser implisitt
@@ -1192,15 +1192,15 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 
 ## Fargepalett
 
-Mobilappen skal bruke samme fargepalett som web-appen. Primærfargen er SiteFlow-blå (`#1e40af`), brukt i toppbar, aktive elementer og knapper. Fargene er definert i Tailwind-konfigurasjon:
+Mobilappen skal bruke samme fargepalett som web-appen. Primærfargen er SiteDoc-blå (`#1e40af`), brukt i toppbar, aktive elementer og knapper. Fargene er definert i Tailwind-konfigurasjon:
 
 | Farge | Hex | Bruk |
 |-------|-----|------|
-| `siteflow-primary` / `siteflow-blue` | `#1e40af` | Primærfarge (toppbar, aktive ikoner, knapper) |
-| `siteflow-secondary` / `siteflow-blue-light` | `#3b82f6` | Sekundær blå (lenker, hover) |
-| `siteflow-accent` | `#f59e0b` | Aksent (varsler, markering) |
-| `siteflow-success` | `#10b981` | Suksess (godkjent, ferdig) |
-| `siteflow-error` | `#ef4444` | Feil (avvist, slett) |
+| `sitedoc-primary` / `sitedoc-blue` | `#1e40af` | Primærfarge (toppbar, aktive ikoner, knapper) |
+| `sitedoc-secondary` / `sitedoc-blue-light` | `#3b82f6` | Sekundær blå (lenker, hover) |
+| `sitedoc-accent` | `#f59e0b` | Aksent (varsler, markering) |
+| `sitedoc-success` | `#10b981` | Suksess (godkjent, ferdig) |
+| `sitedoc-error` | `#ef4444` | Feil (avvist, slett) |
 
 Bruk den blå primærfargen (`#1e40af`) konsekvent på tvers av web og mobil for et enhetlig utseende.
 
@@ -1214,7 +1214,7 @@ Bruk den blå primærfargen (`#1e40af`) konsekvent på tvers av web og mobil for
 - Prosjektnummer må være unike og genereres automatisk
 - Alle API-endepunkter må ha Zod-validering og auth-middleware
 - Mobil-appen må fungere fullt offline — test alltid med flymodus
-- Alle delte typer, schemaer og utils skal ligge i `@siteflow/shared` (viktig for mobilapp-gjenbruk)
+- Alle delte typer, schemaer og utils skal ligge i `@sitedoc/shared` (viktig for mobilapp-gjenbruk)
 - Statusoverganger valideres via `isValidStatusTransition()` — bruk samme logikk på server og klient
 - E-postsending (Resend) er valgfri — API-en starter uten `RESEND_API_KEY`, feiler først ved faktisk sending
 - Invitasjons-e-post sendes i try/catch — feil blokkerer ikke brukeropprettelsen

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { createWorkflowSchema, updateWorkflowSchema } from "@siteflow/shared";
+import { createWorkflowSchema, updateWorkflowSchema } from "@sitedoc/shared";
 
 export const arbeidsforlopRouter = router({
   // Hent alle arbeidsforløp for alle entrepriser i et prosjekt

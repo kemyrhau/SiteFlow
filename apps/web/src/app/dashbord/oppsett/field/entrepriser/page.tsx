@@ -11,7 +11,7 @@ import {
   Spinner,
   EmptyState,
   SearchInput,
-} from "@siteflow/ui";
+} from "@sitedoc/ui";
 import {
   Plus,
   Eye,
@@ -24,7 +24,7 @@ import {
   Workflow as WorkflowIcon,
   ArrowRight,
 } from "lucide-react";
-import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@siteflow/shared";
+import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@sitedoc/shared";
 
 /* ------------------------------------------------------------------ */
 /*  Fargepalett for entrepriser (delt modul)                            */
@@ -537,7 +537,7 @@ function RedigerArbeidsforlopModal({
             <label className="mb-2 flex items-center gap-2">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-siteflow-primary accent-siteflow-primary"
+                className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary accent-sitedoc-primary"
                 checked={
                   oppgaveMaler.length > 0 &&
                   oppgaveMaler.every((m) => valgte.has(m.id))
@@ -566,7 +566,7 @@ function RedigerArbeidsforlopModal({
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-siteflow-primary accent-siteflow-primary"
+                    className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary accent-sitedoc-primary"
                     checked={valgte.has(mal.id)}
                     onChange={() => toggleMal(mal.id)}
                   />
@@ -584,7 +584,7 @@ function RedigerArbeidsforlopModal({
             <label className="mb-2 flex items-center gap-2">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-siteflow-primary accent-siteflow-primary"
+                className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary accent-sitedoc-primary"
                 checked={
                   sjekklisteMaler.length > 0 &&
                   sjekklisteMaler.every((m) => valgte.has(m.id))
@@ -615,7 +615,7 @@ function RedigerArbeidsforlopModal({
                 >
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-siteflow-primary accent-siteflow-primary"
+                    className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary accent-sitedoc-primary"
                     checked={valgte.has(mal.id)}
                     onChange={() => toggleMal(mal.id)}
                   />
@@ -887,7 +887,7 @@ function EntrepriseVeiviser({
                   checked={metode === "kopier"}
                   onChange={() => setMetode("kopier")}
                   disabled={!harEntrepriser}
-                  className="mt-0.5 accent-siteflow-primary"
+                  className="mt-0.5 accent-sitedoc-primary"
                 />
                 <div className="flex-1">
                   <span className="text-sm font-medium text-gray-900">
@@ -914,7 +914,7 @@ function EntrepriseVeiviser({
                   type="radio"
                   name="metode"
                   disabled
-                  className="mt-0.5 accent-siteflow-primary"
+                  className="mt-0.5 accent-sitedoc-primary"
                 />
                 <div>
                   <span className="text-sm font-medium text-gray-900">
@@ -937,7 +937,7 @@ function EntrepriseVeiviser({
                   checked={metode === "importer"}
                   onChange={() => setMetode("importer")}
                   disabled={!harAndreProsjekter}
-                  className="mt-0.5 accent-siteflow-primary"
+                  className="mt-0.5 accent-sitedoc-primary"
                 />
                 <span className="text-sm font-medium text-gray-900">
                   Importer fra annet prosjekt
@@ -956,7 +956,7 @@ function EntrepriseVeiviser({
                   value="tom"
                   checked={metode === "tom"}
                   onChange={() => setMetode("tom")}
-                  className="mt-0.5 accent-siteflow-primary"
+                  className="mt-0.5 accent-sitedoc-primary"
                 />
                 <span className="text-sm font-medium text-gray-900">
                   Opprett tom entreprise
@@ -1063,7 +1063,7 @@ function EntrepriseVeiviser({
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 accent-siteflow-primary"
+                      className="h-4 w-4 rounded border-gray-300 accent-sitedoc-primary"
                       checked={valgteMedlemmer.has(m.id)}
                       onChange={() => toggleMedlem(m.id)}
                     />

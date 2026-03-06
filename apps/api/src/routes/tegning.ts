@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { Prisma } from "@siteflow/db";
+import { Prisma } from "@sitedoc/db";
 import { router, protectedProcedure } from "../trpc/trpc";
 import {
   drawingDisciplineSchema,
   drawingTypeSchema,
   drawingStatusSchema,
   geoReferanseSchema,
-} from "@siteflow/shared";
+} from "@sitedoc/shared";
 
 const fagdisipliner = drawingDisciplineSchema;
 const tegningstyper = drawingTypeSchema;

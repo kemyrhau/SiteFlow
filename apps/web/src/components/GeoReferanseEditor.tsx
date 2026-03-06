@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { Button, Input } from "@siteflow/ui";
+import { Button, Input } from "@sitedoc/ui";
 import {
   MapPin,
   Trash2,
@@ -14,7 +14,7 @@ import {
   RotateCcw,
   Crosshair,
 } from "lucide-react";
-import type { GeoReferanse } from "@siteflow/shared";
+import type { GeoReferanse } from "@sitedoc/shared";
 
 interface TegningInfo {
   id: string;

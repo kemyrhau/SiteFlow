@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
-import { Button, Input, Modal, SearchInput } from "@siteflow/ui";
+import { Button, Input, Modal, SearchInput } from "@sitedoc/ui";
 import {
   Plus,
   Search,
@@ -334,7 +334,7 @@ function RedigerGruppeModal({
                 }
               }}
               autoFocus
-              className="flex-1 border-b border-siteflow-primary bg-transparent text-sm font-medium outline-none"
+              className="flex-1 border-b border-sitedoc-primary bg-transparent text-sm font-medium outline-none"
             />
           ) : (
             <span
@@ -424,7 +424,7 @@ function RedigerGruppeModal({
               placeholder="Søk"
               value={sok}
               onChange={(e) => setSok(e.target.value)}
-              className="rounded border border-gray-200 py-1.5 pl-8 pr-3 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+              className="rounded border border-gray-200 py-1.5 pl-8 pr-3 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
             />
           </div>
         </div>
@@ -494,7 +494,7 @@ function RedigerGruppeModal({
                               sendPaNytt.mutate({ id: medlem.ventendeInvitasjon!.id });
                             }}
                             disabled={sendPaNytt.isPending}
-                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-siteflow-primary hover:bg-blue-50"
+                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-sitedoc-primary hover:bg-blue-50"
                             title="Ettersend invitasjon"
                           >
                             <RefreshCw className={`h-3 w-3 ${sendPaNytt.isPending ? "animate-spin" : ""}`} />
@@ -570,7 +570,7 @@ function RedigerGruppeModal({
                       type="text"
                       value={redigerNavn}
                       onChange={(e) => setRedigerNavn(e.target.value)}
-                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                     />
                   </div>
                   <div>
@@ -579,7 +579,7 @@ function RedigerGruppeModal({
                       type="email"
                       value={redigerEpost}
                       onChange={(e) => setRedigerEpost(e.target.value)}
-                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                     />
                   </div>
                   <div>
@@ -589,7 +589,7 @@ function RedigerGruppeModal({
                       value={redigerTelefon}
                       onChange={(e) => setRedigerTelefon(e.target.value)}
                       placeholder="Valgfritt"
-                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                     />
                   </div>
                   <div>
@@ -597,7 +597,7 @@ function RedigerGruppeModal({
                     <select
                       value={redigerRolle}
                       onChange={(e) => setRedigerRolle(e.target.value as "member" | "admin")}
-                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                      className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                     >
                       <option value="member">Medlem</option>
                       <option value="admin">Administrator</option>
@@ -644,7 +644,7 @@ function RedigerGruppeModal({
                     }}
                     disabled={leggTilSteg === 2}
                     autoFocus={leggTilSteg === 1}
-                    className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary disabled:bg-gray-100 disabled:text-gray-500"
+                    className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary disabled:bg-gray-100 disabled:text-gray-500"
                   />
                   {leggTilSteg === 2 && (
                     <button
@@ -684,7 +684,7 @@ function RedigerGruppeModal({
                           setFeilmelding("");
                         }}
                         autoFocus
-                        className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                        className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                       />
                       <input
                         type="text"
@@ -694,7 +694,7 @@ function RedigerGruppeModal({
                           setNyEtternavn(e.target.value);
                           setFeilmelding("");
                         }}
-                        className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                        className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                       />
                     </div>
                     <input
@@ -702,7 +702,7 @@ function RedigerGruppeModal({
                       placeholder="Telefonnummer (valgfritt)"
                       value={nyTelefon}
                       onChange={(e) => setNyTelefon(e.target.value)}
-                      className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                      className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                     />
                   </div>
                 )}
@@ -762,7 +762,7 @@ function RedigerGruppeModal({
                           domains: nyeDomener as ("bygg" | "hms" | "kvalitet")[],
                         });
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-siteflow-primary focus:ring-siteflow-primary"
+                      className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary focus:ring-sitedoc-primary"
                     />
                     <span className="text-sm text-gray-700">
                       {d === "bygg" ? "Bygg" : d === "hms" ? "HMS" : "Kvalitet"}
@@ -802,7 +802,7 @@ function RedigerGruppeModal({
                           enterpriseIds: nyeIder,
                         });
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-siteflow-primary focus:ring-siteflow-primary"
+                      className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary focus:ring-sitedoc-primary"
                     />
                     <span className="text-sm text-gray-700">{ent.name}</span>
                   </label>
@@ -928,7 +928,7 @@ function GruppeKort({
               e.stopPropagation();
               onLeggTilMedlem(gruppe.id);
             }}
-            className="flex items-center gap-1.5 text-xs text-siteflow-primary hover:underline"
+            className="flex items-center gap-1.5 text-xs text-sitedoc-primary hover:underline"
           >
             <UserPlus className="h-3.5 w-3.5" />
             Legg til medlem
@@ -1265,7 +1265,7 @@ export default function BrukereSide() {
               Kategori
             </label>
             <select
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
               value={nyGruppeKategori}
               onChange={(e) =>
                 setNyGruppeKategori(

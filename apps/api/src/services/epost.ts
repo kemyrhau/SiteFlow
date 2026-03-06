@@ -15,7 +15,7 @@ function getResend(): Resend {
 }
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3100";
-const FRA_EPOST = process.env.RESEND_FROM_EMAIL ?? "SiteFlow <noreply@siteflow.no>";
+const FRA_EPOST = process.env.RESEND_FROM_EMAIL ?? "SiteDoc <noreply@sitedoc.no>";
 
 interface InvitasjonsEpostParams {
   til: string;
@@ -35,10 +35,10 @@ export async function sendInvitasjonsEpost({
   const { error } = await getResend().emails.send({
     from: FRA_EPOST,
     to: til,
-    subject: `Du er invitert til prosjektet "${prosjektNavn}" på SiteFlow`,
+    subject: `Du er invitert til prosjektet "${prosjektNavn}" på SiteDoc`,
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 0;">
-        <h2 style="color: #1a365d; margin-bottom: 8px;">SiteFlow</h2>
+        <h2 style="color: #1a365d; margin-bottom: 8px;">SiteDoc</h2>
         <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">
           ${invitertAvNavn} har invitert deg til prosjektet <strong>${prosjektNavn}</strong>.
         </p>
@@ -55,7 +55,7 @@ export async function sendInvitasjonsEpost({
         </p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <p style="color: #a0aec0; font-size: 12px;">
-          Sendt fra SiteFlow — rapport- og kvalitetsstyring for byggeprosjekter
+          Sendt fra SiteDoc — rapport- og kvalitetsstyring for byggeprosjekter
         </p>
       </div>
     `,

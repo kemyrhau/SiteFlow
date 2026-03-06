@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { SekundaertPanel } from "@/components/layout/SekundaertPanel";
 import { OppgaverPanel } from "@/components/paneler/OppgaverPanel";
-import { Spinner } from "@siteflow/ui";
+import { Spinner } from "@sitedoc/ui";
 
 export default function OppgaverLayout({
   children,

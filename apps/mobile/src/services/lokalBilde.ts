@@ -1,6 +1,6 @@
 import * as FileSystem from "expo-file-system/legacy";
 
-const BILDE_MAPPE = `${FileSystem.documentDirectory}siteflow-bilder/`;
+const BILDE_MAPPE = `${FileSystem.documentDirectory}sitedoc-bilder/`;
 
 /**
  * Sørg for at bildemappen eksisterer.

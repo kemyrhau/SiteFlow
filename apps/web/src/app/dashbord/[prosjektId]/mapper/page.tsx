@@ -5,10 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
-import { Spinner, Table } from "@siteflow/ui";
+import { Spinner, Table } from "@sitedoc/ui";
 import { FolderOpen, FileText, Download, Lock } from "lucide-react";
-import { beregnSynligeMapper } from "@siteflow/shared/utils";
-import type { MappeTilgangInput, BrukerTilgangInfo } from "@siteflow/shared/utils";
+import { beregnSynligeMapper } from "@sitedoc/shared/utils";
+import type { MappeTilgangInput, BrukerTilgangInfo } from "@sitedoc/shared/utils";
 
 export default function MapperSide() {
   const { prosjektId } = useProsjekt();

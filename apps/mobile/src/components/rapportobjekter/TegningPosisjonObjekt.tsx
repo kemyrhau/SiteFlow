@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable, Modal, SafeAreaView } from "react-native";
 import { Target, X } from "lucide-react-native";
 import type { RapportObjektProps } from "./typer";
-import type { TegningPosisjonVerdi } from "@siteflow/shared";
+import type { TegningPosisjonVerdi } from "@sitedoc/shared";
 
 export function TegningPosisjonObjekt({
   verdi,

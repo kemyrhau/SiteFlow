@@ -27,9 +27,9 @@ import {
   Trash2,
   ChevronDown,
 } from "lucide-react-native";
-import { harBetingelse, harForelderObjekt } from "@siteflow/shared";
-import { hentStatusHandlinger } from "@siteflow/shared";
-import type { StatusHandling } from "@siteflow/shared";
+import { harBetingelse, harForelderObjekt } from "@sitedoc/shared";
+import { hentStatusHandlinger } from "@sitedoc/shared";
+import type { StatusHandling } from "@sitedoc/shared";
 import { useOppgaveSkjema } from "../../src/hooks/useOppgaveSkjema";
 import { useOpplastingsKo } from "../../src/providers/OpplastingsKoProvider";
 import { useAuth } from "../../src/providers/AuthProvider";
@@ -311,7 +311,7 @@ export default function OppgaveDetalj() {
   return (
     <SafeAreaView className="flex-1 bg-gray-100" edges={["top"]}>
       {/* Header */}
-      <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
+      <View className="flex-row items-center justify-between bg-sitedoc-blue px-4 py-3">
         <Pressable onPress={håndterTilbake} hitSlop={12} className="flex-row items-center gap-2">
           <ArrowLeft size={22} color="#ffffff" />
         </Pressable>

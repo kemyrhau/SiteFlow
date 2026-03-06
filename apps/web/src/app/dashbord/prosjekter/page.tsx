@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { trpc } from "@/lib/trpc";
-import { Card, Button, StatusBadge, Spinner, EmptyState } from "@siteflow/ui";
+import { Card, Button, StatusBadge, Spinner, EmptyState } from "@sitedoc/ui";
 
 export default function ProsjekterSide() {
   const { data: prosjekter, isLoading } = trpc.prosjekt.hentAlle.useQuery();

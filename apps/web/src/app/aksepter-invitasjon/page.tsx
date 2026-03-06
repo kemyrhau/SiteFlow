@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { prisma } from "@siteflow/db";
+import { prisma } from "@sitedoc/db";
 import { auth, signIn } from "@/auth";
 
 export default async function AksepterInvitasjonSide({
@@ -70,8 +70,8 @@ export default async function AksepterInvitasjonSide({
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-center text-2xl font-bold text-siteflow-primary">
-          SiteFlow
+        <h1 className="mb-2 text-center text-2xl font-bold text-sitedoc-primary">
+          SiteDoc
         </h1>
         <p className="mb-1 text-center text-sm text-gray-500">
           Du er invitert til prosjektet
@@ -150,14 +150,14 @@ function FeilSide({ tittel, melding }: { tittel: string; melding: string }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-8 shadow-sm text-center">
-        <h1 className="mb-2 text-2xl font-bold text-siteflow-primary">
-          SiteFlow
+        <h1 className="mb-2 text-2xl font-bold text-sitedoc-primary">
+          SiteDoc
         </h1>
         <h2 className="mb-2 text-lg font-semibold text-gray-900">{tittel}</h2>
         <p className="mb-6 text-sm text-gray-500">{melding}</p>
         <a
           href="/logg-inn"
-          className="inline-block rounded-lg bg-siteflow-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-opacity-90"
+          className="inline-block rounded-lg bg-sitedoc-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-opacity-90"
         >
           Gå til innlogging
         </a>

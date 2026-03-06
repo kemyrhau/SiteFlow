@@ -3,10 +3,10 @@
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { Spinner } from "@siteflow/ui";
+import { Spinner } from "@sitedoc/ui";
 import { Printer, ExternalLink } from "lucide-react";
 import { RapportObjektVisning } from "@/components/RapportObjektVisning";
-import { byggObjektTre } from "@siteflow/shared/types";
+import { byggObjektTre } from "@sitedoc/shared/types";
 import type { Vedlegg } from "@/components/rapportobjekter/typer";
 
 /* ------------------------------------------------------------------ */

@@ -17,8 +17,8 @@ import {
   REPORT_OBJECT_TYPE_META,
   type ReportObjectType,
   type TemplateZone,
-} from "@siteflow/shared";
-import { Modal, Button, Spinner } from "@siteflow/ui";
+} from "@sitedoc/shared";
+import { Modal, Button, Spinner } from "@sitedoc/ui";
 import { trpc } from "@/lib/trpc";
 import { FeltPalett } from "./FeltPalett";
 import { DropSone } from "./DropSone";

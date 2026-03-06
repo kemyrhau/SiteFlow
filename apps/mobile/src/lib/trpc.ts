@@ -1,5 +1,5 @@
 import { createTRPCReact, httpBatchLink } from "@trpc/react-query";
-import type { AppRouter } from "@siteflow/api/src/trpc/router";
+import type { AppRouter } from "@sitedoc/api/src/trpc/router";
 import { AUTH_CONFIG } from "../config/auth";
 import { hentSessionToken } from "../services/auth";
 

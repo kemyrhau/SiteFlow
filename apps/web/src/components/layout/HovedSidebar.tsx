@@ -11,12 +11,12 @@ import {
   FolderOpen,
   Settings,
 } from "lucide-react";
-import { SidebarIkon } from "@siteflow/ui";
+import { SidebarIkon } from "@sitedoc/ui";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { useAktivSeksjon } from "@/hooks/useAktivSeksjon";
 import { trpc } from "@/lib/trpc";
 import type { Seksjon } from "@/kontekst/navigasjon-kontekst";
-import type { Permission } from "@siteflow/shared";
+import type { Permission } from "@sitedoc/shared";
 
 interface SidebarElement {
   id: Seksjon;
@@ -108,7 +108,7 @@ export function HovedSidebar() {
   }
 
   return (
-    <aside className="flex w-[60px] flex-col items-center bg-siteflow-primary py-3">
+    <aside className="flex w-[60px] flex-col items-center bg-sitedoc-primary py-3">
       {/* Hovedelementer */}
       <nav className="flex flex-1 flex-col items-center gap-1">
         {filtrertHovedelementer.map((element) => {

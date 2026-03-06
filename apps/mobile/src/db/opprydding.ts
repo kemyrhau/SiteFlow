@@ -154,7 +154,7 @@ export async function ryddOppForProsjekt(
 }
 
 /**
- * Slett foreldreløse lokale bilder — filer i siteflow-bilder/
+ * Slett foreldreløse lokale bilder — filer i sitedoc-bilder/
  * uten tilhørende køoppføring.
  */
 export async function ryddForeldreloseBilder() {

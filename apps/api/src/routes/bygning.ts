@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { createBuildingSchema } from "@siteflow/shared";
+import { createBuildingSchema } from "@sitedoc/shared";
 
 export const bygningRouter = router({
   // Hent alle bygninger for et prosjekt

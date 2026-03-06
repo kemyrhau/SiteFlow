@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { createEnterpriseSchema, copyEnterpriseSchema } from "@siteflow/shared";
+import { createEnterpriseSchema, copyEnterpriseSchema } from "@sitedoc/shared";
 
 export const entrepriseRouter = router({
   // Hent alle entrepriser for et prosjekt

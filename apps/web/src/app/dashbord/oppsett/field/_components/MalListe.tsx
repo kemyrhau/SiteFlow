@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
-import { Button, Input, Textarea, Modal, Spinner, EmptyState, SearchInput } from "@siteflow/ui";
+import { Button, Input, Textarea, Modal, Spinner, EmptyState, SearchInput } from "@sitedoc/ui";
 import { Plus, Pencil, Trash2, MoreVertical, ChevronDown, Lock, Building2 } from "lucide-react";
 import { EntrepriseTilknytningModal } from "./EntrepriseTilknytningModal";
 
@@ -462,7 +462,7 @@ export function MalListe({
             <select
               value={domain}
               onChange={(e) => setDomain(e.target.value as "bygg" | "hms" | "kvalitet")}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
             >
               <option value="bygg">Bygg</option>
               <option value="hms">HMS</option>
@@ -567,7 +567,7 @@ export function MalListe({
                       setRedigerSubjects(oppdatert);
                     }}
                     placeholder="Skriv emne..."
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-siteflow-primary focus:outline-none focus:ring-1 focus:ring-siteflow-primary"
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                   />
                   <button
                     type="button"

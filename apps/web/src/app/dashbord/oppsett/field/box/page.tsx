@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
-import { Button, Modal, Input, Spinner, Select } from "@siteflow/ui";
+import { Button, Modal, Input, Spinner, Select } from "@sitedoc/ui";
 import {
   FolderOpen,
   ChevronDown,
@@ -273,7 +273,7 @@ function TilgangModal({
               name="modus"
               checked={modus === "inherit"}
               onChange={() => setModus("inherit")}
-              className="text-siteflow-primary"
+              className="text-sitedoc-primary"
             />
             Arv fra overordnet mappe
           </label>
@@ -283,7 +283,7 @@ function TilgangModal({
               name="modus"
               checked={modus === "custom"}
               onChange={() => setModus("custom")}
-              className="text-siteflow-primary"
+              className="text-sitedoc-primary"
             />
             Egendefinert tilgang
           </label>

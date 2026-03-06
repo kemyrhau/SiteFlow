@@ -1,5 +1,5 @@
 {
-  "name": "@siteflow/api",
+  "name": "@sitedoc/api",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -13,8 +13,8 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/multipart": "^9.4.0",
     "@fastify/static": "^9.0.0",
-    "@siteflow/db": "workspace:*",
-    "@siteflow/shared": "workspace:*",
+    "@sitedoc/db": "workspace:*",
+    "@sitedoc/shared": "workspace:*",
     "@trpc/server": "^11.10.0",
     "fastify": "^5.2.0",
     "resend": "^6.9.3",

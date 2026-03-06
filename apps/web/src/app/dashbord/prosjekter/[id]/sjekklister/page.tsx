@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc";
-import { Card, Button, Select, Modal, Spinner, EmptyState, StatusBadge } from "@siteflow/ui";
+import { Card, Button, Select, Modal, Spinner, EmptyState, StatusBadge } from "@sitedoc/ui";
 
 export default function SjekklisteSide() {
   const params = useParams<{ id: string }>();

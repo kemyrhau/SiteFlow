@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { useBygning } from "@/kontekst/bygning-kontekst";
-import { Button, Select, Modal, Spinner } from "@siteflow/ui";
+import { Button, Select, Modal, Spinner } from "@sitedoc/ui";
 
 interface ArbeidsflopMal {
   template: { id: string; name: string; category: string };

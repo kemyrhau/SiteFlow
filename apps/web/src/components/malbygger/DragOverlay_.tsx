@@ -2,7 +2,7 @@
 
 import { DragOverlay as DndDragOverlay } from "@dnd-kit/core";
 import type { Active } from "@dnd-kit/core";
-import { REPORT_OBJECT_TYPE_META, type ReportObjectType } from "@siteflow/shared";
+import { REPORT_OBJECT_TYPE_META, type ReportObjectType } from "@sitedoc/shared";
 import type { MalObjekt } from "./DraggbartFelt";
 
 const ikonMap: Record<string, string> = {

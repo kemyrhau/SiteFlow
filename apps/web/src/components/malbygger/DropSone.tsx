@@ -5,7 +5,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import type { TemplateZone } from "@siteflow/shared";
+import type { TemplateZone } from "@sitedoc/shared";
 import { DraggbartFelt, type MalObjekt } from "./DraggbartFelt";
 import { BetingelseBjelke } from "./BetingelseBjelke";
 import type { TreObjekt } from "./typer";

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Card, Button, Input, Textarea } from "@siteflow/ui";
+import { Card, Button, Input, Textarea } from "@sitedoc/ui";
 
 export default function NyttProsjektSide() {
   const router = useRouter();
@@ -65,7 +65,7 @@ export default function NyttProsjektSide() {
             </Button>
           </div>
           {opprettMutation.error && (
-            <p className="text-sm text-siteflow-error">
+            <p className="text-sm text-sitedoc-error">
               {opprettMutation.error.message}
             </p>
           )}

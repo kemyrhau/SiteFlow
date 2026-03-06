@@ -3,11 +3,11 @@
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
-import { Spinner } from "@siteflow/ui";
+import { Spinner } from "@sitedoc/ui";
 import { Printer, ArrowLeft } from "lucide-react";
 import { PrintHeader } from "@/components/PrintHeader";
 import { RapportObjektVisning } from "@/components/RapportObjektVisning";
-import { byggObjektTre } from "@siteflow/shared/types";
+import { byggObjektTre } from "@sitedoc/shared/types";
 
 interface SjekklisteData {
   [objektId: string]: {

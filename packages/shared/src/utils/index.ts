@@ -8,13 +8,13 @@ export type { Transformasjon } from "./georeferanse";
 
 /**
  * Generer et unikt prosjektnummer med prefiks og sekvensielt nummer.
- * Format: SF-YYYYMMDD-XXXX (f.eks. SF-20260228-0001)
+ * Format: SD-YYYYMMDD-XXXX (f.eks. SD-20260228-0001)
  */
 export function generateProjectNumber(sequentialNumber: number): string {
   const now = new Date();
   const date = now.toISOString().slice(0, 10).replace(/-/g, "");
   const seq = String(sequentialNumber).padStart(4, "0");
-  return `SF-${date}-${seq}`;
+  return `SD-${date}-${seq}`;
 }
 
 /**

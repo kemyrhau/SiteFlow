@@ -247,7 +247,7 @@ export function TegningsVelger({
       <Modal visible={utvidet} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView className="flex-1 bg-white">
           {/* Blå header med Avbryt og bygningsvelger */}
-          <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
+          <View className="flex-row items-center justify-between bg-sitedoc-blue px-4 py-3">
             <Pressable
               onPress={() => {
                 setUtvidet(false);

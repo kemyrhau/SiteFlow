@@ -4,8 +4,8 @@ export default function LoggInnSide() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-center text-2xl font-bold text-siteflow-primary">
-          SiteFlow
+        <h1 className="mb-2 text-center text-2xl font-bold text-sitedoc-primary">
+          SiteDoc
         </h1>
         <p className="mb-6 text-center text-sm text-gray-500">
           Logg inn for å fortsette

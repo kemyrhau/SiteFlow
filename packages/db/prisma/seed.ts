@@ -8,7 +8,7 @@ async function seed() {
   // Opprett testbrukere
   const bruker1 = await prisma.user.create({
     data: {
-      email: "ole.nordmann@siteflow.no",
+      email: "ole.nordmann@sitedoc.no",
       name: "Ole Nordmann",
       role: "admin",
     },
@@ -16,7 +16,7 @@ async function seed() {
 
   const bruker2 = await prisma.user.create({
     data: {
-      email: "kari.hansen@siteflow.no",
+      email: "kari.hansen@sitedoc.no",
       name: "Kari Hansen",
       role: "user",
     },
@@ -35,7 +35,7 @@ async function seed() {
   // Opprett testprosjekt
   const prosjekt = await prisma.project.create({
     data: {
-      projectNumber: "SF-20260228-0001",
+      projectNumber: "SD-20260228-0001",
       name: "Bjørvika Kontorbygg",
       description: "Nybygg kontorbygg med 12 etasjer, Bjørvika Oslo",
       address: "Dronning Eufemias gate 30, 0191 Oslo",
@@ -45,7 +45,7 @@ async function seed() {
 
   const prosjekt2 = await prisma.project.create({
     data: {
-      projectNumber: "SF-20260228-0002",
+      projectNumber: "SD-20260228-0002",
       name: "Nydalen Boligblokk",
       description: "Rehabilitering av boligblokk med 48 leiligheter",
       address: "Nydalsveien 15, 0484 Oslo",

@@ -10,7 +10,7 @@ import { erDatabaseTilgjengelig } from "./database";
 export function kjorMigreringer() {
   if (!erDatabaseTilgjengelig()) return;
 
-  const db = openDatabaseSync("siteflow.db");
+  const db = openDatabaseSync("sitedoc.db");
 
   db.execSync(`
     CREATE TABLE IF NOT EXISTS sjekkliste_feltdata (

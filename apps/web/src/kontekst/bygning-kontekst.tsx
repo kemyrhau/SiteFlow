@@ -11,8 +11,8 @@ import {
 } from "react";
 import { useProsjekt } from "./prosjekt-kontekst";
 
-const BYGNING_STORAGE_KEY = "siteflow-aktiv-bygning";
-const TEGNING_STORAGE_KEY = "siteflow-standard-tegning";
+const BYGNING_STORAGE_KEY = "sitedoc-aktiv-bygning";
+const TEGNING_STORAGE_KEY = "sitedoc-standard-tegning";
 
 interface AktivBygning {
   id: string;

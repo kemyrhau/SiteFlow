@@ -6,7 +6,7 @@ import {
   createProjectGroupSchema,
   updateProjectGroupSchema,
   addGroupMemberByEmailSchema,
-} from "@siteflow/shared";
+} from "@sitedoc/shared";
 import { sendInvitasjonsEpost } from "../services/epost";
 import { TRPCError } from "@trpc/server";
 import {

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
-import { Spinner } from "@siteflow/ui";
+import { Spinner } from "@sitedoc/ui";
 import { Verktoylinje } from "@/components/layout/Verktoylinje";
 
 export default function ProsjektLayout({
@@ -31,7 +31,7 @@ export default function ProsjektLayout({
         <p className="text-sm text-gray-500">Prosjektet ble ikke funnet</p>
         <button
           onClick={() => router.push("/dashbord")}
-          className="text-sm text-siteflow-primary hover:underline"
+          className="text-sm text-sitedoc-primary hover:underline"
         >
           Tilbake til dashbord
         </button>

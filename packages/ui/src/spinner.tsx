@@ -12,7 +12,7 @@ const størrelser = {
 export function Spinner({ size = "md", className = "" }: SpinnerProps) {
   return (
     <svg
-      className={`animate-spin text-siteflow-primary ${størrelser[size]} ${className}`}
+      className={`animate-spin text-sitedoc-primary ${størrelser[size]} ${className}`}
       fill="none"
       viewBox="0 0 24 24"
     >

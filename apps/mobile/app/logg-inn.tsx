@@ -85,8 +85,8 @@ export default function LoggInnSkjerm() {
       <View className="flex-1 items-center justify-center px-8">
         {/* Logo */}
         <View className="mb-12 items-center">
-          <Text className="text-4xl font-bold text-siteflow-blue">
-            SiteFlow
+          <Text className="text-4xl font-bold text-sitedoc-blue">
+            SiteDoc
           </Text>
           <Text className="mt-2 text-base text-gray-500">
             Rapport- og kvalitetsstyring

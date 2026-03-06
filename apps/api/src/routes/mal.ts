@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { Prisma } from "@siteflow/db";
+import type { Prisma } from "@sitedoc/db";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { reportObjectTypeSchema, templateZoneSchema, createTemplateSchema } from "@siteflow/shared";
+import { reportObjectTypeSchema, templateZoneSchema, createTemplateSchema } from "@sitedoc/shared";
 
 // Config-schema: aksepterer vilkårlig JSON for rapportobjekt-konfigurasjon
 const configSchema = z.preprocess(

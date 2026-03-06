@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { prisma } from "@siteflow/db";
-import type { Permission } from "@siteflow/shared";
+import { prisma } from "@sitedoc/db";
+import type { Permission } from "@sitedoc/shared";
 
 /**
  * Hent brukerens entreprise-IDer i et prosjekt.

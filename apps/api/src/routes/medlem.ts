@@ -1,7 +1,7 @@
 import { z } from "zod";
 import crypto from "crypto";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { addMemberSchema } from "@siteflow/shared";
+import { addMemberSchema } from "@sitedoc/shared";
 import { TRPCError } from "@trpc/server";
 import { sendInvitasjonsEpost } from "../services/epost";
 import {

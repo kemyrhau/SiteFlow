@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
-import { vaerkodeTilTekst } from "@siteflow/shared";
+import { vaerkodeTilTekst } from "@sitedoc/shared";
 import type { RapportObjekt } from "@/components/rapportobjekter/typer";
 import type { FeltVerdi } from "@/components/rapportobjekter/typer";
 

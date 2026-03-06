@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { createProjectSchema } from "@siteflow/shared";
-import { generateProjectNumber } from "@siteflow/shared";
+import { createProjectSchema } from "@sitedoc/shared";
+import { generateProjectNumber } from "@sitedoc/shared";
 
 export const prosjektRouter = router({
   // Hent prosjekter der innlogget bruker er medlem

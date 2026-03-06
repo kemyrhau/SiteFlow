@@ -45,7 +45,7 @@ export function MalVelger({ synlig, kategori, onVelg, onLukk }: MalVelgerProps) 
     <Modal visible={synlig} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
         {/* Header */}
-        <View className="flex-row items-center justify-between bg-siteflow-blue px-4 py-3">
+        <View className="flex-row items-center justify-between bg-sitedoc-blue px-4 py-3">
           <Text className="text-sm font-semibold text-white">
             Velg {kategori === "sjekkliste" ? "sjekklistemal" : "oppgavemal"}
           </Text>

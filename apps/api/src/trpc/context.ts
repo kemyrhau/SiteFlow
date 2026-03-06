@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { prisma } from "@siteflow/db";
+import { prisma } from "@sitedoc/db";
 
 export interface CreateContextOptions {
   req: FastifyRequest;

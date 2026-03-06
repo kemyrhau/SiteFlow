@@ -1,5 +1,5 @@
 {
-  "name": "siteflow",
+  "name": "sitedoc",
   "private": true,
   "scripts": {
     "dev": "turbo dev",
@@ -8,10 +8,10 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
-    "db:migrate": "pnpm --filter @siteflow/db migrate",
-    "db:seed": "pnpm --filter @siteflow/db seed",
-    "db:studio": "pnpm --filter @siteflow/db studio",
-    "db:generate": "pnpm --filter @siteflow/db generate"
+    "db:migrate": "pnpm --filter @sitedoc/db migrate",
+    "db:seed": "pnpm --filter @sitedoc/db seed",
+    "db:studio": "pnpm --filter @sitedoc/db studio",
+    "db:generate": "pnpm --filter @sitedoc/db generate"
   },
   "packageManager": "pnpm@9.15.4",
   "engines": {

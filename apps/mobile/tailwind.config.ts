@@ -9,10 +9,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        "siteflow-header": "#5a7a2e",
-        "siteflow-header-dark": "#4a6624",
-        "siteflow-blue": "#1e40af",
-        "siteflow-blue-light": "#3b82f6",
+        "sitedoc-header": "#5a7a2e",
+        "sitedoc-header-dark": "#4a6624",
+        "sitedoc-blue": "#1e40af",
+        "sitedoc-blue-light": "#3b82f6",
       },
     },
   },
