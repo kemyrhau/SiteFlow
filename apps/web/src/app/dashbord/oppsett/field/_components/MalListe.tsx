@@ -26,6 +26,7 @@ type MalRad = {
   category: string;
   version: number;
   subjects: unknown;
+  enableChangeLog: boolean;
   _count: { objects: number; checklists: number };
 };
 
@@ -125,6 +126,7 @@ export function MalListe({
   const [redigerPrefiks, setRedigerPrefiks] = useState("");
   const [redigerBeskrivelse, setRedigerBeskrivelse] = useState("");
   const [redigerSubjects, setRedigerSubjects] = useState<string[]>([]);
+  const [redigerEnableChangeLog, setRedigerEnableChangeLog] = useState(false);
 
   const { data: alleMaler, isLoading } = trpc.mal.hentForProsjekt.useQuery(
     { projectId: prosjektId! },
@@ -193,6 +195,7 @@ export function MalListe({
       prefix: redigerPrefiks.trim() || undefined,
       description: redigerBeskrivelse.trim() || undefined,
       subjects: redigerSubjects.filter((s) => s.trim() !== ""),
+      enableChangeLog: redigerEnableChangeLog,
     });
   }
 
@@ -209,6 +212,7 @@ export function MalListe({
     setRedigerBeskrivelse(mal.description ?? "");
     const subjects = Array.isArray(mal.subjects) ? (mal.subjects as string[]) : [];
     setRedigerSubjects(subjects);
+    setRedigerEnableChangeLog(mal.enableChangeLog);
     setVisRedigerModal(true);
   }
 
@@ -591,6 +595,29 @@ export function MalListe({
               </button>
             </div>
           </div>
+
+          {/* Endringslogg (kun for sjekklister) */}
+          {kategori === "sjekkliste" && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">
+                Innstillinger
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-sitedoc-primary focus:ring-sitedoc-primary"
+                  checked={redigerEnableChangeLog}
+                  onChange={(e) => setRedigerEnableChangeLog(e.target.checked)}
+                />
+                <span className="text-sm text-gray-700">
+                  Aktiver automatisk endringslogg
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 ml-6">
+                Logger feltendringer med tidsstempel og bruker nederst i sjekklisten
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button type="submit" loading={oppdaterMutation.isPending}>

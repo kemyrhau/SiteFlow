@@ -438,6 +438,11 @@ export default function SjekklisteDetaljSide() {
         })}
       </div>
 
+      {/* Endringslogg */}
+      {sjekkliste?.template && (
+        <EndringsloggSeksjon sjekklisteId={params.sjekklisteId} />
+      )}
+
       {/* Historikk */}
       {sjekkliste && (
         <HistorikkSeksjon sjekklisteId={params.sjekklisteId} />
@@ -460,6 +465,69 @@ export default function SjekklisteDetaljSide() {
 /* ------------------------------------------------------------------ */
 /*  Historikk                                                          */
 /* ------------------------------------------------------------------ */
+
+interface EndringsloggRad {
+  id: string;
+  fieldLabel: string;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
+  user: { id: string; name: string | null; email: string };
+}
+
+function formaterVerdi(json: string | null): string {
+  if (json == null) return "—";
+  try {
+    const parsed = JSON.parse(json);
+    if (parsed === null || parsed === "") return "—";
+    if (typeof parsed === "string") return parsed;
+    if (typeof parsed === "number" || typeof parsed === "boolean") return String(parsed);
+    if (Array.isArray(parsed)) return parsed.join(", ");
+    return json;
+  } catch {
+    return json;
+  }
+}
+
+function EndringsloggSeksjon({ sjekklisteId }: { sjekklisteId: string }) {
+  const { data: sjekkliste } = trpc.sjekkliste.hentMedId.useQuery({ id: sjekklisteId });
+
+  const enableChangeLog = (sjekkliste?.template as { enableChangeLog?: boolean } | undefined)?.enableChangeLog;
+  const changeLog = ((sjekkliste as { changeLog?: EndringsloggRad[] } | undefined)?.changeLog ?? []);
+
+  if (!enableChangeLog || changeLog.length === 0) return null;
+
+  return (
+    <Card className="mt-6">
+      <h4 className="mb-3 text-sm font-medium text-gray-500">Endringslogg</h4>
+      <div className="flex flex-col gap-1.5">
+        {changeLog.map((rad) => (
+          <div key={rad.id} className="flex items-start gap-2 text-xs print-no-break">
+            <span className="shrink-0 text-gray-400">
+              {new Date(rad.createdAt).toLocaleString("nb-NO", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+            <span className="shrink-0 font-medium text-gray-600">
+              {rad.user.name ?? rad.user.email}
+            </span>
+            <span className="text-gray-500">
+              endret <span className="font-medium">{rad.fieldLabel}</span>
+              {rad.oldValue != null && (
+                <> fra &laquo;{formaterVerdi(rad.oldValue)}&raquo;</>
+              )}
+              {" "}til &laquo;{formaterVerdi(rad.newValue)}&raquo;
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 function HistorikkSeksjon({ sjekklisteId }: { sjekklisteId: string }) {
   const { data: sjekkliste } = trpc.sjekkliste.hentMedId.useQuery({ id: sjekklisteId });

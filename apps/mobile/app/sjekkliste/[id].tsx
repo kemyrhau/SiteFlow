@@ -36,6 +36,29 @@ interface Transfer {
   sender?: { name: string | null } | null;
 }
 
+interface EndringsloggRad {
+  id: string;
+  fieldLabel: string;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: Date | string;
+  user: { id: string; name: string | null; email: string };
+}
+
+function formaterLoggVerdi(json: string | null): string {
+  if (json == null) return "—";
+  try {
+    const parsed = JSON.parse(json);
+    if (parsed === null || parsed === "") return "—";
+    if (typeof parsed === "string") return parsed;
+    if (typeof parsed === "number" || typeof parsed === "boolean") return String(parsed);
+    if (Array.isArray(parsed)) return parsed.join(", ");
+    return json;
+  } catch {
+    return json;
+  }
+}
+
 function formaterHistorikkDato(dato: Date | string): string {
   const d = new Date(dato);
   return d.toLocaleDateString("nb-NO", {
@@ -83,7 +106,12 @@ export default function SjekklisteUtfylling() {
     { id: id! },
     { enabled: !!id },
   );
-  const sjekklisteDetalj = detaljQuery.data as { number?: number | null; transfers?: Transfer[] } | undefined;
+  const sjekklisteDetalj = detaljQuery.data as {
+    number?: number | null;
+    transfers?: Transfer[];
+    template?: { enableChangeLog?: boolean };
+    changeLog?: EndringsloggRad[];
+  } | undefined;
   const overforinger = sjekklisteDetalj?.transfers;
   const sjekklisteNummer = sjekklisteDetalj?.number;
 
@@ -385,9 +413,9 @@ export default function SjekklisteUtfylling() {
                     oppdaterMutasjon.mutate({ id: id!, creatorEnterpriseId: e.id });
                     settVisEntrepriseListe(null);
                   }}
-                  className={`border-b border-gray-50 px-3 py-2 ${e.id === sjekkliste.creatorEnterpriseId ? "bg-blue-50" : ""}`}
+                  className={`border-b border-gray-50 px-3 py-2 ${e.id === sjekkliste.creatorEnterprise?.id ? "bg-blue-50" : ""}`}
                 >
-                  <Text className={`text-xs ${e.id === sjekkliste.creatorEnterpriseId ? "font-medium text-blue-700" : "text-gray-700"}`}>
+                  <Text className={`text-xs ${e.id === sjekkliste.creatorEnterprise?.id ? "font-medium text-blue-700" : "text-gray-700"}`}>
                     {e.name}
                   </Text>
                 </Pressable>
@@ -403,9 +431,9 @@ export default function SjekklisteUtfylling() {
                     oppdaterMutasjon.mutate({ id: id!, responderEnterpriseId: e.id });
                     settVisEntrepriseListe(null);
                   }}
-                  className={`border-b border-gray-50 px-3 py-2 ${e.id === sjekkliste.responderEnterpriseId ? "bg-blue-50" : ""}`}
+                  className={`border-b border-gray-50 px-3 py-2 ${e.id === sjekkliste.responderEnterprise?.id ? "bg-blue-50" : ""}`}
                 >
-                  <Text className={`text-xs ${e.id === sjekkliste.responderEnterpriseId ? "font-medium text-blue-700" : "text-gray-700"}`}>
+                  <Text className={`text-xs ${e.id === sjekkliste.responderEnterprise?.id ? "font-medium text-blue-700" : "text-gray-700"}`}>
                     {e.name}
                   </Text>
                 </Pressable>
@@ -510,6 +538,38 @@ export default function SjekklisteUtfylling() {
             </FeltWrapper>
           );
         })}
+
+        {/* Endringslogg */}
+        {sjekklisteDetalj?.template?.enableChangeLog && (sjekklisteDetalj?.changeLog ?? []).length > 0 && (
+          <View className="mt-4">
+            <View className="flex-row items-center gap-2 px-1 pb-2">
+              <Clock size={16} color="#6b7280" />
+              <Text className="text-sm font-semibold text-gray-700">Endringslogg</Text>
+            </View>
+            <View className="rounded-lg bg-white">
+              {(sjekklisteDetalj.changeLog ?? []).map((rad, i) => (
+                <View
+                  key={rad.id}
+                  className={`px-3 py-2.5 ${i > 0 ? "border-t border-gray-100" : ""}`}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-xs font-medium text-gray-700">
+                      {rad.user.name ?? rad.user.email}
+                    </Text>
+                    <Text className="text-xs text-gray-400">
+                      {formaterHistorikkDato(rad.createdAt)}
+                    </Text>
+                  </View>
+                  <Text className="mt-0.5 text-xs text-gray-600">
+                    Endret <Text className="font-medium">{rad.fieldLabel}</Text>
+                    {rad.oldValue != null && ` fra «${formaterLoggVerdi(rad.oldValue)}»`}
+                    {` til «${formaterLoggVerdi(rad.newValue)}»`}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Historikk */}
         {overforinger && overforinger.length > 0 && (

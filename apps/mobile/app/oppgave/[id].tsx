@@ -442,9 +442,9 @@ export default function OppgaveDetalj() {
                     oppdaterMutasjon.mutate({ id: id!, creatorEnterpriseId: e.id });
                     settVisEntrepriseListe(null);
                   }}
-                  className={`border-b border-gray-50 px-3 py-2 ${e.id === oppgave.creatorEnterpriseId ? "bg-blue-50" : ""}`}
+                  className={`border-b border-gray-50 px-3 py-2 ${e.id === oppgave.creatorEnterprise?.id ? "bg-blue-50" : ""}`}
                 >
-                  <Text className={`text-xs ${e.id === oppgave.creatorEnterpriseId ? "font-medium text-blue-700" : "text-gray-700"}`}>
+                  <Text className={`text-xs ${e.id === oppgave.creatorEnterprise?.id ? "font-medium text-blue-700" : "text-gray-700"}`}>
                     {e.name}
                   </Text>
                 </Pressable>
@@ -461,9 +461,9 @@ export default function OppgaveDetalj() {
                     oppdaterMutasjon.mutate({ id: id!, responderEnterpriseId: e.id });
                     settVisEntrepriseListe(null);
                   }}
-                  className={`border-b border-gray-50 px-3 py-2 ${e.id === oppgave.responderEnterpriseId ? "bg-blue-50" : ""}`}
+                  className={`border-b border-gray-50 px-3 py-2 ${e.id === oppgave.responderEnterprise?.id ? "bg-blue-50" : ""}`}
                 >
-                  <Text className={`text-xs ${e.id === oppgave.responderEnterpriseId ? "font-medium text-blue-700" : "text-gray-700"}`}>
+                  <Text className={`text-xs ${e.id === oppgave.responderEnterprise?.id ? "font-medium text-blue-700" : "text-gray-700"}`}>
                     {e.name}
                   </Text>
                 </Pressable>

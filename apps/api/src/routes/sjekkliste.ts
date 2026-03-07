@@ -60,6 +60,10 @@ export const sjekklisteRouter = router({
             include: { sender: true },
             orderBy: { createdAt: "desc" },
           },
+          changeLog: {
+            include: { user: { select: { id: true, name: true, email: true } } },
+            orderBy: { createdAt: "desc" },
+          },
         },
       });
 
@@ -187,10 +191,19 @@ export const sjekklisteRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Tilgangssjekk
+      // Tilgangssjekk + hent eksisterende data og mal-innstilling
       const sjekkliste = await ctx.prisma.checklist.findUniqueOrThrow({
         where: { id: input.id },
-        include: { template: { select: { projectId: true, domain: true } } },
+        include: {
+          template: {
+            select: {
+              projectId: true,
+              domain: true,
+              enableChangeLog: true,
+              objects: { select: { id: true, label: true, type: true } },
+            },
+          },
+        },
       });
       await verifiserDokumentTilgang(
         ctx.userId,
@@ -200,9 +213,62 @@ export const sjekklisteRouter = router({
         sjekkliste.template.domain,
       );
 
-      return ctx.prisma.checklist.update({
-        where: { id: input.id },
-        data: { data: input.data as Prisma.InputJsonValue },
+      // Generer endringslogg hvis aktivert på malen
+      const endringsloggRader: {
+        checklistId: string;
+        userId: string;
+        fieldId: string;
+        fieldLabel: string;
+        oldValue: string | null;
+        newValue: string | null;
+      }[] = [];
+
+      if (sjekkliste.template.enableChangeLog) {
+        const gammelData = (sjekkliste.data ?? {}) as Record<string, Record<string, unknown>>;
+        const nyData = input.data as Record<string, Record<string, unknown>>;
+        const displayTyper = new Set(["heading", "subtitle"]);
+
+        const objektMap = new Map(
+          sjekkliste.template.objects
+            .filter((o) => !displayTyper.has(o.type))
+            .map((o) => [o.id, o.label]),
+        );
+
+        for (const [feltId, nyVerdi] of Object.entries(nyData)) {
+          const label = objektMap.get(feltId);
+          if (!label) continue;
+
+          const gammelVerdi = gammelData[feltId];
+          const gammelV = gammelVerdi?.verdi ?? null;
+          const nyV = nyVerdi?.verdi ?? null;
+
+          const gammelStr = gammelV != null ? JSON.stringify(gammelV) : null;
+          const nyStr = nyV != null ? JSON.stringify(nyV) : null;
+
+          if (gammelStr !== nyStr) {
+            endringsloggRader.push({
+              checklistId: input.id,
+              userId: ctx.userId,
+              fieldId: feltId,
+              fieldLabel: label,
+              oldValue: gammelStr,
+              newValue: nyStr,
+            });
+          }
+        }
+      }
+
+      return ctx.prisma.$transaction(async (tx) => {
+        const oppdatert = await tx.checklist.update({
+          where: { id: input.id },
+          data: { data: input.data as Prisma.InputJsonValue },
+        });
+
+        if (endringsloggRader.length > 0) {
+          await tx.checklistChangeLog.createMany({ data: endringsloggRader });
+        }
+
+        return oppdatert;
       });
     }),
 
