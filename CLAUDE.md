@@ -200,7 +200,7 @@ sitedoc/
 | `folders` | Rekursiv mappestruktur (Mapper-modul) med parent_id, `access_mode` (inherit/custom) |
 | `folder_access` | Tilgangsoppføringer per mappe: entreprise, gruppe eller bruker (mange-til-mange) |
 | `documents` | Dokumenter i mapper med fil-URL og versjon |
-| `workflows` | Arbeidsforløp med oppretter-entreprise og valgfri svarer-entreprise (`responder_enterprise_id`) |
+| `workflows` | Arbeidsforløp med oppretter-entreprise og opptil 3 svarer-entrepriser (`responder_enterprise_id`, `responder_enterprise_2_id`, `responder_enterprise_3_id`) for flerstegs eskaleringskjede |
 | `workflow_templates` | Kobling mellom arbeidsforløp og maler (mange-til-mange) |
 | `task_comments` | Kommentarer/dialog på oppgaver med bruker og tidsstempel |
 | `checklist_change_log` | Automatisk endringslogg for sjekklister: feltendringer med gammel/ny verdi, bruker og tidsstempel |
@@ -216,7 +216,7 @@ Viktige relasjoner:
 - `document_transfers` logger all sending mellom entrepriser med full sporbarhet
 - Bilder har valgfri GPS-data (`gps_lat`, `gps_lng`, `gps_enabled`)
 - Oppgaver kan kobles til en tegning med posisjon (`drawing_id`, `position_x`, `position_y`) — brukes for markør-plassering på tegninger
-- `workflows` tilhører en oppretter-entreprise (`enterpriseId`) med valgfri svarer-entreprise (`responderEnterpriseId`), kobler til maler via `workflow_templates`. Relasjoner er navngitte: `WorkflowCreator` / `WorkflowResponder`
+- `workflows` tilhører en oppretter-entreprise (`enterpriseId`) med opptil 3 valgfrie svarer-entrepriser (`responderEnterpriseId`, `responderEnterprise2Id`, `responderEnterprise3Id`) for flerstegs eskaleringskjede. Kobler til maler via `workflow_templates`. Relasjoner er navngitte: `WorkflowCreator` / `WorkflowResponder` / `WorkflowResponder2` / `WorkflowResponder3`
 - `report_objects` bruker selvrefererande relasjon (`parent_id`) for rekursiv nesting — kontainerfelt (`list_single`/`list_multi`) kan ha barnefelt som selv kan være kontainere (Dalux-stil), CASCADE-sletting av barn
 - `report_templates` har `category` (`oppgave` | `sjekkliste`), valgfritt `prefix` og valgfri `subjects` (Json?, default `[]`) — forhåndsdefinerte emnetekster som vises som nedtrekksmeny ved opprettelse
 - `buildings` tilhører et prosjekt, med tegninger koblet via `building_id`. `type`-feltet er deprecated — forskjellen mellom utomhus og innendørs styres nå av `geoReference` på tegningen
@@ -420,9 +420,9 @@ Arbeidsforløp kobler maler til entrepriser og definerer oppretter/svarer-flyten
   - Svarer-entreprise velges via dropdown i opprett/rediger-modal
 - Hvert arbeidsforløp velger hvilke maler (oppgavetyper og sjekklistetyper) som er tilgjengelige
 - Maler kategoriseres som `oppgave` eller `sjekkliste` via `report_templates.category`
-- Visningen bruker to-kolonne layout: Oppretter (venstre) → pil → Svarer (høyre) med fargekodet badge
-- `MedlemmerLinje` med `leseModus`-prop: oppretter-header har redigerbar medlemsliste, svarer i arbeidsforløp har redigerbar liste (når svarer ≠ oppretter) eller read-only (når svarer = oppretter)
-- Entreprise-headere har fast bredde (280px) og kun oppretter-kolonnen, arbeidsforløp-rader har oppretter + pil + svarer-badge
+- Visningen bruker fire-kolonne layout: Oppretter → Svarer 1 → Svarer 2 → Svarer 3. Hver kolonne viser entreprisenavn, fargekodet badge og medlemsliste med navn+epost
+- `MedlemKolonne`-komponent: vertikal medlemsliste med avatar-initialer, stablet navn/epost, legg til/fjern-knapper. Tomme svarer-kolonner har «Velg entreprise»-dropdown for direkte entreprisevalg
+- Fullbredde kort-layout (ikke fast 280px) med `EntrepriseGruppeKomponent` som rendrer alle fire kolonner
 - Treprikk-menyer (⋮) på to nivåer: entreprise-header og arbeidsforløp-rad
 - Alle arbeidsforløp for et prosjekt hentes i én query (`hentForProsjekt`) og grupperes klient-side per entreprise
 - Sjekklister og oppgaver knyttes til arbeidsforløp via `workflowId` på Checklist/Task-modellene
@@ -430,7 +430,7 @@ Arbeidsforløp kobler maler til entrepriser og definerer oppretter/svarer-flyten
 - Sjekklister har valgfrie felter: `buildingId` (lokasjon), `drawingId` (tegning), `subject` (emne)
 - Emne (`subject`) ved opprettelse: hvis malen har `subjects`-array → vises som nedtrekksmeny (web: `<Select>`, mobil: Pressable-liste). Uten subjects → fritekst (mobil) eller skjult (web)
 - Tittel settes automatisk til prosjektnavn ved opprettelse fra mobil
-- **Planlagt:** Flerstegs arbeidsforløp med svarer 2, svarer 3 osv. for eskaleringskjeder (f.eks. PL godkjenner opp til 10.000, høyere beløp eskaleres)
+- **Flerstegs arbeidsforløp (implementert):** Opptil 3 svarer-steg per arbeidsforløp. Eskaleringsflyt: Oppretter → Svarer 1 → Svarer 2 → Svarer 3. Retur kan hoppe over ledd. Konfigureres via rediger-modal (3 svarer-dropdowns) eller direkte fra tomme kolonner. DB: `responder_enterprise_2_id`, `responder_enterprise_3_id` på `workflows`. Faktisk dokumentflyt mellom stegene er ikke implementert ennå
 - **Planlagt:** HMS-avvik som eget arbeidsforløp der alle brukere kan opprette uavhengig av entreprisetilhørighet
 
 ### Modulsystem
@@ -548,7 +548,7 @@ Interaktiv tegningsvisning på `/dashbord/[prosjektId]/tegninger/` med zoom og m
 - Adgangskontroll: Håndheve tillatelsesbasert opprettelse (verifiserTillatelse i opprett-prosedyrer), arbeidsforløp-begrensning per brukergruppe
 - Videresending av sjekklister/oppgaver til annen entreprise etter draft-status (svarer og oppretter)
 - TrafikklysObjekt (mobil): legge til 4. farge grå/"Ikke relevant" i mobilrenderer
-- Flerstegs arbeidsforløp: svarer 2, svarer 3 osv. for eskaleringskjeder (f.eks. godkjenningsgrenser per beløp)
+- Flerstegs arbeidsforløp: faktisk dokumentflyt mellom svarer-steg (statusoverganger, videresending mellom svarer 1→2→3)
 - HMS-avvik: Eget arbeidsforløp der alle brukere kan opprette uansett entreprisetilhørighet
 - Lisenssystem: Betalingsside før prosjektopprettelse (erstatter "Kom i gang"-placeholder)
 
@@ -1258,7 +1258,7 @@ Tre eksportpunkter: `types`, `validation`, `utils`
 - `buildingTypeSchema` — Zod enum for `"bygg"` | `"anlegg"`
 - `geoReferanseSchema` — Zod-skjema for GeoReferanse med 2 referansepunkter (pixel + GPS)
 - `createBuildingSchema` — Bygningsopprettelse (navn, prosjektId, beskrivelse, adresse, type)
-- `createWorkflowSchema` — Arbeidsforløp (enterpriseId, responderEnterpriseId, navn, malIder)
+- `createWorkflowSchema` — Arbeidsforløp (enterpriseId, responderEnterpriseId, responderEnterprise2Id, responderEnterprise3Id, navn, malIder)
 - `updateWorkflowSchema` — Arbeidsforløp-oppdatering (id, responderEnterpriseId, navn, malIder)
 - `addMemberSchema` — Legg til medlem (prosjektId, e-post, rolle, entrepriseId)
 - `drawingDisciplineSchema` — Fagdisiplin-enum (ARK, LARK, RIB, RIV, RIE, RIG, RIBr, RIAku)
@@ -1346,7 +1346,7 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Tegning:** Prosjekttegning (PDF/DWG) med versjonering
 - **Rapportobjekt:** Byggeblokk i en mal (23 typer)
 - **Mal (template):** Gjenbrukbar oppskrift for sjekklister/rapporter bygget med drag-and-drop, med prefiks og versjon
-- **Arbeidsforløp (workflow):** Navngitt kobling mellom en oppretter-entreprise, valgfri svarer-entreprise, og et sett maler (oppgave-/sjekklistetyper)
+- **Arbeidsforløp (workflow):** Navngitt kobling mellom en oppretter-entreprise, opptil 3 valgfrie svarer-entrepriser (flerstegs eskaleringskjede), og et sett maler (oppgave-/sjekklistetyper)
 - **Mapper (Mappeoppsett):** Filstruktur/dokumenthåndteringsmodul med rekursiv mappestruktur og tilgangskontroll. To visninger: (1) HovedSidebar → `/dashbord/[prosjektId]/mapper` — read-only dokumentvisning med tilgangsfiltrering (velg mappe i panel, se dokumenter i hovedinnhold), (2) Innstillinger > Field > Mappeoppsett (`/dashbord/oppsett/field/box`) — redigering av mappestruktur (opprett, gi nytt navn, slett, rediger tilgang)
 - **Mappeadgangskontroll:** Fleksibel tilgangsstyring per mappe med arv. `accessMode: "inherit"` arver fra overordnet mappe (rotmappe med inherit = åpen for alle), `accessMode: "custom"` bruker en tilgangsliste med entrepriser, grupper og/eller brukere. `beregnSynligeMapper()` beregner synlige mapper klient-side. Admin ser alltid alt. Foreldre-mapper til synlige barn vises som "kun sti" (grå, lås-ikon, uten innholdstilgang)
 - **Lokasjon:** Bygning/anlegg i et prosjekt (Building-modellen), med tilknyttede tegninger og publiseringsstatus. Én samlet liste i web og mobil — ingen tabs/kategorikort. Opprettelse åpner redigeringsvisningen direkte. `building.type` er deprecated (beholdt for bakoverkompatibilitet)
