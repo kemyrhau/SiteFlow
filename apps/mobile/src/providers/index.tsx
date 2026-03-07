@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, opprettTrpcKlient } from "../lib/trpc";
@@ -7,8 +7,12 @@ import { NettverkProvider } from "./NettverkProvider";
 import { OpplastingsKoProvider } from "./OpplastingsKoProvider";
 import { AuthProvider } from "./AuthProvider";
 import { ProsjektProvider } from "../kontekst/ProsjektKontekst";
+import { loggUt } from "../services/auth";
+import { router } from "expo-router";
 
 export function Providers({ children }: { children: ReactNode }) {
+  const harLoggetUtRef = useRef(false);
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -16,7 +20,19 @@ export function Providers({ children }: { children: ReactNode }) {
           queries: {
             networkMode: "offlineFirst",
             staleTime: 5 * 60 * 1000, // 5 minutter
-            retry: 2,
+            retry: (failureCount, error) => {
+              // Ikke retry ved UNAUTHORIZED — sesjonen er ugyldig
+              if ((error as { message?: string })?.message?.includes("UNAUTHORIZED")) {
+                if (!harLoggetUtRef.current) {
+                  harLoggetUtRef.current = true;
+                  loggUt().then(() => {
+                    router.replace("/logg-inn");
+                  });
+                }
+                return false;
+              }
+              return failureCount < 2;
+            },
           },
           mutations: {
             networkMode: "offlineFirst",

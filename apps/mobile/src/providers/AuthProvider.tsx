@@ -18,6 +18,7 @@ import {
 } from "../services/auth";
 import type { BrukerData } from "../services/auth";
 import { trpc } from "../lib/trpc";
+import { AUTH_CONFIG } from "../config/auth";
 
 interface AuthKontekst {
   bruker: BrukerData | null;
@@ -49,19 +50,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const byttToken = trpc.mobilAuth.byttToken.useMutation();
 
-  // Sjekk eksisterende token ved oppstart
+  // Sjekk eksisterende token ved oppstart — verifiser mot server
   useEffect(() => {
     async function sjekkToken() {
       try {
         const token = await hentSessionToken();
         if (token) {
-          const lagretBruker = await hentBrukerData();
-          if (lagretBruker) {
-            setBruker(lagretBruker);
+          // Verifiser at sesjonen er gyldig ved å kalle API
+          const res = await fetch(`${AUTH_CONFIG.apiUrl}/trpc/prosjekt.hentMine`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (res.ok) {
+            const lagretBruker = await hentBrukerData();
+            if (lagretBruker) {
+              setBruker(lagretBruker);
+            }
+          } else {
+            // Sesjonen er ugyldig/utløpt — rydd opp
+            await loggUtTjeneste();
           }
         }
       } catch {
-        // Ugyldig token — ignorer
+        // Nettverksfeil — bruk cached data (offline-støtte)
+        const lagretBruker = await hentBrukerData();
+        if (lagretBruker) {
+          setBruker(lagretBruker);
+        }
       } finally {
         setLaster(false);
       }
