@@ -17,6 +17,7 @@ interface MalData {
   name: string;
   prefix: string | null;
   category: string;
+  subjects?: string[];
 }
 
 interface MalVelgerProps {
@@ -31,7 +32,7 @@ export function MalVelger({ synlig, kategori, onVelg, onLukk }: MalVelgerProps) 
 
   const malQuery = trpc.mal.hentForProsjekt.useQuery(
     { projectId: valgtProsjektId! },
-    { enabled: !!valgtProsjektId && synlig },
+    { enabled: !!valgtProsjektId && synlig, staleTime: 0 },
   );
 
   const maler = malQuery.data as MalData[] | undefined;

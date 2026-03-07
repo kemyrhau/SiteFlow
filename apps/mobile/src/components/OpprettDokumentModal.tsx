@@ -121,14 +121,14 @@ export function OpprettDokumentModal({
   // Hent brukerens entrepriser (filtrert til mine)
   const mineEntrepriserQuery = trpc.medlem.hentMineEntrepriser.useQuery(
     { projectId: valgtProsjektId! },
-    { enabled: !!valgtProsjektId && synlig },
+    { enabled: !!valgtProsjektId && synlig, staleTime: 0 },
   );
   const mineEntrepriser = (mineEntrepriserQuery.data ?? []) as EntrepriseData[];
 
   // Fallback: hent alle entrepriser for svarer-visning
   const entrepriseQuery = trpc.entreprise.hentForProsjekt.useQuery(
     { projectId: valgtProsjektId! },
-    { enabled: !!valgtProsjektId && synlig },
+    { enabled: !!valgtProsjektId && synlig, staleTime: 0 },
   );
   const entrepriser = (entrepriseQuery.data ?? []) as EntrepriseData[];
 
@@ -139,10 +139,10 @@ export function OpprettDokumentModal({
     }
   }, [mineEntrepriser, oppretterEntrepriseId]);
 
-  // Hent arbeidsforløp for prosjektet
+  // Hent arbeidsforløp for prosjektet (staleTime: 0 for alltid å hente fersk data)
   const arbeidsforlopQuery = trpc.arbeidsforlop.hentForProsjekt.useQuery(
     { projectId: valgtProsjektId! },
-    { enabled: !!valgtProsjektId && synlig },
+    { enabled: !!valgtProsjektId && synlig, staleTime: 0 },
   );
   const alleArbeidsforlop = (arbeidsforlopQuery.data ?? []) as ArbeidsforlopData[];
 
@@ -473,7 +473,12 @@ export function OpprettDokumentModal({
           {oppretterEntrepriseId && (
             <View className="border-b border-gray-100 bg-gray-50 px-4 py-3">
               <Text className="text-xs font-medium text-gray-500">Svarer-entreprise</Text>
-              {matchendeArbeidsforlop ? (
+              {arbeidsforlopQuery.isLoading ? (
+                <View className="mt-1 flex-row items-center gap-2">
+                  <ActivityIndicator size="small" color="#1e40af" />
+                  <Text className="text-sm text-gray-500">Henter arbeidsforløp…</Text>
+                </View>
+              ) : matchendeArbeidsforlop ? (
                 <View className="mt-1 flex-row items-center gap-2">
                   <Text className="text-sm text-gray-800">{autoSvarerNavn}</Text>
                   {!matchendeArbeidsforlop.responderEnterpriseId && (

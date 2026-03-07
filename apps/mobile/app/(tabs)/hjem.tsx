@@ -34,6 +34,7 @@ interface MalData {
   name: string;
   prefix: string | null;
   category: string;
+  subjects?: string[];
 }
 
 interface InnboksElement {
