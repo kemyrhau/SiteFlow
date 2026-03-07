@@ -158,6 +158,7 @@ sitedoc/
 | `workflow_templates` | Kobling mellom arbeidsforløp og maler (mange-til-mange) |
 | `project_invitations` | E-postinvitasjoner med token, status (pending/accepted/expired), utløpsdato |
 | `group_enterprises` | Mange-til-mange kobling mellom `project_groups` og `enterprises` — styrer entreprise-begrenset fagområde-tilgang |
+| `project_modules` | Aktiverte moduler per prosjekt med `moduleSlug` (unique per prosjekt), `active`-flagg for soft-deactivate |
 
 Viktige relasjoner:
 - `member_enterprises` er mange-til-mange join-tabell: en bruker kan tilhøre flere entrepriser i samme prosjekt via `MemberEnterprise(projectMemberId, enterpriseId)`
@@ -198,6 +199,7 @@ Alle routere i `apps/api/src/routes/`:
 | `gruppe` | hentMineTillatelser, hentMinTilgang, hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem, oppdaterEntrepriser, oppdaterDomener |
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
 | `vaer` | hentVaerdata (Open-Meteo proxy: latitude, longitude, dato → temperatur, værkode, vind) |
+| `modul` | hentForProsjekt, aktiver (oppretter maler+objekter automatisk), deaktiver (soft-deactivate, beholder data) |
 
 **Auth-nivåer:** `publicProcedure` (åpen) og `protectedProcedure` (krever autentisert userId i context). Context bygges i `context.ts` som verifiserer Auth.js-sesjonstokens. De fleste routere bruker `protectedProcedure` med tilleggs-sjekker fra `tilgangskontroll.ts`.
 
@@ -358,6 +360,32 @@ Arbeidsforløp kobler maler til entrepriser og definerer oppretter/svarer-flyten
 - Tittel settes automatisk til prosjektnavn ved opprettelse fra mobil
 - **Planlagt:** Flerstegs arbeidsforløp med svarer 2, svarer 3 osv. for eskaleringskjeder (f.eks. PL godkjenner opp til 10.000, høyere beløp eskaleres)
 - **Planlagt:** HMS-avvik som eget arbeidsforløp der alle brukere kan opprette uavhengig av entreprisetilhørighet
+
+### Modulsystem
+
+Forhåndsdefinerte mal-pakker som kan aktiveres per prosjekt via Innstillinger > Feltarbeid > Moduler. Lar brukere kun se det de trenger.
+
+**Arkitektur:**
+- `PROSJEKT_MODULER` i `@sitedoc/shared` — katalog med alle tilgjengelige moduler (slug, navn, beskrivelse, maler med objekter)
+- `project_modules`-tabell — sporer aktiverte moduler per prosjekt (`moduleSlug` + `active`-flagg)
+- `modul`-router — `aktiver` oppretter maler+objekter i transaksjon, `deaktiver` setter `active: false` (beholder data)
+- Modulside (`/dashbord/oppsett/field/moduler`) — kort-visning med status, legg til/deaktiver
+
+**Tilgjengelige moduler:**
+
+| Modul | Slug | Prefix | Kategori | Beskrivelse |
+|-------|------|--------|----------|-------------|
+| Godkjenning | `godkjenning` | GM | oppgave | Endringsmelding, varsel om krav, økonomi (17 felter) |
+| HMS-avvik | `hms-avvik` | HMS | oppgave | Avviksregistrering med alvorlighetsgrad (13 felter) |
+| Befaringsrapport | `befaringsrapport` | BEF | sjekkliste | Befaring med vær, deltakere, observasjoner (11 felter) |
+
+**Flyt ved aktivering:**
+1. Bruker klikker "Legg til" på modulkort
+2. API oppretter `ProjectModule`-rad + mal(er) med alle rapportobjekter
+3. Malen dukker opp i mallisten (oppgavemaler/sjekklistemaler)
+4. Malen kan tilknyttes arbeidsforløp som vanlig
+
+**Deaktivering:** Setter `active: false` — malene beholdes (kan ha data). Reaktivering setter `active: true` uten å duplisere maler.
 
 ### Prosjektgrupper
 
@@ -963,6 +991,7 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/oppsett/field/entrepriser           -> Entrepriser med arbeidsforløp
 /dashbord/oppsett/field/oppgavemaler          -> Oppgavemaler (filtrert malliste)
 /dashbord/oppsett/field/sjekklistemaler       -> Sjekklistemaler (filtrert malliste)
+/dashbord/oppsett/field/moduler               -> Moduler (forhåndsdefinerte mal-pakker, aktiver/deaktiver per prosjekt)
 /dashbord/oppsett/field/box                   -> Mappeoppsett (filstruktur/mappestruktur)
 /dashbord/oppsett/field/kontrollplaner        -> Kontrollplaner (kommer)
 /dashbord/oppsett/prosjektoppsett             -> Prosjektoppsett (navn, status, adresse, eksternt prosjektnummer)
