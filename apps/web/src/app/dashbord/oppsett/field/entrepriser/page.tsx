@@ -1380,36 +1380,41 @@ export default function EntrepriserSide() {
         const harOppgavemal = malListen?.some((m) => m.category === "oppgave") ?? false;
         const harSjekklistemal = malListen?.some((m) => m.category === "sjekkliste") ?? false;
         const harBeggemaler = harOppgavemal && harSjekklistemal;
-        const harEntrepriseMedArbeidsforlop = entrepriseData.length > 0 && (alleArbeidsforlop?.length ?? 0) > 0;
+        const harEntrepriser = entrepriseData.length > 0;
+        const harArbeidsforlop = (alleArbeidsforlop?.length ?? 0) > 0;
         const harMalerTilknyttet = alleArbeidsforlop?.some(
           (af) => (af as { templates?: unknown[] }).templates?.length
         ) ?? false;
-        const alleKomplett = harFlereBrukere && harBeggemaler && harEntrepriseMedArbeidsforlop && harMalerTilknyttet;
+        const alleKomplett = harFlereBrukere && harBeggemaler && harEntrepriser && harArbeidsforlop && harMalerTilknyttet;
 
         if (alleKomplett) return null;
 
         const steg = [
           {
-            ferdig: harFlereBrukere,
-            tekst: "Inviter brukere til prosjektet",
+            ferdig: harEntrepriser,
+            tekst: "Opprett entrepriser",
           },
           {
             ferdig: harBeggemaler,
             tekst: `Opprett maler (${harOppgavemal ? "oppgave \u2713" : "oppgave mangler"}, ${harSjekklistemal ? "sjekkliste \u2713" : "sjekkliste mangler"})`,
           },
           {
-            ferdig: harEntrepriseMedArbeidsforlop && harMalerTilknyttet,
-            tekst: "Opprett entreprise med arbeidsforløp og maler",
+            ferdig: harArbeidsforlop && harMalerTilknyttet,
+            tekst: "Knytt maler til arbeidsforløp",
+          },
+          {
+            ferdig: harFlereBrukere,
+            tekst: "Inviter brukere og knytt til entrepriser",
           },
         ];
 
         return (
           <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
             <h3 className="mb-2 text-sm font-semibold text-amber-900">
-              Kom i gang med feltarbeid
+              Før feltarbeid kan starte
             </h3>
             <p className="mb-3 text-xs text-amber-700">
-              Fullfør stegene under for å aktivere dokumentflyt mellom entrepriser.
+              Disse punktene må være på plass. Rekkefølgen er valgfri.
             </p>
             <ul className="space-y-1.5">
               {steg.map((s, i) => (
