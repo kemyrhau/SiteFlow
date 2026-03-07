@@ -274,6 +274,134 @@ export const STANDARD_PROJECT_GROUPS: StandardProjectGroup[] = [
   },
 ];
 
+// Prosjektmoduler — forhåndsdefinerte mal-pakker som kan aktiveres per prosjekt
+export interface ModulDefinisjon {
+  slug: string;
+  navn: string;
+  beskrivelse: string;
+  kategori: "oppgave" | "sjekkliste";
+  ikon: string; // lucide-react ikonnavn
+  maler: ModulMal[];
+}
+
+export interface ModulMal {
+  navn: string;
+  prefix: string;
+  beskrivelse: string;
+  kategori: "oppgave" | "sjekkliste";
+  domain: string;
+  emner?: string[];
+  objekter: ModulObjekt[];
+}
+
+export interface ModulObjekt {
+  type: string;
+  label: string;
+  sortOrder: number;
+  required?: boolean;
+  config: Record<string, unknown>;
+}
+
+export const PROSJEKT_MODULER: ModulDefinisjon[] = [
+  {
+    slug: "godkjenning",
+    navn: "Godkjenning",
+    beskrivelse: "Endringsmelding, varsel om krav og økonomiske godkjenninger mellom entrepriser",
+    kategori: "oppgave",
+    ikon: "FileCheck",
+    maler: [
+      {
+        navn: "Godkjenning",
+        prefix: "GM",
+        beskrivelse: "Endringsmelding, varsel om krav og økonomiske godkjenninger",
+        kategori: "oppgave",
+        domain: "bygg",
+        emner: ["Endringsmelding", "Varsel om krav", "Tilleggsarbeid", "Fradrag", "Regulering"],
+        objekter: [
+          { type: "location", label: "Lokasjon", sortOrder: 0, config: { zone: "topptekst" } },
+          { type: "date", label: "Dato", sortOrder: 1, required: true, config: { zone: "topptekst" } },
+          { type: "person", label: "Ansvarlig", sortOrder: 2, required: true, config: { zone: "topptekst" } },
+          { type: "company", label: "Oppretter-entreprise", sortOrder: 3, required: true, config: { role: "creator", zone: "topptekst" } },
+          { type: "heading", label: "Beskrivelse", sortOrder: 10, config: { zone: "datafelter" } },
+          { type: "text_field", label: "Beskrivelse av endring/krav", sortOrder: 11, required: true, config: { multiline: true, zone: "datafelter" } },
+          { type: "text_field", label: "Begrunnelse", sortOrder: 12, config: { multiline: true, zone: "datafelter" } },
+          { type: "text_field", label: "Referanse (kontrakt/avtale)", sortOrder: 13, config: { zone: "datafelter" } },
+          { type: "heading", label: "Økonomi", sortOrder: 20, config: { zone: "datafelter" } },
+          { type: "decimal", label: "Beløp eks. mva (NOK)", sortOrder: 21, config: { unit: "NOK", zone: "datafelter" } },
+          { type: "list_single", label: "Type", sortOrder: 22, required: true, config: { options: ["Tillegg", "Fradrag", "Regulering", "Annet"], zone: "datafelter" } },
+          { type: "date", label: "Frist for svar", sortOrder: 23, config: { zone: "datafelter" } },
+          { type: "heading", label: "Dokumentasjon og vurdering", sortOrder: 30, config: { zone: "datafelter" } },
+          { type: "attachments", label: "Vedlegg", sortOrder: 31, config: { zone: "datafelter" } },
+          { type: "traffic_light", label: "Beslutning", sortOrder: 32, required: true, config: { options: [{ value: "green", label: "Godkjent" }, { value: "yellow", label: "Delvis godkjent" }, { value: "red", label: "Avvist" }, { value: "gray", label: "Ikke behandlet" }], zone: "datafelter" } },
+          { type: "text_field", label: "Kommentar til beslutning", sortOrder: 33, config: { multiline: true, zone: "datafelter" } },
+          { type: "signature", label: "Signatur", sortOrder: 34, config: { zone: "datafelter" } },
+        ],
+      },
+    ],
+  },
+  {
+    slug: "hms-avvik",
+    navn: "HMS-avvik",
+    beskrivelse: "Registrering og oppfølging av HMS-avvik, uønskede hendelser og risikoobservasjoner",
+    kategori: "oppgave",
+    ikon: "ShieldAlert",
+    maler: [
+      {
+        navn: "HMS-avvik",
+        prefix: "HMS",
+        beskrivelse: "Registrering av HMS-avvik og uønskede hendelser",
+        kategori: "oppgave",
+        domain: "hms",
+        emner: ["Personskade", "Nestenulykke", "Farlig forhold", "Risikoobservasjon", "Miljøavvik"],
+        objekter: [
+          { type: "location", label: "Lokasjon", sortOrder: 0, config: { zone: "topptekst" } },
+          { type: "date_time", label: "Tidspunkt for hendelse", sortOrder: 1, required: true, config: { zone: "topptekst" } },
+          { type: "person", label: "Registrert av", sortOrder: 2, required: true, config: { zone: "topptekst" } },
+          { type: "heading", label: "Hendelse", sortOrder: 10, config: { zone: "datafelter" } },
+          { type: "list_single", label: "Alvorlighetsgrad", sortOrder: 11, required: true, config: { options: ["Lav", "Middels", "Høy", "Kritisk"], zone: "datafelter" } },
+          { type: "text_field", label: "Beskrivelse av hendelse", sortOrder: 12, required: true, config: { multiline: true, zone: "datafelter" } },
+          { type: "text_field", label: "Umiddelbare tiltak", sortOrder: 13, config: { multiline: true, zone: "datafelter" } },
+          { type: "attachments", label: "Bilder/dokumentasjon", sortOrder: 14, config: { zone: "datafelter" } },
+          { type: "heading", label: "Oppfølging", sortOrder: 20, config: { zone: "datafelter" } },
+          { type: "text_field", label: "Korrigerende tiltak", sortOrder: 21, config: { multiline: true, zone: "datafelter" } },
+          { type: "date", label: "Frist for lukking", sortOrder: 22, config: { zone: "datafelter" } },
+          { type: "traffic_light", label: "Status", sortOrder: 23, required: true, config: { options: [{ value: "red", label: "Åpent" }, { value: "yellow", label: "Under behandling" }, { value: "green", label: "Lukket" }], zone: "datafelter" } },
+          { type: "signature", label: "Signatur ansvarlig", sortOrder: 24, config: { zone: "datafelter" } },
+        ],
+      },
+    ],
+  },
+  {
+    slug: "befaringsrapport",
+    navn: "Befaringsrapport",
+    beskrivelse: "Strukturert befaringsrapport med vær, deltakere og observasjoner",
+    kategori: "sjekkliste",
+    ikon: "ClipboardList",
+    maler: [
+      {
+        navn: "Befaringsrapport",
+        prefix: "BEF",
+        beskrivelse: "Befaringsrapport med vær, deltakere og kontrollpunkter",
+        kategori: "sjekkliste",
+        domain: "bygg",
+        objekter: [
+          { type: "location", label: "Lokasjon", sortOrder: 0, config: { zone: "topptekst" } },
+          { type: "date", label: "Befaringsdato", sortOrder: 1, required: true, config: { zone: "topptekst" } },
+          { type: "weather", label: "Vær", sortOrder: 2, config: { zone: "topptekst" } },
+          { type: "persons", label: "Deltakere", sortOrder: 3, required: true, config: { zone: "topptekst" } },
+          { type: "heading", label: "Observasjoner", sortOrder: 10, config: { zone: "datafelter" } },
+          { type: "text_field", label: "Generelle observasjoner", sortOrder: 11, config: { multiline: true, zone: "datafelter" } },
+          { type: "attachments", label: "Bilder", sortOrder: 12, config: { zone: "datafelter" } },
+          { type: "heading", label: "Avvik og anmerkninger", sortOrder: 20, config: { zone: "datafelter" } },
+          { type: "text_field", label: "Avvik/anmerkninger", sortOrder: 21, config: { multiline: true, zone: "datafelter" } },
+          { type: "text_field", label: "Avtalt oppfølging", sortOrder: 22, config: { multiline: true, zone: "datafelter" } },
+          { type: "signature", label: "Signatur", sortOrder: 23, config: { zone: "datafelter" } },
+        ],
+      },
+    ],
+  },
+];
+
 // Entreprisebransjer
 export const ENTERPRISE_INDUSTRIES = [
   "Bygg", "Elektro", "VVS", "Rør", "Ventilasjon", "Tele/data",

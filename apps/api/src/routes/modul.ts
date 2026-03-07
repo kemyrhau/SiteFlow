@@ -1,0 +1,117 @@
+import { z } from "zod";
+import { router, protectedProcedure } from "../trpc/trpc";
+import { PROSJEKT_MODULER } from "@sitedoc/shared";
+import type { Prisma } from "@sitedoc/db";
+
+export const modulRouter = router({
+  // Hent aktive moduler for et prosjekt
+  hentForProsjekt: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.projectModule.findMany({
+        where: { projectId: input.projectId },
+        orderBy: { createdAt: "asc" },
+      });
+    }),
+
+  // Aktiver en modul — oppretter maler og rapportobjekter automatisk
+  aktiver: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      moduleSlug: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const modulDef = PROSJEKT_MODULER.find((m) => m.slug === input.moduleSlug);
+      if (!modulDef) {
+        throw new Error(`Ukjent modul: ${input.moduleSlug}`);
+      }
+
+      // Sjekk om allerede aktivert
+      const eksisterende = await ctx.prisma.projectModule.findUnique({
+        where: {
+          projectId_moduleSlug: {
+            projectId: input.projectId,
+            moduleSlug: input.moduleSlug,
+          },
+        },
+      });
+
+      if (eksisterende) {
+        // Reaktiver hvis deaktivert
+        if (!eksisterende.active) {
+          return ctx.prisma.projectModule.update({
+            where: { id: eksisterende.id },
+            data: { active: true },
+          });
+        }
+        return eksisterende;
+      }
+
+      // Opprett modulen og malene i en transaksjon
+      return ctx.prisma.$transaction(async (tx) => {
+        // Registrer modulen
+        const modul = await tx.projectModule.create({
+          data: {
+            projectId: input.projectId,
+            moduleSlug: input.moduleSlug,
+          },
+        });
+
+        // Opprett maler med rapportobjekter
+        for (const malDef of modulDef.maler) {
+          // Sjekk om mal med samme prefix allerede finnes
+          const eksisterendeMal = await tx.reportTemplate.findFirst({
+            where: { projectId: input.projectId, prefix: malDef.prefix },
+          });
+
+          if (eksisterendeMal) continue; // Ikke overskriv eksisterende
+
+          const mal = await tx.reportTemplate.create({
+            data: {
+              projectId: input.projectId,
+              name: malDef.navn,
+              description: malDef.beskrivelse,
+              prefix: malDef.prefix,
+              category: malDef.kategori,
+              domain: malDef.domain,
+              subjects: (malDef.emner ?? []) as Prisma.InputJsonValue,
+            },
+          });
+
+          // Opprett rapportobjekter
+          if (malDef.objekter.length > 0) {
+            await tx.reportObject.createMany({
+              data: malDef.objekter.map((obj) => ({
+                templateId: mal.id,
+                type: obj.type,
+                label: obj.label,
+                sortOrder: obj.sortOrder,
+                required: obj.required ?? false,
+                config: obj.config as Prisma.InputJsonValue,
+              })),
+            });
+          }
+        }
+
+        return modul;
+      });
+    }),
+
+  // Deaktiver en modul (beholder malene — de kan ha data)
+  deaktiver: protectedProcedure
+    .input(z.object({
+      projectId: z.string().uuid(),
+      moduleSlug: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.projectModule.update({
+        where: {
+          projectId_moduleSlug: {
+            projectId: input.projectId,
+            moduleSlug: input.moduleSlug,
+          },
+        },
+        data: { active: false },
+      });
+    }),
+});
