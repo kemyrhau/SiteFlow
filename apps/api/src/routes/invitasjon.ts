@@ -90,7 +90,7 @@ export const invitasjonRouter = router({
 
   // Send invitasjon på nytt
   sendPaNytt: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: z.string().uuid(), melding: z.string().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
       const invitasjon = await ctx.prisma.projectInvitation.findUniqueOrThrow({
         where: { id: input.id },
@@ -118,6 +118,7 @@ export const invitasjonRouter = router({
         invitasjonstoken: nyToken,
         prosjektNavn: invitasjon.project.name,
         invitertAvNavn: invitasjon.invitedBy.name ?? "En kollega",
+        melding: input.melding,
       });
 
       return oppdatert;

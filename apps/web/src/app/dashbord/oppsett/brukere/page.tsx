@@ -231,9 +231,14 @@ function RedigerGruppeModal({
     },
   });
 
+  const [ettersendId, setEttersendId] = useState<string | null>(null);
+  const [ettersendMelding, setEttersendMelding] = useState("");
+
   const sendPaNytt = trpc.invitasjon.sendPaNytt.useMutation({
     onSuccess: () => {
       utils.invitasjon.hentForProsjekt.invalidate({ projectId: prosjektId });
+      setEttersendId(null);
+      setEttersendMelding("");
     },
   });
 
@@ -518,13 +523,13 @@ function RedigerGruppeModal({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              sendPaNytt.mutate({ id: medlem.ventendeInvitasjon!.id });
+                              setEttersendId(medlem.ventendeInvitasjon!.id);
+                              setEttersendMelding("");
                             }}
-                            disabled={sendPaNytt.isPending}
                             className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-sitedoc-primary hover:bg-blue-50"
                             title="Ettersend invitasjon"
                           >
-                            <RefreshCw className={`h-3 w-3 ${sendPaNytt.isPending ? "animate-spin" : ""}`} />
+                            <RefreshCw className="h-3 w-3" />
                             Ettersend
                           </button>
                           <button
@@ -941,6 +946,49 @@ function RedigerGruppeModal({
           </div>
         </div>
       </div>
+
+      {/* Ettersend-modal med personlig melding */}
+      <Modal
+        open={ettersendId !== null}
+        onClose={() => { setEttersendId(null); setEttersendMelding(""); }}
+        title="Ettersend invitasjon"
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">
+            Send invitasjonen på nytt med en valgfri personlig melding.
+          </p>
+          <textarea
+            placeholder="Personlig melding (valgfritt)"
+            value={ettersendMelding}
+            onChange={(e) => setEttersendMelding(e.target.value)}
+            rows={3}
+            maxLength={500}
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => { setEttersendId(null); setEttersendMelding(""); }}
+            >
+              Avbryt
+            </Button>
+            <Button
+              size="sm"
+              disabled={sendPaNytt.isPending}
+              onClick={() => {
+                if (!ettersendId) return;
+                sendPaNytt.mutate({
+                  id: ettersendId,
+                  melding: ettersendMelding.trim() || undefined,
+                });
+              }}
+            >
+              {sendPaNytt.isPending ? "Sender..." : "Send invitasjon"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Modal>
   );
 }
