@@ -410,9 +410,13 @@ export const ENTERPRISE_INDUSTRIES = [
 ] as const;
 export type EnterpriseIndustry = (typeof ENTERPRISE_INDUSTRIES)[number];
 
-// Entreprisefarger
+// Entreprisefarger — 32 distinkte farger for visuell differensiering
 export const ENTERPRISE_COLORS = [
   "blue", "emerald", "purple", "amber", "rose", "teal", "indigo", "orange",
+  "cyan", "lime", "fuchsia", "sky", "violet", "red", "green", "yellow",
+  "pink", "slate", "zinc", "stone",
+  "blue-800", "emerald-800", "purple-800", "amber-700", "rose-800", "teal-800", "indigo-800", "orange-700",
+  "cyan-800", "lime-700", "fuchsia-800", "sky-800",
 ] as const;
 export type EnterpriseColor = (typeof ENTERPRISE_COLORS)[number];
 

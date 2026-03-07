@@ -38,6 +38,8 @@ import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@sitedoc/shared";
 
 import {
   hentFargeForEntreprise,
+  nesteAutoFarge,
+  FARGE_MAP,
 } from "../_components/entreprise-farger";
 
 /* ------------------------------------------------------------------ */
@@ -51,30 +53,22 @@ function FargeVelger({
   valgt: string;
   onChange: (farge: string) => void;
 }) {
-  const fargeKlasser: Record<string, string> = {
-    blue: "bg-blue-600",
-    emerald: "bg-emerald-600",
-    purple: "bg-purple-600",
-    amber: "bg-amber-500",
-    rose: "bg-rose-600",
-    teal: "bg-teal-600",
-    indigo: "bg-indigo-600",
-    orange: "bg-orange-600",
-  };
-
   return (
-    <div className="flex items-center gap-2">
-      {ENTERPRISE_COLORS.map((farge) => (
-        <button
-          key={farge}
-          type="button"
-          onClick={() => onChange(farge)}
-          className={`h-6 w-6 rounded-full ${fargeKlasser[farge]} ${
-            valgt === farge ? "ring-2 ring-offset-2 ring-gray-400" : ""
-          }`}
-          title={farge}
-        />
-      ))}
+    <div className="flex flex-wrap items-center gap-1.5">
+      {ENTERPRISE_COLORS.map((farge) => {
+        const fargeData = FARGE_MAP[farge];
+        return (
+          <button
+            key={farge}
+            type="button"
+            onClick={() => onChange(farge)}
+            className={`h-6 w-6 rounded-full ${fargeData?.bg ?? "bg-gray-400"} ${
+              valgt === farge ? "ring-2 ring-offset-2 ring-gray-400" : ""
+            }`}
+            title={farge}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -847,7 +841,6 @@ function EntrepriseVeiviser({
   // Steg 2c — Opprett tom
   const [nyNavn, setNyNavn] = useState("");
   const [nyNummer, setNyNummer] = useState("");
-  const [nyFarge, setNyFarge] = useState<string>("blue");
   const [nyBransje, setNyBransje] = useState("");
   const [nyFirma, setNyFirma] = useState("");
 
@@ -897,7 +890,6 @@ function EntrepriseVeiviser({
     setImportEntrepriseId("");
     setNyNavn("");
     setNyNummer("");
-    setNyFarge("blue");
     setNyBransje("");
     setNyFirma("");
     setValgteMedlemmer(new Set());
@@ -930,7 +922,6 @@ function EntrepriseVeiviser({
     setImportEntrepriseId("");
     setNyNavn("");
     setNyNummer("");
-    setNyFarge("blue");
     setNyBransje("");
     setNyFirma("");
     setValgteMedlemmer(new Set());
@@ -946,7 +937,7 @@ function EntrepriseVeiviser({
           name: nyNavn.trim(),
           projectId: prosjektId,
           enterpriseNumber: nyNummer.trim() || undefined,
-          color: nyFarge || undefined,
+          color: nesteAutoFarge(entrepriser.map((e) => e.color)),
           industry: nyBransje.trim() || undefined,
           companyName: nyFirma.trim() || undefined,
           memberIds,
@@ -1181,7 +1172,6 @@ function EntrepriseVeiviser({
                 Entreprise <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center gap-3">
-                <FargeVelger valgt={nyFarge} onChange={setNyFarge} />
                 <input
                   type="text"
                   value={nyNummer}
