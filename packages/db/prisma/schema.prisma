@@ -254,8 +254,10 @@ model Enterprise {
   respondChecklists  Checklist[]      @relation("ChecklistResponderEnterprise")
   createdTasks       Task[]           @relation("TaskCreatorEnterprise")
   respondTasks       Task[]           @relation("TaskResponderEnterprise")
-  createdWorkflows   Workflow[]       @relation("WorkflowCreator")
-  respondWorkflows   Workflow[]       @relation("WorkflowResponder")
+  createdWorkflows    Workflow[]       @relation("WorkflowCreator")
+  respondWorkflows    Workflow[]       @relation("WorkflowResponder")
+  respondWorkflows2   Workflow[]       @relation("WorkflowResponder2")
+  respondWorkflows3   Workflow[]       @relation("WorkflowResponder3")
   invitations        ProjectInvitation[]
   folderAccess       FolderAccess[]
   groupEnterprises   GroupEnterprise[]
@@ -533,18 +535,22 @@ model Document {
 }
 
 model Workflow {
-  id                    String   @id @default(uuid())
-  enterpriseId          String   @map("enterprise_id")
-  responderEnterpriseId String?  @map("responder_enterprise_id")
-  name                  String
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                     String   @id @default(uuid())
+  enterpriseId           String   @map("enterprise_id")
+  responderEnterpriseId  String?  @map("responder_enterprise_id")
+  responderEnterprise2Id String?  @map("responder_enterprise_2_id")
+  responderEnterprise3Id String?  @map("responder_enterprise_3_id")
+  name                   String
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
-  enterprise          Enterprise  @relation("WorkflowCreator", fields: [enterpriseId], references: [id], onDelete: Cascade)
-  responderEnterprise Enterprise? @relation("WorkflowResponder", fields: [responderEnterpriseId], references: [id], onDelete: SetNull)
-  templates           WorkflowTemplate[]
-  checklists          Checklist[]
-  tasks               Task[]
+  enterprise           Enterprise  @relation("WorkflowCreator", fields: [enterpriseId], references: [id], onDelete: Cascade)
+  responderEnterprise  Enterprise? @relation("WorkflowResponder", fields: [responderEnterpriseId], references: [id], onDelete: SetNull)
+  responderEnterprise2 Enterprise? @relation("WorkflowResponder2", fields: [responderEnterprise2Id], references: [id], onDelete: SetNull)
+  responderEnterprise3 Enterprise? @relation("WorkflowResponder3", fields: [responderEnterprise3Id], references: [id], onDelete: SetNull)
+  templates            WorkflowTemplate[]
+  checklists           Checklist[]
+  tasks                Task[]
 
   @@map("workflows")
 }

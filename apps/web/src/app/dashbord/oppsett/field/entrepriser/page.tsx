@@ -152,6 +152,10 @@ interface ArbeidsforlopData {
   name: string;
   responderEnterpriseId: string | null;
   responderEnterprise: { id: string; name: string } | null;
+  responderEnterprise2Id: string | null;
+  responderEnterprise2: { id: string; name: string } | null;
+  responderEnterprise3Id: string | null;
+  responderEnterprise3: { id: string; name: string } | null;
   templates: Array<{
     template: { id: string; name: string; category: string };
   }>;
@@ -358,13 +362,19 @@ function MedlemKolonne({
 
         {medlemmer.length === 0 && (
           <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-gray-400">
-            {!leseModus && <AlertTriangle className="h-3 w-3 text-amber-400" />}
-            Ingen medlemmer
+            {!entreprise ? (
+              <span className="text-gray-300">Ikke konfigurert</span>
+            ) : (
+              <>
+                {!leseModus && <AlertTriangle className="h-3 w-3 text-amber-400" />}
+                Ingen medlemmer
+              </>
+            )}
           </div>
         )}
 
         {/* Legg til-knapp */}
-        {!leseModus && onLeggTil && (
+        {!leseModus && onLeggTil && entreprise && (
           <>
             {visVelger ? (
               <div className="px-1.5">
@@ -444,25 +454,28 @@ function EntrepriseGruppeKomponent({
   ].filter(Boolean).join(" ")
     + (entreprise.companyName ? `, ${entreprise.companyName}` : "");
 
-  // Finn unike svarer-entrepriser fra arbeidsforløp
-  const svarerEntrepriseIder = new Set<string>();
-  for (const af of arbeidsforloper) {
-    if (af.responderEnterpriseId && af.responderEnterpriseId !== entreprise.id) {
-      svarerEntrepriseIder.add(af.responderEnterpriseId);
+  // Samle unike svarer-entrepriser per steg fra alle arbeidsforløp
+  function finnSvarerForSteg(
+    hentId: (af: ArbeidsforlopData) => string | null,
+  ): EntrepriseData | null {
+    for (const af of arbeidsforloper) {
+      const id = hentId(af);
+      if (id) {
+        const ent = alleEntrepriser.find((e) => e.id === id);
+        if (ent) return ent;
+      }
     }
+    return null;
   }
-  // Hovedsvarer: den første unike svarer-entreprisen (eller oppretter selv)
-  const svarerEntrepriser = Array.from(svarerEntrepriseIder)
-    .map((id) => alleEntrepriser.find((e) => e.id === id))
-    .filter(Boolean) as EntrepriseData[];
 
-  // Hvis ingen arbeidsforløp eller alle peker på seg selv → svarer = oppretter
-  const harEksternSvarer = svarerEntrepriser.length > 0;
+  const svarer1 = finnSvarerForSteg((af) => af.responderEnterpriseId);
+  const svarer2 = finnSvarerForSteg((af) => af.responderEnterprise2Id);
+  const svarer3 = finnSvarerForSteg((af) => af.responderEnterprise3Id);
 
   return (
-    <div className="mb-4 rounded-lg border border-gray-200 bg-white overflow-hidden">
+    <div className="mb-4 rounded-lg border border-gray-200 bg-white">
       {/* Entreprise-header — fargekodet, full bredde */}
-      <div className={`flex items-center ${farge.bg} ${farge.border} border-b`}>
+      <div className={`flex items-center rounded-t-lg ${farge.bg} ${farge.border} border-b`}>
         <button
           onClick={() => setEkspandert(!ekspandert)}
           className="flex flex-1 items-center gap-2 px-4 py-2.5 text-left"
@@ -524,19 +537,14 @@ function EntrepriseGruppeKomponent({
 
             {/* Svarer-kolonne */}
             <div className="flex-1 p-3">
-              {harEksternSvarer ? (
-                <div className="space-y-3">
-                  {svarerEntrepriser.map((svarerEnt) => (
-                    <MedlemKolonne
-                      key={svarerEnt.id}
-                      tittel="Svarer"
-                      entreprise={svarerEnt}
-                      alleMedlemmer={alleMedlemmer}
-                      onLeggTil={(pmId) => onLeggTilMedlem(svarerEnt.id, pmId)}
-                      onFjern={(pmId) => onFjernMedlem(svarerEnt.id, pmId)}
-                    />
-                  ))}
-                </div>
+              {svarer1 ? (
+                <MedlemKolonne
+                  tittel="Svarer"
+                  entreprise={svarer1}
+                  alleMedlemmer={alleMedlemmer}
+                  onLeggTil={(pmId) => onLeggTilMedlem(svarer1.id, pmId)}
+                  onFjern={(pmId) => onFjernMedlem(svarer1.id, pmId)}
+                />
               ) : (
                 <MedlemKolonne
                   tittel="Svarer"
@@ -548,48 +556,42 @@ function EntrepriseGruppeKomponent({
               )}
             </div>
 
-            {/* Svarer 2 — tom kolonne, klar for fremtidig bruk */}
+            {/* Svarer 2 */}
             <div className="flex-1 p-3">
-              <div className="mb-1.5 flex items-center gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
-                  Svarer 2
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-gray-300">
-                  Ingen medlemmer
-                </div>
-                <button
-                  disabled
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-gray-300 cursor-not-allowed"
-                  title="Krever flerstegs arbeidsforløp"
-                >
-                  <Plus className="h-3 w-3" />
-                  Legg til
-                </button>
-              </div>
+              {svarer2 ? (
+                <MedlemKolonne
+                  tittel="Svarer 2"
+                  entreprise={svarer2}
+                  alleMedlemmer={alleMedlemmer}
+                  onLeggTil={(pmId) => onLeggTilMedlem(svarer2.id, pmId)}
+                  onFjern={(pmId) => onFjernMedlem(svarer2.id, pmId)}
+                />
+              ) : (
+                <MedlemKolonne
+                  tittel="Svarer 2"
+                  entreprise={null}
+                  alleMedlemmer={alleMedlemmer}
+                />
+              )}
             </div>
 
-            {/* Svarer 3 — tom kolonne, klar for fremtidig bruk */}
+            {/* Svarer 3 */}
             <div className="flex-1 p-3">
-              <div className="mb-1.5 flex items-center gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
-                  Svarer 3
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-gray-300">
-                  Ingen medlemmer
-                </div>
-                <button
-                  disabled
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-gray-300 cursor-not-allowed"
-                  title="Krever flerstegs arbeidsforløp"
-                >
-                  <Plus className="h-3 w-3" />
-                  Legg til
-                </button>
-              </div>
+              {svarer3 ? (
+                <MedlemKolonne
+                  tittel="Svarer 3"
+                  entreprise={svarer3}
+                  alleMedlemmer={alleMedlemmer}
+                  onLeggTil={(pmId) => onLeggTilMedlem(svarer3.id, pmId)}
+                  onFjern={(pmId) => onFjernMedlem(svarer3.id, pmId)}
+                />
+              ) : (
+                <MedlemKolonne
+                  tittel="Svarer 3"
+                  entreprise={null}
+                  alleMedlemmer={alleMedlemmer}
+                />
+              )}
             </div>
           </div>
 
@@ -644,6 +646,8 @@ function RedigerArbeidsforlopModal({
   initialNavn,
   initialTemplateIds,
   initialResponderEnterpriseId,
+  initialResponderEnterprise2Id,
+  initialResponderEnterprise3Id,
   maler,
   entrepriser,
   erLagrer,
@@ -656,6 +660,8 @@ function RedigerArbeidsforlopModal({
   initialNavn: string;
   initialTemplateIds: string[];
   initialResponderEnterpriseId: string | null;
+  initialResponderEnterprise2Id: string | null;
+  initialResponderEnterprise3Id: string | null;
   maler: Array<{ id: string; name: string; category: string }>;
   entrepriser: Array<{ id: string; name: string }>;
   erLagrer: boolean;
@@ -663,6 +669,8 @@ function RedigerArbeidsforlopModal({
     navn: string;
     templateIds: string[];
     responderEnterpriseId: string | null;
+    responderEnterprise2Id: string | null;
+    responderEnterprise3Id: string | null;
   }) => void;
 }) {
   const [navn, setNavn] = useState(initialNavn);
@@ -672,6 +680,12 @@ function RedigerArbeidsforlopModal({
   const [svarerEntrepriseId, setSvarerEntrepriseId] = useState<string>(
     initialResponderEnterpriseId ?? "",
   );
+  const [svarer2EntrepriseId, setSvarer2EntrepriseId] = useState<string>(
+    initialResponderEnterprise2Id ?? "",
+  );
+  const [svarer3EntrepriseId, setSvarer3EntrepriseId] = useState<string>(
+    initialResponderEnterprise3Id ?? "",
+  );
 
   // Synkroniser ved åpning
   const [forrigeOpen, setForrigeOpen] = useState(false);
@@ -679,6 +693,8 @@ function RedigerArbeidsforlopModal({
     setNavn(initialNavn);
     setValgte(new Set(initialTemplateIds));
     setSvarerEntrepriseId(initialResponderEnterpriseId ?? "");
+    setSvarer2EntrepriseId(initialResponderEnterprise2Id ?? "");
+    setSvarer3EntrepriseId(initialResponderEnterprise3Id ?? "");
   }
   if (open !== forrigeOpen) setForrigeOpen(open);
 
@@ -716,6 +732,8 @@ function RedigerArbeidsforlopModal({
             navn: navn.trim(),
             templateIds: Array.from(valgte),
             responderEnterpriseId: svarerEntrepriseId || null,
+            responderEnterprise2Id: svarer2EntrepriseId || null,
+            responderEnterprise3Id: svarer3EntrepriseId || null,
           });
         }}
         className="flex flex-col gap-4"
@@ -738,6 +756,20 @@ function RedigerArbeidsforlopModal({
           options={svarerOptions}
           value={svarerEntrepriseId}
           onChange={(e) => setSvarerEntrepriseId(e.target.value)}
+        />
+
+        <Select
+          label="Svarer 2 (valgfritt)"
+          options={svarerOptions}
+          value={svarer2EntrepriseId}
+          onChange={(e) => setSvarer2EntrepriseId(e.target.value)}
+        />
+
+        <Select
+          label="Svarer 3 (valgfritt)"
+          options={svarerOptions}
+          value={svarer3EntrepriseId}
+          onChange={(e) => setSvarer3EntrepriseId(e.target.value)}
         />
 
         {/* To-kolonne avhukingsliste */}
@@ -1369,6 +1401,10 @@ export default function EntrepriserSide() {
   const [afInitialTemplateIds, setAfInitialTemplateIds] = useState<string[]>([]);
   const [afInitialResponderEnterpriseId, setAfInitialResponderEnterpriseId] =
     useState<string | null>(null);
+  const [afInitialResponderEnterprise2Id, setAfInitialResponderEnterprise2Id] =
+    useState<string | null>(null);
+  const [afInitialResponderEnterprise3Id, setAfInitialResponderEnterprise3Id] =
+    useState<string | null>(null);
   const [slettAfId, setSlettAfId] = useState<string | null>(null);
 
   // Data
@@ -1479,6 +1515,8 @@ export default function EntrepriserSide() {
     setAfInitialNavn("");
     setAfInitialTemplateIds([]);
     setAfInitialResponderEnterpriseId(null);
+    setAfInitialResponderEnterprise2Id(null);
+    setAfInitialResponderEnterprise3Id(null);
     setAfModalOpen(true);
   }
 
@@ -1498,6 +1536,8 @@ export default function EntrepriserSide() {
     setAfInitialNavn(af.name);
     setAfInitialTemplateIds(af.templates.map((t) => t.template.id));
     setAfInitialResponderEnterpriseId(af.responderEnterpriseId);
+    setAfInitialResponderEnterprise2Id(af.responderEnterprise2Id);
+    setAfInitialResponderEnterprise3Id(af.responderEnterprise3Id);
     setAfModalOpen(true);
   }
 
@@ -1505,6 +1545,8 @@ export default function EntrepriserSide() {
     navn: string;
     templateIds: string[];
     responderEnterpriseId: string | null;
+    responderEnterprise2Id: string | null;
+    responderEnterprise3Id: string | null;
   }) {
     if (afId) {
       oppdaterAfMutation.mutate({
@@ -1512,6 +1554,8 @@ export default function EntrepriserSide() {
         name: data.navn,
         templateIds: data.templateIds,
         responderEnterpriseId: data.responderEnterpriseId,
+        responderEnterprise2Id: data.responderEnterprise2Id,
+        responderEnterprise3Id: data.responderEnterprise3Id,
       });
     } else if (afEntrepriseId) {
       opprettAfMutation.mutate({
@@ -1519,6 +1563,8 @@ export default function EntrepriserSide() {
         name: data.navn,
         templateIds: data.templateIds,
         responderEnterpriseId: data.responderEnterpriseId,
+        responderEnterprise2Id: data.responderEnterprise2Id,
+        responderEnterprise3Id: data.responderEnterprise3Id,
       });
     }
   }
@@ -1857,6 +1903,8 @@ export default function EntrepriserSide() {
         initialNavn={afInitialNavn}
         initialTemplateIds={afInitialTemplateIds}
         initialResponderEnterpriseId={afInitialResponderEnterpriseId}
+        initialResponderEnterprise2Id={afInitialResponderEnterprise2Id}
+        initialResponderEnterprise3Id={afInitialResponderEnterprise3Id}
         maler={malListe}
         entrepriser={entrepriseListe}
         erLagrer={opprettAfMutation.isPending || oppdaterAfMutation.isPending}

@@ -11,6 +11,8 @@ export const arbeidsforlopRouter = router({
         where: { enterprise: { projectId: input.projectId } },
         include: {
           responderEnterprise: { select: { id: true, name: true } },
+          responderEnterprise2: { select: { id: true, name: true } },
+          responderEnterprise3: { select: { id: true, name: true } },
           templates: {
             include: { template: { select: { id: true, name: true, category: true } } },
           },
@@ -27,6 +29,8 @@ export const arbeidsforlopRouter = router({
         where: { enterpriseId: input.enterpriseId },
         include: {
           responderEnterprise: { select: { id: true, name: true } },
+          responderEnterprise2: { select: { id: true, name: true } },
+          responderEnterprise3: { select: { id: true, name: true } },
           templates: {
             include: { template: { select: { id: true, name: true, category: true } } },
           },
@@ -49,6 +53,8 @@ export const arbeidsforlopRouter = router({
         },
         include: {
           responderEnterprise: { select: { id: true, name: true } },
+          responderEnterprise2: { select: { id: true, name: true } },
+          responderEnterprise3: { select: { id: true, name: true } },
           templates: {
             include: { template: { select: { id: true, name: true, category: true } } },
           },
@@ -81,6 +87,8 @@ export const arbeidsforlopRouter = router({
         where: { id },
         include: {
           responderEnterprise: { select: { id: true, name: true } },
+          responderEnterprise2: { select: { id: true, name: true } },
+          responderEnterprise3: { select: { id: true, name: true } },
           templates: {
             include: { template: { select: { id: true, name: true, category: true } } },
           },

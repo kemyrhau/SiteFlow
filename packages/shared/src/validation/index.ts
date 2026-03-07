@@ -107,6 +107,8 @@ export const createTemplateSchema = z.object({
 export const createWorkflowSchema = z.object({
   enterpriseId: z.string().uuid(),
   responderEnterpriseId: z.string().uuid().nullable().optional(),
+  responderEnterprise2Id: z.string().uuid().nullable().optional(),
+  responderEnterprise3Id: z.string().uuid().nullable().optional(),
   name: z.string().min(1).max(255),
   templateIds: z.array(z.string().uuid()).default([]),
 });
@@ -114,6 +116,8 @@ export const createWorkflowSchema = z.object({
 export const updateWorkflowSchema = z.object({
   id: z.string().uuid(),
   responderEnterpriseId: z.string().uuid().nullable().optional(),
+  responderEnterprise2Id: z.string().uuid().nullable().optional(),
+  responderEnterprise3Id: z.string().uuid().nullable().optional(),
   name: z.string().min(1).max(255).optional(),
   templateIds: z.array(z.string().uuid()).optional(),
 });
