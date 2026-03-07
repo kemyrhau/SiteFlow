@@ -49,7 +49,7 @@ export const prosjektRouter = router({
       });
     }),
 
-  // Opprett nytt prosjekt
+  // Opprett nytt prosjekt — kobler automatisk til brukerens firma hvis det finnes
   opprett: protectedProcedure
     .input(createProjectSchema)
     .mutation(async ({ ctx, input }) => {
@@ -57,7 +57,7 @@ export const prosjektRouter = router({
       const antall = await ctx.prisma.project.count();
       const prosjektnummer = generateProjectNumber(antall + 1);
 
-      return ctx.prisma.project.create({
+      const prosjekt = await ctx.prisma.project.create({
         data: {
           ...input,
           projectNumber: prosjektnummer,
@@ -69,6 +69,23 @@ export const prosjektRouter = router({
           },
         },
       });
+
+      // Auto-tilknytt til brukerens firma
+      const bruker = await ctx.prisma.user.findUniqueOrThrow({
+        where: { id: ctx.userId },
+        select: { organizationId: true },
+      });
+
+      if (bruker.organizationId) {
+        await ctx.prisma.organizationProject.create({
+          data: {
+            organizationId: bruker.organizationId,
+            projectId: prosjekt.id,
+          },
+        });
+      }
+
+      return prosjekt;
     }),
 
   // Oppdater prosjekt
