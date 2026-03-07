@@ -161,14 +161,20 @@ function ArbeidsforlopRad({
   arbeidsforlop,
   entreprise,
   alleEntrepriser,
+  alleMedlemmer,
   onRediger,
   onSlett,
+  onLeggTilMedlem,
+  onFjernMedlem,
 }: {
   arbeidsforlop: ArbeidsforlopData;
   entreprise: EntrepriseData;
   alleEntrepriser: EntrepriseData[];
+  alleMedlemmer: ProsjektMedlemItem[];
   onRediger: (af: ArbeidsforlopData) => void;
   onSlett: (id: string) => void;
+  onLeggTilMedlem: (enterpriseId: string, projectMemberId: string) => void;
+  onFjernMedlem: (enterpriseId: string, projectMemberId: string) => void;
 }) {
   const [ekspandert, setEkspandert] = useState(false);
 
@@ -272,38 +278,43 @@ function ArbeidsforlopRad({
           <div className="mb-3 flex items-start gap-4">
             <div className="flex-1">
               <p className="mb-1 text-xs font-semibold text-gray-600">Oppretter</p>
-              <div className="flex flex-wrap gap-1">
-                {entreprise.medlemmer.length > 0 ? (
-                  entreprise.medlemmer.map((m) => (
-                    <span key={m.id} className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">
-                      {m.navn}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-400">Ingen medlemmer</span>
-                )}
-              </div>
+              <MedlemmerLinje
+                entreprise={entreprise}
+                alleMedlemmer={alleMedlemmer}
+                onLeggTil={(pmId) => onLeggTilMedlem(entreprise.id, pmId)}
+                onFjern={(pmId) => onFjernMedlem(entreprise.id, pmId)}
+                leseModus
+              />
             </div>
             <ArrowRight className="mt-3 h-4 w-4 shrink-0 text-gray-300" />
             <div className="flex-1">
               <p className="mb-1 text-xs font-semibold text-gray-600">Svarer</p>
-              <div className="flex flex-wrap gap-1">
-                {(() => {
-                  const svarerEnt = arbeidsforlop.responderEnterpriseId
-                    ? alleEntrepriser.find((e) => e.id === arbeidsforlop.responderEnterpriseId)
-                    : entreprise;
-                  const svarerMedlemmer = svarerEnt?.medlemmer ?? [];
-                  return svarerMedlemmer.length > 0 ? (
-                    svarerMedlemmer.map((m) => (
-                      <span key={m.id} className="inline-flex items-center gap-1 rounded bg-green-50 px-1.5 py-0.5 text-xs text-green-700">
-                        {m.navn}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-gray-400">Ingen medlemmer</span>
+              {(() => {
+                const svarerEnt = arbeidsforlop.responderEnterpriseId
+                  ? alleEntrepriser.find((e) => e.id === arbeidsforlop.responderEnterpriseId)
+                  : null;
+                // Svarer = oppretter → read-only
+                if (!svarerEnt) {
+                  return (
+                    <MedlemmerLinje
+                      entreprise={entreprise}
+                      alleMedlemmer={alleMedlemmer}
+                      onLeggTil={(pmId) => onLeggTilMedlem(entreprise.id, pmId)}
+                      onFjern={(pmId) => onFjernMedlem(entreprise.id, pmId)}
+                      leseModus
+                    />
                   );
-                })()}
-              </div>
+                }
+                // Svarer er en annen entreprise → redigerbar
+                return (
+                  <MedlemmerLinje
+                    entreprise={svarerEnt}
+                    alleMedlemmer={alleMedlemmer}
+                    onLeggTil={(pmId) => onLeggTilMedlem(svarerEnt.id, pmId)}
+                    onFjern={(pmId) => onFjernMedlem(svarerEnt.id, pmId)}
+                  />
+                );
+              })()}
             </div>
           </div>
 
@@ -362,11 +373,13 @@ function MedlemmerLinje({
   alleMedlemmer,
   onLeggTil,
   onFjern,
+  leseModus = false,
 }: {
   entreprise: EntrepriseData;
   alleMedlemmer: ProsjektMedlemItem[];
   onLeggTil: (projectMemberId: string) => void;
   onFjern: (projectMemberId: string) => void;
+  leseModus?: boolean;
 }) {
   const [visVelger, setVisVelger] = useState(false);
 
@@ -389,60 +402,66 @@ function MedlemmerLinje({
             title={m.epost}
           >
             {m.navn}
-            <button
-              onClick={() => onFjern(m.id)}
-              className="ml-0.5 hidden rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-500 group-hover:inline-flex"
-              title="Fjern fra entreprise"
-            >
-              <X className="h-3 w-3" />
-            </button>
+            {!leseModus && (
+              <button
+                onClick={() => onFjern(m.id)}
+                className="ml-0.5 hidden rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-500 group-hover:inline-flex"
+                title="Fjern fra entreprise"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </span>
         ))}
         {entreprise.medlemmer.length === 0 && !visVelger && (
           <span className="inline-flex items-center gap-1 text-xs text-gray-400">
-            <AlertTriangle className="h-3 w-3 text-amber-400" />
+            {!leseModus && <AlertTriangle className="h-3 w-3 text-amber-400" />}
             Ingen medlemmer
           </span>
         )}
 
-        {/* Legg til-knapp / dropdown */}
-        {visVelger ? (
-          <div className="relative">
-            <select
-              autoFocus
-              className="rounded border border-gray-300 px-2 py-0.5 text-xs focus:border-blue-500 focus:outline-none"
-              defaultValue=""
-              onChange={(e) => {
-                if (e.target.value) {
-                  onLeggTil(e.target.value);
-                }
-                setVisVelger(false);
-              }}
-              onBlur={() => setVisVelger(false)}
-            >
-              <option value="" disabled>
-                Velg medlem...
-              </option>
-              {tilgjengelige.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.user.name ?? m.user.email}
-                </option>
-              ))}
-              {tilgjengelige.length === 0 && (
-                <option value="" disabled>
-                  Ingen tilgjengelige
-                </option>
-              )}
-            </select>
-          </div>
-        ) : (
-          <button
-            onClick={() => setVisVelger(true)}
-            className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500"
-            title="Legg til medlem"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
+        {/* Legg til-knapp / dropdown — kun i redigeringsmodus */}
+        {!leseModus && (
+          <>
+            {visVelger ? (
+              <div className="relative">
+                <select
+                  autoFocus
+                  className="rounded border border-gray-300 px-2 py-0.5 text-xs focus:border-blue-500 focus:outline-none"
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onLeggTil(e.target.value);
+                    }
+                    setVisVelger(false);
+                  }}
+                  onBlur={() => setVisVelger(false)}
+                >
+                  <option value="" disabled>
+                    Velg medlem...
+                  </option>
+                  {tilgjengelige.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.user.name ?? m.user.email}
+                    </option>
+                  ))}
+                  {tilgjengelige.length === 0 && (
+                    <option value="" disabled>
+                      Ingen tilgjengelige
+                    </option>
+                  )}
+                </select>
+              </div>
+            ) : (
+              <button
+                onClick={() => setVisVelger(true)}
+                className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500"
+                title="Legg til medlem"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -569,10 +588,13 @@ function EntrepriseGruppeKomponent({
                   arbeidsforlop={af}
                   entreprise={entreprise}
                   alleEntrepriser={alleEntrepriser}
+                  alleMedlemmer={alleMedlemmer}
                   onRediger={(data) =>
                     onRedigerArbeidsforlop(data, entreprise.name)
                   }
                   onSlett={onSlettArbeidsforlop}
+                  onLeggTilMedlem={onLeggTilMedlem}
+                  onFjernMedlem={onFjernMedlem}
                 />
               ))
             ) : (

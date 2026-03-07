@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { prisma } from "@sitedoc/db";
-import type { Permission } from "@sitedoc/shared";
+import { type Permission, PERMISSIONS, utvidTillatelser } from "@sitedoc/shared";
 
 /**
  * Hent brukerens entreprise-IDer i et prosjekt.
@@ -301,18 +301,17 @@ export async function hentBrukerTillatelser(
 
   // Admin har alle tillatelser
   if (medlem.role === "admin") {
-    return new Set(["manage_field", "create_tasks", "create_checklists", "view_field"] as Permission[]);
+    return new Set([...PERMISSIONS] as Permission[]);
   }
 
-  const tillatelser = new Set<Permission>();
+  // Samle alle tillatelser fra grupper og utvid gamle til nye
+  const raTillatelser: string[] = [];
   for (const gm of medlem.groupMemberships) {
     const perms = gm.group.permissions as string[];
-    for (const p of perms) {
-      tillatelser.add(p as Permission);
-    }
+    raTillatelser.push(...perms);
   }
 
-  return tillatelser;
+  return utvidTillatelser(raTillatelser);
 }
 
 /**

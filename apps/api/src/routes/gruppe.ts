@@ -3,9 +3,11 @@ import crypto from "crypto";
 import { router, protectedProcedure } from "../trpc/trpc";
 import {
   STANDARD_PROJECT_GROUPS,
+  PERMISSIONS,
   createProjectGroupSchema,
   updateProjectGroupSchema,
   addGroupMemberByEmailSchema,
+  utvidTillatelser,
 } from "@sitedoc/shared";
 import { sendInvitasjonsEpost } from "../services/epost";
 import { TRPCError } from "@trpc/server";
@@ -44,19 +46,18 @@ export const gruppeRouter = router({
       }
 
       const erAdmin = medlem.role === "admin";
-      const tillatelser = new Set<string>();
       const domener = new Set<string>();
+      let tillatelser: Set<string>;
 
       if (erAdmin) {
-        tillatelser.add("manage_field");
-        tillatelser.add("create_tasks");
-        tillatelser.add("create_checklists");
-        tillatelser.add("view_field");
+        tillatelser = new Set([...PERMISSIONS]);
       } else {
+        const raTillatelser: string[] = [];
         for (const gm of medlem.groupMemberships) {
-          for (const p of gm.group.permissions as string[]) tillatelser.add(p);
+          for (const p of gm.group.permissions as string[]) raTillatelser.push(p);
           for (const d of gm.group.domains as string[]) domener.add(d);
         }
+        tillatelser = utvidTillatelser(raTillatelser);
       }
 
       return {
@@ -374,6 +375,24 @@ export const gruppeRouter = router({
         include: {
           groupEnterprises: { include: { enterprise: true } },
         },
+      });
+    }),
+
+  // Oppdater gruppens tillatelser (krever admin)
+  oppdaterTillatelser: protectedProcedure
+    .input(
+      z.object({
+        groupId: z.string().uuid(),
+        projectId: z.string().uuid(),
+        permissions: z.array(z.string()),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
+      return ctx.prisma.projectGroup.update({
+        where: { id: input.groupId },
+        data: { permissions: input.permissions },
       });
     }),
 

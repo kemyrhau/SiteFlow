@@ -216,9 +216,78 @@ export type TemplateZone = (typeof TEMPLATE_ZONES)[number];
 // Entreprisevelger-roller
 export type EnterpriseRole = "creator" | "responder";
 
-// Tillatelser
-export const PERMISSIONS = ["manage_field", "create_tasks", "create_checklists", "view_field"] as const;
+// Tillatelser — granulære tillatelser for prosjektgrupper
+export const PERMISSIONS = [
+  // Bakoverkompatible (gamle)
+  "manage_field",
+  "create_tasks",
+  "create_checklists",
+  "view_field",
+  // Granulære tillatelser
+  "checklist_edit",
+  "checklist_view",
+  "task_edit",
+  "task_view",
+  "template_manage",
+  "drawing_manage",
+  "drawing_view",
+  "folder_manage",
+  "folder_view",
+  "enterprise_manage",
+  "member_manage",
+] as const;
 export type Permission = (typeof PERMISSIONS)[number];
+
+// Norske labels for tillatelser
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  manage_field: "Administrer feltarbeid",
+  create_tasks: "Opprett oppgaver",
+  create_checklists: "Opprett sjekklister",
+  view_field: "Se feltarbeid",
+  checklist_edit: "Rediger sjekklister",
+  checklist_view: "Se sjekklister",
+  task_edit: "Rediger oppgaver",
+  task_view: "Se oppgaver",
+  template_manage: "Administrer maler",
+  drawing_manage: "Administrer tegninger",
+  drawing_view: "Se tegninger",
+  folder_manage: "Administrer mapper",
+  folder_view: "Se mapper",
+  enterprise_manage: "Administrer entrepriser",
+  member_manage: "Administrer medlemmer",
+};
+
+// Gruppering av tillatelser for matrise-UI
+export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] = [
+  { label: "Sjekklister", permissions: ["checklist_edit", "checklist_view"] },
+  { label: "Oppgaver", permissions: ["task_edit", "task_view"] },
+  { label: "Maler", permissions: ["template_manage"] },
+  { label: "Tegninger", permissions: ["drawing_manage", "drawing_view"] },
+  { label: "Mapper", permissions: ["folder_manage", "folder_view"] },
+  { label: "Entrepriser", permissions: ["enterprise_manage"] },
+  { label: "Medlemmer", permissions: ["member_manage"] },
+];
+
+// Mapping fra gamle til nye tillatelser (bakoverkompatibilitet)
+export const LEGACY_PERMISSION_MAP: Record<string, Permission[]> = {
+  manage_field: ["checklist_edit", "checklist_view", "task_edit", "task_view", "template_manage", "drawing_manage", "drawing_view", "folder_manage", "folder_view", "enterprise_manage", "member_manage"],
+  create_tasks: ["task_edit", "task_view"],
+  create_checklists: ["checklist_edit", "checklist_view"],
+  view_field: ["checklist_view", "task_view", "drawing_view", "folder_view"],
+};
+
+// Utvid gamle tillatelser til nye granulære
+export function utvidTillatelser(tillatelser: string[]): Set<Permission> {
+  const utvidet = new Set<Permission>();
+  for (const p of tillatelser) {
+    utvidet.add(p as Permission);
+    const mapped = LEGACY_PERMISSION_MAP[p];
+    if (mapped) {
+      for (const m of mapped) utvidet.add(m);
+    }
+  }
+  return utvidet;
+}
 
 // Fagområder
 export const DOMAINS = ["bygg", "hms", "kvalitet"] as const;
@@ -248,28 +317,28 @@ export const STANDARD_PROJECT_GROUPS: StandardProjectGroup[] = [
     slug: "field-admin",
     name: "Feltarbeid-administratorer",
     category: "field",
-    permissions: ["manage_field", "create_tasks", "create_checklists"],
+    permissions: ["manage_field", "create_tasks", "create_checklists", "checklist_edit", "checklist_view", "task_edit", "task_view", "template_manage", "drawing_manage", "drawing_view", "folder_manage", "folder_view", "enterprise_manage", "member_manage"],
     domains: ["bygg"],
   },
   {
     slug: "oppgave-sjekkliste-koord",
     name: "Oppgave- og sjekklisteregistratorer",
     category: "field",
-    permissions: ["create_tasks", "create_checklists"],
+    permissions: ["create_tasks", "create_checklists", "checklist_edit", "checklist_view", "task_edit", "task_view"],
     domains: ["bygg"],
   },
   {
     slug: "field-observatorer",
     name: "Feltarbeid-registrator",
     category: "field",
-    permissions: ["view_field"],
+    permissions: ["view_field", "checklist_view", "task_view", "drawing_view", "folder_view"],
     domains: ["bygg"],
   },
   {
     slug: "hms-ledere",
     name: "HMS",
     category: "field",
-    permissions: ["create_tasks", "create_checklists"],
+    permissions: ["create_tasks", "create_checklists", "checklist_edit", "checklist_view", "task_edit", "task_view"],
     domains: ["hms"],
   },
 ];
