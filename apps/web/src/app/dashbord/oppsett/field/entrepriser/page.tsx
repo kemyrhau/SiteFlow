@@ -28,6 +28,7 @@ import {
   Users,
   FileText,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@sitedoc/shared";
 
@@ -404,7 +405,10 @@ function MedlemmerLinje({
           </span>
         ))}
         {entreprise.medlemmer.length === 0 && !visVelger && (
-          <span className="text-xs text-gray-400">Ingen medlemmer</span>
+          <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+            <AlertTriangle className="h-3 w-3 text-amber-400" />
+            Ingen medlemmer
+          </span>
         )}
 
         {/* Legg til-knapp / dropdown */}
