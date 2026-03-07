@@ -1205,7 +1205,7 @@ Admin-sjekk via `trpc.medlem.hentForProsjekt` matchet mot `bruker.email`.
 | `EmptyState` | Tom tilstand med tittel, beskrivelse og valgfri handling |
 | `Tooltip` | CSS tooltip med side-plassering (right/bottom) |
 | `SidebarIkon` | Ikonknapp med aktiv-markering og tooltip |
-| `Table<T>` | Generisk tabell med kolonnedefinisjoner, radklikk, tom-melding |
+| `Table<T>` | Generisk tabell med kolonnedefinisjoner, radklikk, sortering (klikk header), kolonnefiltre (dropdown), velgbar rader |
 | `SearchInput` | Søkefelt med innebygd søkeikon |
 
 ### @sitedoc/shared — Delte typer, validering og utils
