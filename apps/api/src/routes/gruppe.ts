@@ -378,24 +378,6 @@ export const gruppeRouter = router({
       });
     }),
 
-  // Oppdater gruppens tillatelser (krever admin)
-  oppdaterTillatelser: protectedProcedure
-    .input(
-      z.object({
-        groupId: z.string().uuid(),
-        projectId: z.string().uuid(),
-        permissions: z.array(z.string()),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      await verifiserAdmin(ctx.userId, input.projectId);
-
-      return ctx.prisma.projectGroup.update({
-        where: { id: input.groupId },
-        data: { permissions: input.permissions },
-      });
-    }),
-
   // Oppdater gruppens fagområder (krever admin)
   oppdaterDomener: protectedProcedure
     .input(

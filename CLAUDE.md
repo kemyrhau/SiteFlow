@@ -198,7 +198,7 @@ Alle routere i `apps/api/src/routes/`:
 | `arbeidsforlop` | hentForProsjekt, hentForEnterprise, opprett, oppdater, slett |
 | `mappe` | hentForProsjekt (m/tilgangsoppføringer), hentDokumenter, opprett, oppdater, slett, hentTilgang, settTilgang |
 | `medlem` | hentForProsjekt, hentMineEntrepriser, leggTil (m/invitasjon), fjern, oppdater (navn/e-post/telefon/rolle), oppdaterRolle, sokBrukere |
-| `gruppe` | hentMineTillatelser, hentMinTilgang, hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem, oppdaterEntrepriser, oppdaterTillatelser, oppdaterDomener |
+| `gruppe` | hentMineTillatelser, hentMinTilgang, hentForProsjekt, opprettStandardgrupper, opprett, oppdater, slett, leggTilMedlem (m/invitasjon), fjernMedlem, oppdaterEntrepriser, oppdaterDomener |
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
 | `vaer` | hentVaerdata (Open-Meteo proxy: latitude, longitude, dato → temperatur, værkode, vind) |
 | `modul` | hentForProsjekt, aktiver (oppretter maler+objekter automatisk), deaktiver (soft-deactivate, beholder data) |
@@ -243,6 +243,8 @@ Maler har et `domain`-felt (`"bygg"` | `"hms"` | `"kvalitet"`, default `"bygg"`)
 **Konsept:** HMS-gruppen (domains=["hms"], ingen entrepriser) ser **alle** HMS-dokumenter i prosjektet tverrgående. Bygg-grupper (domains=["bygg"], med entrepriser) ser kun egne entreprisers bygg-dokumenter.
 
 **Tillatelsestyper:** Definert i `@sitedoc/shared`. Gamle (bakoverkompatible): `manage_field`, `create_tasks`, `create_checklists`, `view_field`. Nye granulære: `checklist_edit`, `checklist_view`, `task_edit`, `task_view`, `template_manage`, `drawing_manage`, `drawing_view`, `folder_manage`, `folder_view`, `enterprise_manage`, `member_manage`. `utvidTillatelser()` mapper automatisk gamle → nye. `PERMISSION_LABELS` (norske navn), `PERMISSION_GROUPS` (UI-gruppering), `LEGACY_PERMISSION_MAP` (mapping).
+
+**Global tillatelsesstyring:** Tillatelser per gruppe-mal (f.eks. «Feltarbeid-administratorer») er **globale** — satt i `STANDARD_PROJECT_GROUPS` og kan kun endres av SiteDoc-administrator (fremtidig superadmin-modul). Prosjektadmin og firmaadmin kan **ikke** overstyre hva gruppene har tilgang til — de kan kun tilordne brukere til grupper. Tillatelsesmatrisen (rediger / kun les / ingen tilgang) defineres sentralt.
 
 **Statusoverganger** valideres via `isValidStatusTransition()` fra `@sitedoc/shared`:
 ```
