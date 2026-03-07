@@ -23,6 +23,19 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 - **Værdata:** Open-Meteo API (gratis, ingen API-nøkkel) for automatisk værhenting
 - **Ikoner:** lucide-react
 
+## Infrastruktur og nettverk
+
+- **Produksjonsserver:** Ubuntu-PC (WSL) som kjører Next.js (web) og Fastify (API) via PM2
+- **Database:** PostgreSQL på produksjonsserveren
+- **Domene:** `sitedoc.no` — DNS og proxy via Cloudflare (gratis plan)
+- **Cloudflare Tunnel:** Eksponerer web (:3100) og API (:3001) fra Ubuntu-PCen til internett via `cloudflared`
+- **SSH-tilgang:** `ssh kemyr@ssh.sitedoc.no` (via Cloudflare Tunnel, krever passord). Fra lokal maskin på samme nettverk: `ssh kemyr@172.23.44.96` (WSL intern IP)
+- **PM2-prosesser:** `sitedoc-web` (Next.js), restart med `pm2 restart sitedoc-web`
+- **Env-filer (prod):** `/home/kemyr/programmering/sitedoc/apps/web/.env`
+- **Prosjektsti (prod):** `/home/kemyr/programmering/sitedoc/`
+- **Auth.js:** `trustHost: true` påkrevd pga. Cloudflare-proxy (uten dette feiler CSRF-validering)
+- **Deployment:** Manuell — pull fra git, bygg (`pnpm build --filter web`), restart (`pm2 restart sitedoc-web`)
+
 ## Prosjektstruktur
 
 ```
