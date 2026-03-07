@@ -1375,37 +1375,31 @@ export default function EntrepriserSide() {
 
       {/* Veiledning — vis når oppsett ikke er komplett */}
       {(() => {
-        const harEntrepriser = entrepriseData.length > 0;
         const harFlereBrukere = (medlemmer?.length ?? 0) > 1;
-        const harMaler = (maler as unknown[] | undefined)?.length ? true : false;
-        const harArbeidsforlop = (alleArbeidsforlop?.length ?? 0) > 0;
+        const malListen = maler as Array<{ id: string; category?: string }> | undefined;
+        const harOppgavemal = malListen?.some((m) => m.category === "oppgave") ?? false;
+        const harSjekklistemal = malListen?.some((m) => m.category === "sjekkliste") ?? false;
+        const harBeggemaler = harOppgavemal && harSjekklistemal;
+        const harEntrepriseMedArbeidsforlop = entrepriseData.length > 0 && (alleArbeidsforlop?.length ?? 0) > 0;
         const harMalerTilknyttet = alleArbeidsforlop?.some(
           (af) => (af as { templates?: unknown[] }).templates?.length
         ) ?? false;
-        const alleKomplett = harEntrepriser && harFlereBrukere && harMaler && harArbeidsforlop && harMalerTilknyttet;
+        const alleKomplett = harFlereBrukere && harBeggemaler && harEntrepriseMedArbeidsforlop && harMalerTilknyttet;
 
         if (alleKomplett) return null;
 
         const steg = [
           {
-            ferdig: harEntrepriser,
-            tekst: "Opprett minst én entreprise",
-            lenke: null,
-          },
-          {
             ferdig: harFlereBrukere,
             tekst: "Inviter brukere til prosjektet",
-            lenke: "/dashbord/oppsett/brukere",
           },
           {
-            ferdig: harMaler,
-            tekst: "Opprett oppgave- og sjekklistemaler",
-            lenke: null,
+            ferdig: harBeggemaler,
+            tekst: `Opprett maler (${harOppgavemal ? "oppgave \u2713" : "oppgave mangler"}, ${harSjekklistemal ? "sjekkliste \u2713" : "sjekkliste mangler"})`,
           },
           {
-            ferdig: harArbeidsforlop && harMalerTilknyttet,
-            tekst: "Sett opp arbeidsforløp med maler",
-            lenke: null,
+            ferdig: harEntrepriseMedArbeidsforlop && harMalerTilknyttet,
+            tekst: "Opprett entreprise med arbeidsforløp og maler",
           },
         ];
 
