@@ -296,23 +296,20 @@ function MedlemKolonne({
   tittel,
   entreprise,
   alleMedlemmer,
-  alleEntrepriser,
   onLeggTil,
   onFjern,
-  onVelgEntreprise,
+  onLeggTilPerson,
   leseModus = false,
 }: {
   tittel: string;
   entreprise: EntrepriseData | null;
   alleMedlemmer: ProsjektMedlemItem[];
-  alleEntrepriser?: EntrepriseData[];
   onLeggTil?: (projectMemberId: string) => void;
   onFjern?: (projectMemberId: string) => void;
-  onVelgEntreprise?: (enterpriseId: string) => void;
+  onLeggTilPerson?: (projectMemberId: string) => void;
   leseModus?: boolean;
 }) {
   const [visVelger, setVisVelger] = useState(false);
-  const [visEntrepriseVelger, setVisEntrepriseVelger] = useState(false);
   const medlemmer = entreprise?.medlemmer ?? [];
 
   // Filtrer ut medlemmer som allerede er i entreprisen
@@ -322,6 +319,9 @@ function MedlemKolonne({
   const tilgjengelige = alleMedlemmer.filter(
     (m) => !eksisterendeEposter.has(m.user.email.toLowerCase()),
   );
+
+  // Aktiv legg til-handler: bruk onLeggTil (med entreprise) eller onLeggTilPerson (uten)
+  const aktivLeggTil = onLeggTil ?? onLeggTilPerson;
 
   return (
     <div className="flex-1 min-w-0">
@@ -357,7 +357,7 @@ function MedlemKolonne({
               <button
                 onClick={() => onFjern(m.id)}
                 className="hidden shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-500 group-hover:block"
-                title="Fjern fra entreprise"
+                title="Fjern"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -365,37 +365,7 @@ function MedlemKolonne({
           </div>
         ))}
 
-        {medlemmer.length === 0 && !entreprise && onVelgEntreprise && (
-          <div className="px-1.5">
-            {visEntrepriseVelger ? (
-              <select
-                autoFocus
-                className="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
-                defaultValue=""
-                onChange={(e) => {
-                  if (e.target.value) onVelgEntreprise(e.target.value);
-                  setVisEntrepriseVelger(false);
-                }}
-                onBlur={() => setVisEntrepriseVelger(false)}
-              >
-                <option value="" disabled>Velg entreprise...</option>
-                {(alleEntrepriser ?? []).map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
-            ) : (
-              <button
-                onClick={() => setVisEntrepriseVelger(true)}
-                className="flex items-center gap-1 rounded py-0.5 text-xs text-gray-400 hover:text-blue-500"
-              >
-                <Plus className="h-3 w-3" />
-                Konfigurer
-              </button>
-            )}
-          </div>
-        )}
-
-        {medlemmer.length === 0 && !entreprise && !onVelgEntreprise && (
+        {medlemmer.length === 0 && !entreprise && !onLeggTilPerson && (
           <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-gray-300">
             Ikke konfigurert
           </div>
@@ -408,8 +378,8 @@ function MedlemKolonne({
           </div>
         )}
 
-        {/* Legg til-knapp */}
-        {!leseModus && onLeggTil && entreprise && (
+        {/* Legg til-knapp — vises alltid når det er en handler (med eller uten entreprise) */}
+        {!leseModus && aktivLeggTil && (
           <>
             {visVelger ? (
               <div className="px-1.5">
@@ -418,7 +388,7 @@ function MedlemKolonne({
                   className="w-full rounded border border-gray-300 px-2 py-0.5 text-xs focus:border-blue-500 focus:outline-none"
                   defaultValue=""
                   onChange={(e) => {
-                    if (e.target.value) onLeggTil(e.target.value);
+                    if (e.target.value) aktivLeggTil!(e.target.value);
                     setVisVelger(false);
                   }}
                   onBlur={() => setVisVelger(false)}
@@ -466,7 +436,7 @@ function EntrepriseGruppeKomponent({
   onSlettArbeidsforlop,
   onLeggTilMedlem,
   onFjernMedlem,
-  onSettSvarer,
+  onLeggTilPersonSvarer,
 }: {
   entreprise: EntrepriseData;
   arbeidsforloper: ArbeidsforlopData[];
@@ -479,7 +449,7 @@ function EntrepriseGruppeKomponent({
   onSlettArbeidsforlop: (id: string) => void;
   onLeggTilMedlem: (enterpriseId: string, projectMemberId: string) => void;
   onFjernMedlem: (enterpriseId: string, projectMemberId: string) => void;
-  onSettSvarer: (steg: 2 | 3, enterpriseId: string) => void;
+  onLeggTilPersonSvarer: (steg: 2 | 3, projectMemberId: string) => void;
 }) {
   const [ekspandert, setEkspandert] = useState(true);
   const farge = hentFargeForEntreprise(entreprise.color, entreprise.fargeIndeks);
@@ -599,10 +569,9 @@ function EntrepriseGruppeKomponent({
                 tittel="Svarer 2"
                 entreprise={svarer2}
                 alleMedlemmer={alleMedlemmer}
-                alleEntrepriser={alleEntrepriser}
                 onLeggTil={svarer2 ? (pmId) => onLeggTilMedlem(svarer2.id, pmId) : undefined}
                 onFjern={svarer2 ? (pmId) => onFjernMedlem(svarer2.id, pmId) : undefined}
-                onVelgEntreprise={!svarer2 ? (eid) => onSettSvarer(2, eid) : undefined}
+                onLeggTilPerson={!svarer2 ? (pmId) => onLeggTilPersonSvarer(2, pmId) : undefined}
               />
             </div>
 
@@ -612,10 +581,9 @@ function EntrepriseGruppeKomponent({
                 tittel="Svarer 3"
                 entreprise={svarer3}
                 alleMedlemmer={alleMedlemmer}
-                alleEntrepriser={alleEntrepriser}
                 onLeggTil={svarer3 ? (pmId) => onLeggTilMedlem(svarer3.id, pmId) : undefined}
                 onFjern={svarer3 ? (pmId) => onFjernMedlem(svarer3.id, pmId) : undefined}
-                onVelgEntreprise={!svarer3 ? (eid) => onSettSvarer(3, eid) : undefined}
+                onLeggTilPerson={!svarer3 ? (pmId) => onLeggTilPersonSvarer(3, pmId) : undefined}
               />
             </div>
           </div>
@@ -1594,19 +1562,6 @@ export default function EntrepriserSide() {
     }
   }
 
-  // Sett svarer 2/3 direkte fra kolonne — oppdaterer første arbeidsforløp
-  function handleSettSvarer(entrepriseId: string, steg: 2 | 3, svarerEntrepriseId: string) {
-    const afs = arbeidsforlopMap.get(entrepriseId);
-    const af = afs?.[0];
-    if (!af) return;
-    oppdaterAfMutation.mutate({
-      id: af.id,
-      ...(steg === 2
-        ? { responderEnterprise2Id: svarerEntrepriseId }
-        : { responderEnterprise3Id: svarerEntrepriseId }),
-    });
-  }
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -1658,6 +1613,39 @@ export default function EntrepriserSide() {
     id: e.id,
     name: e.name,
   }));
+
+  const alleMedlemmerListe = (medlemmer as ProsjektMedlemItem[] | undefined) ?? [];
+
+  // Legg til person i Svarer 2/3 — finn personens entreprise, sett på arbeidsforløp
+  function handleLeggTilPersonSvarer(
+    oppretterEntrepriseId: string,
+    steg: 2 | 3,
+    projectMemberId: string,
+  ) {
+    // Finn hvilken entreprise denne personen tilhører
+    const medlem = alleMedlemmerListe.find((m) => m.id === projectMemberId);
+    if (!medlem) return;
+
+    const personEntreprise = entrepriseData.find((ent) =>
+      ent.medlemmer.some(
+        (m) => m.epost.toLowerCase() === medlem.user.email.toLowerCase(),
+      ),
+    );
+
+    if (!personEntreprise) return;
+
+    // Sett entreprisen på arbeidsforløpet
+    const afs = arbeidsforlopMap.get(oppretterEntrepriseId);
+    const af = afs?.[0];
+    if (!af) return;
+
+    oppdaterAfMutation.mutate({
+      id: af.id,
+      ...(steg === 2
+        ? { responderEnterprise2Id: personEntreprise.id }
+        : { responderEnterprise3Id: personEntreprise.id }),
+    });
+  }
 
   return (
     <div>
@@ -1791,8 +1779,8 @@ export default function EntrepriserSide() {
                   projectId: prosjektId!,
                 })
               }
-              onSettSvarer={(steg, svarerEntrepriseId) =>
-                handleSettSvarer(ent.id, steg, svarerEntrepriseId)
+              onLeggTilPersonSvarer={(steg, projectMemberId) =>
+                handleLeggTilPersonSvarer(ent.id, steg, projectMemberId)
               }
             />
           ))}
