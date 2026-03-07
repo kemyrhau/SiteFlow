@@ -1023,6 +1023,7 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/[prosjektId]/tegninger              -> Interaktiv tegningsvisning: klikk for å opprette oppgave/sjekkliste, røde markører for eksisterende oppgaver. Opprett-modal med tilgangsbasert malfiltrering: admin→alle, entreprise→workflow+HMS, domene-grupper→matchende domain
 /dashbord/oppsett                             -> Innstillinger (redirect til brukere)
 /dashbord/oppsett/brukere                     -> Brukergrupper, roller, medlemmer
+/dashbord/oppsett/brukere/tillatelser         -> Tillatelsesmatrise (read-only): rader = funksjoner, kolonner = grupper, moduser = rediger/les/ingen
 /dashbord/oppsett/lokasjoner                  -> Lokasjonsoversikt
 /dashbord/oppsett/lokasjoner                  -> Samlet lokasjonsliste med redigering og georeferanse
 /dashbord/oppsett/field                       -> Field-oversikt (kategorikort)
