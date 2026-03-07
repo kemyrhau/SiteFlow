@@ -127,6 +127,7 @@ export const addMemberSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(["member", "admin"]).default("member"),
   enterpriseIds: z.array(z.string().uuid()).default([]),
+  melding: z.string().max(500).optional(),
 });
 
 // Tegningsvalidering
@@ -207,4 +208,5 @@ export const addGroupMemberByEmailSchema = z.object({
   firstName: z.string().min(1, "Fornavn er påkrevd"),
   lastName: z.string().min(1, "Etternavn er påkrevd"),
   phone: z.string().optional(),
+  melding: z.string().max(500).optional(),
 });

@@ -112,6 +112,7 @@ function RedigerGruppeModal({
   const [nyFornavn, setNyFornavn] = useState("");
   const [nyEtternavn, setNyEtternavn] = useState("");
   const [nyTelefon, setNyTelefon] = useState("");
+  const [nyMelding, setNyMelding] = useState("");
   const [leggerTil, setLeggerTil] = useState(false);
   const [feilmelding, setFeilmelding] = useState("");
   const [redigererNavn, setRedigererNavn] = useState(false);
@@ -241,6 +242,7 @@ function RedigerGruppeModal({
     setNyFornavn("");
     setNyEtternavn("");
     setNyTelefon("");
+    setNyMelding("");
     setLeggTilSteg(1);
     setVisLeggTil(false);
     setFeilmelding("");
@@ -287,6 +289,7 @@ function RedigerGruppeModal({
         phone: nyTelefon.trim() || undefined,
         role: "member",
         enterpriseIds: [gruppe.id.replace("ent-", "")],
+        melding: nyMelding.trim() || undefined,
       });
     } else if (gruppe.id === "prosjektadmin") {
       // Prosjektadministrator-gruppe
@@ -297,6 +300,7 @@ function RedigerGruppeModal({
         lastName: nyEtternavn.trim(),
         phone: nyTelefon.trim() || undefined,
         role: "admin",
+        melding: nyMelding.trim() || undefined,
       });
     } else {
       // DB-gruppe (UUID)
@@ -307,6 +311,7 @@ function RedigerGruppeModal({
         firstName: nyFornavn.trim(),
         lastName: nyEtternavn.trim(),
         phone: nyTelefon.trim() || undefined,
+        melding: nyMelding.trim() || undefined,
       });
     }
   }
@@ -759,6 +764,7 @@ function RedigerGruppeModal({
                         setNyFornavn("");
                         setNyEtternavn("");
                         setNyTelefon("");
+                        setNyMelding("");
                       }}
                       className="rounded p-1 text-gray-400 hover:text-gray-600"
                       title="Endre e-post"
@@ -798,6 +804,14 @@ function RedigerGruppeModal({
                       placeholder="Telefonnummer (valgfritt)"
                       value={nyTelefon}
                       onChange={(e) => setNyTelefon(e.target.value)}
+                      className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
+                    />
+                    <textarea
+                      placeholder="Personlig melding (valgfritt)"
+                      value={nyMelding}
+                      onChange={(e) => setNyMelding(e.target.value)}
+                      rows={2}
+                      maxLength={500}
                       className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
                     />
                   </div>

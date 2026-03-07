@@ -182,6 +182,7 @@ export const medlemRouter = router({
             invitasjonstoken: token,
             prosjektNavn: prosjekt.name,
             invitertAvNavn: inviterer.name ?? "En kollega",
+            melding: input.melding,
           });
         } catch (error) {
           console.error("Kunne ikke sende invitasjons-e-post:", error);

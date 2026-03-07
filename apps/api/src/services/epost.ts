@@ -22,6 +22,7 @@ interface InvitasjonsEpostParams {
   invitasjonstoken: string;
   prosjektNavn: string;
   invitertAvNavn: string;
+  melding?: string;
 }
 
 export async function sendInvitasjonsEpost({
@@ -29,8 +30,16 @@ export async function sendInvitasjonsEpost({
   invitasjonstoken,
   prosjektNavn,
   invitertAvNavn,
+  melding,
 }: InvitasjonsEpostParams) {
   const akseptUrl = `${APP_URL}/aksepter-invitasjon?token=${invitasjonstoken}`;
+
+  const meldingSeksjon = melding?.trim()
+    ? `<div style="background-color: #f7fafc; border-left: 3px solid #1a365d; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+        <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin: 0; font-style: italic;">"${melding.trim()}"</p>
+        <p style="color: #718096; font-size: 13px; margin: 4px 0 0;">— ${invitertAvNavn}</p>
+      </div>`
+    : "";
 
   const { error } = await getResend().emails.send({
     from: FRA_EPOST,
@@ -42,6 +51,7 @@ export async function sendInvitasjonsEpost({
         <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">
           ${invitertAvNavn} har invitert deg til prosjektet <strong>${prosjektNavn}</strong>.
         </p>
+        ${meldingSeksjon}
         <p style="color: #4a5568; font-size: 16px; line-height: 1.6;">
           Klikk knappen under for å akseptere invitasjonen og logge inn:
         </p>
@@ -50,6 +60,9 @@ export async function sendInvitasjonsEpost({
             Aksepter invitasjon
           </a>
         </div>
+        <p style="color: #4a5568; font-size: 14px; line-height: 1.6;">
+          Du kan også logge inn direkte på <a href="https://sitedoc.no" style="color: #1a365d; font-weight: 600;">sitedoc.no</a> med din e-postadresse.
+        </p>
         <p style="color: #a0aec0; font-size: 13px; line-height: 1.5;">
           Denne invitasjonen utløper om 7 dager. Hvis du ikke kjenner til dette prosjektet, kan du trygt ignorere denne e-posten.
         </p>

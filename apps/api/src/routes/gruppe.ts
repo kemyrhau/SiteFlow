@@ -321,6 +321,7 @@ export const gruppeRouter = router({
               invitasjonstoken: token,
               prosjektNavn: prosjekt.name,
               invitertAvNavn: inviterer.name ?? "En kollega",
+              melding: input.melding,
             });
           }
         } catch (error) {
