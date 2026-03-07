@@ -29,6 +29,7 @@ import {
   FileText,
   X,
   AlertTriangle,
+  UserPlus,
 } from "lucide-react";
 import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@sitedoc/shared";
 
@@ -310,6 +311,7 @@ function MedlemKolonne({
   alleMedlemmer,
   onLeggTil,
   onFjern,
+  onInviterNy,
   leseModus = false,
 }: {
   tittel: string;
@@ -317,6 +319,7 @@ function MedlemKolonne({
   alleMedlemmer: ProsjektMedlemItem[];
   onLeggTil?: (projectMemberId: string) => void;
   onFjern?: (projectMemberId: string) => void;
+  onInviterNy?: () => void;
   leseModus?: boolean;
 }) {
   const [visVelger, setVisVelger] = useState(false);
@@ -414,18 +417,201 @@ function MedlemKolonne({
                 </select>
               </div>
             ) : (
-              <button
-                onClick={() => setVisVelger(true)}
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-gray-400 hover:bg-gray-50 hover:text-blue-500"
-              >
-                <Plus className="h-3 w-3" />
-                Legg til
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setVisVelger(true)}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-gray-400 hover:bg-gray-50 hover:text-blue-500"
+                >
+                  <Plus className="h-3 w-3" />
+                  Legg til
+                </button>
+                {onInviterNy && (
+                  <button
+                    onClick={onInviterNy}
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-gray-400 hover:bg-gray-50 hover:text-blue-500"
+                  >
+                    <UserPlus className="h-3 w-3" />
+                    Inviter ny
+                  </button>
+                )}
+              </div>
             )}
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  InviterNyMedlemModal — inviter person utenfor prosjektet           */
+/* ------------------------------------------------------------------ */
+
+function InviterNyMedlemModal({
+  open,
+  onClose,
+  prosjektId,
+  entrepriseId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  prosjektId: string;
+  entrepriseId: string;
+}) {
+  const [steg, setSteg] = useState<1 | 2>(1);
+  const [epost, setEpost] = useState("");
+  const [fornavn, setFornavn] = useState("");
+  const [etternavn, setEtternavn] = useState("");
+  const [telefon, setTelefon] = useState("");
+  const [melding, setMelding] = useState("");
+  const [feil, setFeil] = useState("");
+
+  const utils = trpc.useUtils();
+  const leggTilMedlem = trpc.medlem.leggTil.useMutation({
+    onSuccess: () => {
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId });
+      utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
+      nullstill();
+      onClose();
+    },
+    onError: (err) => {
+      setFeil(err.message);
+    },
+  });
+
+  function nullstill() {
+    setSteg(1);
+    setEpost("");
+    setFornavn("");
+    setEtternavn("");
+    setTelefon("");
+    setMelding("");
+    setFeil("");
+  }
+
+  // Synkroniser ved åpning
+  const [forrigeOpen, setForrigeOpen] = useState(false);
+  if (open && !forrigeOpen) nullstill();
+  if (open !== forrigeOpen) setForrigeOpen(open);
+
+  function handleNeste(e: React.FormEvent) {
+    e.preventDefault();
+    if (!epost.trim()) return;
+    const epostRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!epostRegex.test(epost.trim())) {
+      setFeil("Ugyldig e-postadresse");
+      return;
+    }
+    setFeil("");
+    setSteg(2);
+  }
+
+  function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fornavn.trim() || !etternavn.trim()) {
+      setFeil("Fornavn og etternavn er påkrevd");
+      return;
+    }
+    setFeil("");
+    leggTilMedlem.mutate({
+      projectId: prosjektId,
+      email: epost.trim(),
+      firstName: fornavn.trim(),
+      lastName: etternavn.trim(),
+      phone: telefon.trim() || undefined,
+      role: "member",
+      enterpriseIds: [entrepriseId],
+      melding: melding.trim() || undefined,
+    });
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Inviter ny person">
+      <form
+        onSubmit={steg === 1 ? handleNeste : handleSend}
+        className="flex flex-col gap-3"
+      >
+        <div className="flex items-center gap-2">
+          <input
+            type="email"
+            placeholder="E-postadresse"
+            value={epost}
+            onChange={(e) => { setEpost(e.target.value); setFeil(""); }}
+            disabled={steg === 2}
+            autoFocus={steg === 1}
+            className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+          />
+          {steg === 2 && (
+            <button
+              type="button"
+              onClick={() => { setSteg(1); setFornavn(""); setEtternavn(""); setTelefon(""); setMelding(""); }}
+              className="rounded p-1 text-gray-400 hover:text-gray-600"
+              title="Endre e-post"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {steg === 2 && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder="Fornavn *"
+                value={fornavn}
+                onChange={(e) => { setFornavn(e.target.value); setFeil(""); }}
+                autoFocus
+                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                placeholder="Etternavn *"
+                value={etternavn}
+                onChange={(e) => { setEtternavn(e.target.value); setFeil(""); }}
+                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <input
+              type="tel"
+              placeholder="Telefonnummer (valgfritt)"
+              value={telefon}
+              onChange={(e) => setTelefon(e.target.value)}
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <textarea
+              placeholder="Personlig melding (valgfritt)"
+              value={melding}
+              onChange={(e) => setMelding(e.target.value)}
+              rows={2}
+              maxLength={500}
+              className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </>
+        )}
+
+        {feil && <p className="text-sm text-red-600">{feil}</p>}
+
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" type="button" onClick={onClose}>
+            Avbryt
+          </Button>
+          {steg === 1 ? (
+            <Button type="submit" disabled={!epost.trim()}>
+              Neste
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              loading={leggTilMedlem.isPending}
+              disabled={!fornavn.trim() || !etternavn.trim()}
+            >
+              Inviter
+            </Button>
+          )}
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -548,6 +734,7 @@ function EntrepriseGruppeKomponent({
   onFjernMedlem,
   onLeggTilStegMedlem,
   onFjernStegMedlem,
+  onInviterNy,
 }: {
   entreprise: EntrepriseData;
   arbeidsforloper: ArbeidsforlopData[];
@@ -562,6 +749,7 @@ function EntrepriseGruppeKomponent({
   onFjernMedlem: (enterpriseId: string, projectMemberId: string) => void;
   onLeggTilStegMedlem: (workflowId: string, step: 2 | 3, projectMemberId: string) => void;
   onFjernStegMedlem: (workflowId: string, step: 2 | 3, projectMemberId: string) => void;
+  onInviterNy: (entrepriseId: string) => void;
 }) {
   const [ekspandert, setEkspandert] = useState(true);
   const farge = hentFargeForEntreprise(entreprise.color, entreprise.fargeIndeks);
@@ -661,6 +849,7 @@ function EntrepriseGruppeKomponent({
                 alleMedlemmer={alleMedlemmer}
                 onLeggTil={(pmId) => onLeggTilMedlem(entreprise.id, pmId)}
                 onFjern={(pmId) => onFjernMedlem(entreprise.id, pmId)}
+                onInviterNy={() => onInviterNy(entreprise.id)}
               />
             </div>
 
@@ -673,6 +862,7 @@ function EntrepriseGruppeKomponent({
                   alleMedlemmer={alleMedlemmer}
                   onLeggTil={(pmId) => onLeggTilMedlem(svarer1.id, pmId)}
                   onFjern={(pmId) => onFjernMedlem(svarer1.id, pmId)}
+                  onInviterNy={() => onInviterNy(svarer1.id)}
                 />
               ) : (
                 <MedlemKolonne
@@ -681,6 +871,7 @@ function EntrepriseGruppeKomponent({
                   alleMedlemmer={alleMedlemmer}
                   onLeggTil={(pmId) => onLeggTilMedlem(entreprise.id, pmId)}
                   onFjern={(pmId) => onFjernMedlem(entreprise.id, pmId)}
+                  onInviterNy={() => onInviterNy(entreprise.id)}
                 />
               )}
             </div>
@@ -1486,6 +1677,9 @@ export default function EntrepriserSide() {
     useState<string | null>(null);
   const [slettAfId, setSlettAfId] = useState<string | null>(null);
 
+  // Inviter ny medlem modal
+  const [inviterEntrepriseId, setInviterEntrepriseId] = useState<string | null>(null);
+
   // Data
   const { data: entrepriser, isLoading } =
     trpc.entreprise.hentForProsjekt.useQuery(
@@ -1844,6 +2038,7 @@ export default function EntrepriserSide() {
               onFjernStegMedlem={(workflowId, step, projectMemberId) =>
                 fjernStegMedlemMutation.mutate({ workflowId, projectMemberId, step })
               }
+              onInviterNy={(entrepriseId) => setInviterEntrepriseId(entrepriseId)}
             />
           ))}
         </div>
@@ -2030,6 +2225,16 @@ export default function EntrepriserSide() {
           </div>
         </div>
       </Modal>
+
+      {/* Inviter ny person til entreprise */}
+      {prosjektId && inviterEntrepriseId && (
+        <InviterNyMedlemModal
+          open={!!inviterEntrepriseId}
+          onClose={() => setInviterEntrepriseId(null)}
+          prosjektId={prosjektId}
+          entrepriseId={inviterEntrepriseId}
+        />
+      )}
     </div>
   );
 }
