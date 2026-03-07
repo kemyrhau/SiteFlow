@@ -97,6 +97,18 @@ sitedoc/
 │   │       │       │   │   └── kontrollplaner/ # Kontrollplaner (kommer)
 │   │       │       │   ├── prosjektoppsett/  # Prosjektoppsett (navn, status, adresse)
 │   │       │       │   └── eierportal-brukere/ # Owners Portal brukere
+│   │       │       ├── admin/                # SiteDoc-admin (kun sitedoc_admin)
+│   │       │       │   ├── layout.tsx        # Admin-sidebar med amber aksent
+│   │       │       │   ├── page.tsx          # Oversikt (statistikk)
+│   │       │       │   ├── firmaer/          # Opprett/administrer organisasjoner
+│   │       │       │   ├── prosjekter/       # Alle prosjekter i systemet
+│   │       │       │   └── tillatelser/      # Global tillatelsesmatrise
+│   │       │       ├── firma/                # Firma-admin (company_admin/sitedoc_admin)
+│   │       │       │   ├── layout.tsx        # Firma-sidebar med lilla aksent
+│   │       │       │   ├── page.tsx          # Firma-oversikt
+│   │       │       │   ├── prosjekter/       # Firmaets prosjekter
+│   │       │       │   ├── brukere/          # Firmaets brukere
+│   │       │       │   └── fakturering/      # Fakturering (placeholder)
 │   │       │       └── prosjekter/           # LEGACY: Gamle flat-navigasjonsruter
 │   │       │           ├── page.tsx          # Prosjektliste (gammel)
 │   │       │           ├── nytt/             # Opprett prosjekt (gammel)
@@ -239,6 +251,7 @@ Alle routere i `apps/api/src/routes/`:
 | `vaer` | hentVaerdata (Open-Meteo proxy: latitude, longitude, dato → temperatur, værkode, vind) |
 | `modul` | hentForProsjekt, aktiver (oppretter maler+objekter automatisk), deaktiver (soft-deactivate, beholder data) |
 | `organisasjon` | hentMin, hentMedId, hentProsjekter, hentBrukere, oppdater, leggTilProsjekt, fjernProsjekt |
+| `admin` | erAdmin, hentAlleProsjekter, hentAlleOrganisasjoner, opprettOrganisasjon, settBrukerOrganisasjon, tilknyttProsjekt, hentAlleBrukere (kun sitedoc_admin) |
 
 **Auth-nivåer:** `publicProcedure` (åpen) og `protectedProcedure` (krever autentisert userId i context). Context bygges i `context.ts` som verifiserer Auth.js-sesjonstokens. De fleste routere bruker `protectedProcedure` med tilleggs-sjekker fra `tilgangskontroll.ts`.
 
@@ -451,12 +464,48 @@ Forhåndsdefinerte mal-pakker som kan aktiveres per prosjekt via Innstillinger >
 Prosjektgrupper kategoriserer brukere med tilhørende tillatelser. Gruppekategorier: `generelt`, `field`, `brukergrupper`.
 
 **Standardgrupper** (opprettes automatisk via seed/`opprettStandardgrupper`):
+- **Prosjektadministratorer** (`prosjekt-admin`, generelt) — alle tillatelser, alle fagområder
 - **Feltarbeid-administratorer** (`field-admin`) — `manage_field`, `create_tasks`, `create_checklists`
 - **Oppgave- og sjekklisteregistratorer** (`oppgave-sjekkliste-koord`) — `create_tasks`, `create_checklists`
 - **Feltarbeid-registrator** (`field-observatorer`) — `view_field`
 - **HMS** (`hms-ledere`) — `create_tasks`, `create_checklists`
 
 Standardgruppene er definert i `@sitedoc/shared` (`STANDARD_PROJECT_GROUPS`).
+
+### SiteDoc-administrasjon
+
+Superadmin-modul for SiteDoc-plattformen. Tilgjengelig kun for brukere med `role: "sitedoc_admin"`.
+
+**Ruter:** `/dashbord/admin/` med egen sidebar (amber aksent):
+- **Oversikt** — Statistikk-kort: antall firmaer, prosjekter, brukere + liste over siste prosjekter
+- **Firmaer** — Opprett og administrer organisasjoner (navn, org.nr). Viser brukere og prosjekter per firma
+- **Prosjekter** — Tabell med alle prosjekter i systemet (navn, nr, firma, medlemmer, entrepriser, status)
+- **Tillatelser** — Global tillatelsesmatrise som viser rediger/les/ingen tilgang per standardgruppe per tillatelseskategori
+
+**Toppbar:** ShieldCheck-ikon (amber) vises for `sitedoc_admin`, lenker til `/dashbord/admin`
+
+**API:** `admin`-router med `verifiserSiteDocAdmin` helper som kaster FORBIDDEN for ikke-admin. Alle prosedyrer er `protectedProcedure`.
+
+### Firma-administrasjon
+
+Firmaadmin-modul for organisasjoner. Tilgjengelig for brukere med `role: "company_admin"` eller `"sitedoc_admin"`.
+
+**Ruter:** `/dashbord/firma/` med egen sidebar (lilla aksent):
+- **Oversikt** — Firmanavn, org.nr, statistikk
+- **Prosjekter** — Firmaets prosjekter (tabell med lenker)
+- **Brukere** — Firmaets brukere (tabell med roller)
+- **Fakturering** — Placeholder
+
+**Toppbar:** Building2-ikon vises for brukere med `organizationId`, lenker til `/dashbord/firma`
+
+**API:** `organisasjon`-router med `verifiserFirmaAdmin` helper. `company_admin` og `sitedoc_admin` har tilgang.
+
+**Brukerroller:**
+| Rolle | Beskrivelse |
+|-------|-------------|
+| `user` | Standard bruker (default) |
+| `company_admin` | Firmaadministrator — administrerer eget firmas brukere og prosjekter |
+| `sitedoc_admin` | SiteDoc superadmin — administrerer alle firmaer, prosjekter og globale innstillinger |
 
 ### Tegningsmarkører (mobil)
 
@@ -1071,6 +1120,10 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/oppsett/field/box                   -> Mappeoppsett (filstruktur/mappestruktur)
 /dashbord/oppsett/field/kontrollplaner        -> Kontrollplaner (kommer)
 /dashbord/oppsett/prosjektoppsett             -> Prosjektoppsett (navn, status, adresse, eksternt prosjektnummer)
+/dashbord/admin                               -> SiteDoc-admin oversikt (antall firmaer, prosjekter, brukere, kun sitedoc_admin)
+/dashbord/admin/firmaer                       -> Opprett og administrer firmaer/organisasjoner
+/dashbord/admin/prosjekter                    -> Alle prosjekter i systemet (tabell med lenker)
+/dashbord/admin/tillatelser                   -> Global tillatelsesmatrise (rediger/les/ingen per gruppe)
 /dashbord/firma                              -> Firma-oversikt (statistikk + firmainformasjon, kun firmaadmin)
 /dashbord/firma/prosjekter                   -> Firmaets prosjekter (tabell med lenker)
 /dashbord/firma/brukere                      -> Firmaets brukere (tabell med roller)
