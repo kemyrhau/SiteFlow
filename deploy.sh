@@ -10,7 +10,7 @@ git push
 
 # Bygg og restart på serveren
 echo "→ Bygger på serveren..."
-ssh sitedoc "cd ~/programmering/sitedoc && git pull && pnpm install --frozen-lockfile && pnpm build && pm2 restart all"
+ssh sitedoc "cd ~/programmering/sitedoc && git pull && pnpm install --frozen-lockfile && pnpm db:migrate && pnpm build && pm2 restart all"
 
 echo "→ Sjekker status..."
 ssh sitedoc "pm2 list"
