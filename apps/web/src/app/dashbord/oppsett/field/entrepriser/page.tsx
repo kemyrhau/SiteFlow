@@ -23,6 +23,10 @@ import {
   Trash2,
   Workflow as WorkflowIcon,
   ArrowRight,
+  CheckCircle2,
+  Circle,
+  Users,
+  FileText,
 } from "lucide-react";
 import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@sitedoc/shared";
 
@@ -1184,6 +1188,12 @@ export default function EntrepriserSide() {
       { enabled: !!prosjektId },
     );
 
+  // Hent medlemmer for veiledning
+  const { data: medlemmer } = trpc.medlem.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
   // Bygg map: entrepriseId -> arbeidsforløp[]
   const arbeidsforlopMap = new Map<string, ArbeidsforlopData[]>();
   if (alleArbeidsforlop) {
@@ -1362,6 +1372,68 @@ export default function EntrepriserSide() {
           Skriv ut
         </Button>
       </div>
+
+      {/* Veiledning — vis når oppsett ikke er komplett */}
+      {(() => {
+        const harEntrepriser = entrepriseData.length > 0;
+        const harFlereBrukere = (medlemmer?.length ?? 0) > 1;
+        const harMaler = (maler as unknown[] | undefined)?.length ? true : false;
+        const harArbeidsforlop = (alleArbeidsforlop?.length ?? 0) > 0;
+        const harMalerTilknyttet = alleArbeidsforlop?.some(
+          (af) => (af as { templates?: unknown[] }).templates?.length
+        ) ?? false;
+        const alleKomplett = harEntrepriser && harFlereBrukere && harMaler && harArbeidsforlop && harMalerTilknyttet;
+
+        if (alleKomplett) return null;
+
+        const steg = [
+          {
+            ferdig: harEntrepriser,
+            tekst: "Opprett minst én entreprise",
+            lenke: null,
+          },
+          {
+            ferdig: harFlereBrukere,
+            tekst: "Inviter brukere til prosjektet",
+            lenke: "/dashbord/oppsett/brukere",
+          },
+          {
+            ferdig: harMaler,
+            tekst: "Opprett oppgave- og sjekklistemaler",
+            lenke: null,
+          },
+          {
+            ferdig: harArbeidsforlop && harMalerTilknyttet,
+            tekst: "Sett opp arbeidsforløp med maler",
+            lenke: null,
+          },
+        ];
+
+        return (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <h3 className="mb-2 text-sm font-semibold text-amber-900">
+              Kom i gang med feltarbeid
+            </h3>
+            <p className="mb-3 text-xs text-amber-700">
+              Fullfør stegene under for å aktivere dokumentflyt mellom entrepriser.
+            </p>
+            <ul className="space-y-1.5">
+              {steg.map((s, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm">
+                  {s.ferdig ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-amber-400" />
+                  )}
+                  <span className={s.ferdig ? "text-gray-500 line-through" : "text-gray-800"}>
+                    {s.tekst}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* Søk */}
       <div className="mb-4 flex items-center gap-3">
