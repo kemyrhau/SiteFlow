@@ -257,6 +257,7 @@ Sentral forretningslogikk. Dokumenter (sjekklister/oppgaver) flyter mellom entre
 - Svar-entreprise mottar, fyller ut og besvarer
 - Alle overganger logges i `document_transfers`
 - **Entreprise-redigering i utkast:** I draft-status kan oppretter- og svarer-entreprise endres via dropdown (mobil: klikkbar bar med ChevronDown, web: inline `<select>`). Oppretter viser brukerens entrepriser, svarer viser alle. Etter draft-status er entreprisene låst (statisk visning)
+- **Automatisk fargevalg:** Ved opprettelse tildeles farge automatisk — neste ledige farge fra `ENTERPRISE_COLORS` (32 farger) velges basert på eksisterende entrepriser. Fargevelger fjernet fra opprettelsesmodal, beholdt i redigeringsmodal for å bytte farge senere. Fargekart i `_components/entreprise-farger.ts` med `FARGE_MAP`, `hentFargeForEntreprise()` og `nesteAutoFarge()`
 
 **Sletting av dokumenter:**
 - Sjekklister og oppgaver i `draft`-status kan slettes (API: `sjekkliste.slett`, `oppgave.slett`)
@@ -319,9 +320,13 @@ Når admin legger til en bruker (via `medlem.leggTil` eller `gruppe.leggTilMedle
 6. Etter OAuth-innlogging → `allowDangerousEmailAccountLinking` kobler til eksisterende User-rad
 7. Siden matcher innlogget e-post → markerer invitasjon som akseptert → redirect til `/dashbord/[projectId]`
 
-**E-posttjeneste:** `apps/api/src/services/epost.ts` — lazy-initialisert Resend-klient (krasjer ikke uten API-nøkkel ved oppstart)
+**Personlig melding:** Ved tilføying av bruker kan admin skrive en valgfri personlig melding (maks 500 tegn) som inkluderes i invitasjons-e-posten som et sitat med avsendernavn. Feltet `melding` er valgfritt i `addMemberSchema` og `addGroupMemberByEmailSchema`.
+
+**E-postinnhold:** Invitasjons-e-posten inneholder: prosjektnavn, valgfri personlig melding, akseptlenke-knapp, og teksten «Du kan også logge inn direkte på sitedoc.no med din e-postadresse».
+
+**E-posttjeneste:** `apps/api/src/services/epost.ts` — lazy-initialisert Resend-klient (krasjer ikke uten API-nøkkel ved oppstart). **Viktig:** `RESEND_API_KEY` må være satt i BÅDE `apps/api/.env` OG `apps/web/.env.local` — web-klienten kaller tRPC via Next.js API-rute (`/api/trpc`), som kjører i Next.js-prosessen.
 **Aksept-side:** `apps/web/src/app/aksepter-invitasjon/page.tsx` — Server Component med token-validering
-**Brukere-side:** Viser gul "Ventende"-badge og "Send på nytt"-knapp for aktive invitasjoner
+**Brukere-side:** Viser gul "Ventende"-badge og "Ettersend"-knapp for aktive invitasjoner
 
 ### Prosjektopprettelse og onboarding
 
@@ -1322,7 +1327,7 @@ Gjør: `git push` → `ssh sitedoc` → `git pull && pnpm install --frozen-lockf
 | Fil | Nøkkelvariabler |
 |-----|----------------|
 | `apps/api/.env` | DATABASE_URL, PORT, HOST, AUTH_SECRET, RESEND_API_KEY, RESEND_FROM_EMAIL, APP_URL |
-| `apps/web/.env.local` | AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, DATABASE_URL, AUTH_TRUST_HOST |
+| `apps/web/.env.local` | AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, DATABASE_URL, AUTH_TRUST_HOST, RESEND_API_KEY, RESEND_FROM_EMAIL, APP_URL |
 | `packages/db/.env` | DATABASE_URL |
 
 ## Viktige regler
