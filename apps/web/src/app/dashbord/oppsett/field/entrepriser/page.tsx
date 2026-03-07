@@ -331,21 +331,23 @@ function MedlemKolonne({
         {medlemmer.map((m) => (
           <div
             key={m.id}
-            className="group flex items-center gap-1.5 rounded px-1.5 py-0.5 hover:bg-gray-50"
+            className="group flex items-center gap-1.5 rounded px-1.5 py-1 hover:bg-gray-50"
           >
             <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] font-medium text-gray-600">
               {m.navn.charAt(0).toUpperCase()}
             </div>
-            <span className="truncate text-[13px] text-gray-700">
-              {m.navn}
-            </span>
-            <span className="truncate text-[11px] text-gray-400">
-              {m.epost}
-            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] leading-tight text-gray-700">
+                {m.navn}
+              </div>
+              <div className="truncate text-[11px] leading-tight text-gray-400">
+                {m.epost}
+              </div>
+            </div>
             {!leseModus && onFjern && (
               <button
                 onClick={() => onFjern(m.id)}
-                className="ml-auto hidden shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-500 group-hover:block"
+                className="hidden shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-500 group-hover:block"
                 title="Fjern fra entreprise"
               >
                 <X className="h-3 w-3" />
@@ -546,24 +548,48 @@ function EntrepriseGruppeKomponent({
               )}
             </div>
 
-            {/* Svarer 2 — placeholder */}
+            {/* Svarer 2 — tom kolonne, klar for fremtidig bruk */}
             <div className="flex-1 p-3">
-              <div className="mb-1.5">
+              <div className="mb-1.5 flex items-center gap-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
                   Svarer 2
                 </span>
               </div>
-              <p className="px-1.5 text-xs text-gray-300">Kommer</p>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-gray-300">
+                  Ingen medlemmer
+                </div>
+                <button
+                  disabled
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-gray-300 cursor-not-allowed"
+                  title="Krever flerstegs arbeidsforløp"
+                >
+                  <Plus className="h-3 w-3" />
+                  Legg til
+                </button>
+              </div>
             </div>
 
-            {/* Svarer 3 — placeholder */}
+            {/* Svarer 3 — tom kolonne, klar for fremtidig bruk */}
             <div className="flex-1 p-3">
-              <div className="mb-1.5">
+              <div className="mb-1.5 flex items-center gap-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">
                   Svarer 3
                 </span>
               </div>
-              <p className="px-1.5 text-xs text-gray-300">Kommer</p>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-gray-300">
+                  Ingen medlemmer
+                </div>
+                <button
+                  disabled
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-gray-300 cursor-not-allowed"
+                  title="Krever flerstegs arbeidsforløp"
+                >
+                  <Plus className="h-3 w-3" />
+                  Legg til
+                </button>
+              </div>
             </div>
           </div>
 
