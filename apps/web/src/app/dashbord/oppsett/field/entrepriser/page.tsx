@@ -27,6 +27,7 @@ import {
   Circle,
   Users,
   FileText,
+  X,
 } from "lucide-react";
 import { ENTERPRISE_INDUSTRIES, ENTERPRISE_COLORS } from "@sitedoc/shared";
 
@@ -357,6 +358,99 @@ interface EntrepriseMedlem {
   epost: string;
 }
 
+/* ------------------------------------------------------------------ */
+/*  MedlemmerLinje — redigerbar medlemsliste i entreprise-header        */
+/* ------------------------------------------------------------------ */
+
+function MedlemmerLinje({
+  entreprise,
+  alleMedlemmer,
+  onLeggTil,
+  onFjern,
+}: {
+  entreprise: EntrepriseData;
+  alleMedlemmer: ProsjektMedlemItem[];
+  onLeggTil: (projectMemberId: string) => void;
+  onFjern: (projectMemberId: string) => void;
+}) {
+  const [visVelger, setVisVelger] = useState(false);
+
+  // Filtrer ut medlemmer som allerede er i entreprisen
+  const eksisterendeEposter = new Set(
+    entreprise.medlemmer.map((m) => m.epost.toLowerCase()),
+  );
+  const tilgjengelige = alleMedlemmer.filter(
+    (m) => !eksisterendeEposter.has(m.user.email.toLowerCase()),
+  );
+
+  return (
+    <div className="flex items-center gap-1.5 border-b border-gray-100 px-4 py-2">
+      <Users className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+      <div className="flex flex-wrap items-center gap-1">
+        {entreprise.medlemmer.map((m) => (
+          <span
+            key={m.id}
+            className="group inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+            title={m.epost}
+          >
+            {m.navn}
+            <button
+              onClick={() => onFjern(m.id)}
+              className="ml-0.5 hidden rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-500 group-hover:inline-flex"
+              title="Fjern fra entreprise"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        {entreprise.medlemmer.length === 0 && !visVelger && (
+          <span className="text-xs text-gray-400">Ingen medlemmer</span>
+        )}
+
+        {/* Legg til-knapp / dropdown */}
+        {visVelger ? (
+          <div className="relative">
+            <select
+              autoFocus
+              className="rounded border border-gray-300 px-2 py-0.5 text-xs focus:border-blue-500 focus:outline-none"
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  onLeggTil(e.target.value);
+                }
+                setVisVelger(false);
+              }}
+              onBlur={() => setVisVelger(false)}
+            >
+              <option value="" disabled>
+                Velg medlem...
+              </option>
+              {tilgjengelige.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.user.name ?? m.user.email}
+                </option>
+              ))}
+              {tilgjengelige.length === 0 && (
+                <option value="" disabled>
+                  Ingen tilgjengelige
+                </option>
+              )}
+            </select>
+          </div>
+        ) : (
+          <button
+            onClick={() => setVisVelger(true)}
+            className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500"
+            title="Legg til medlem"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface EntrepriseData {
   id: string;
   name: string;
@@ -369,24 +463,35 @@ interface EntrepriseData {
   medlemmer: EntrepriseMedlem[];
 }
 
+interface ProsjektMedlemItem {
+  id: string;
+  user: { name: string | null; email: string };
+}
+
 function EntrepriseGruppeKomponent({
   entreprise,
   arbeidsforloper,
   alleEntrepriser,
+  alleMedlemmer,
   onRedigerEntreprise,
   onSlettEntreprise,
   onLeggTilArbeidsforlop,
   onRedigerArbeidsforlop,
   onSlettArbeidsforlop,
+  onLeggTilMedlem,
+  onFjernMedlem,
 }: {
   entreprise: EntrepriseData;
   arbeidsforloper: ArbeidsforlopData[];
   alleEntrepriser: EntrepriseData[];
+  alleMedlemmer: ProsjektMedlemItem[];
   onRedigerEntreprise: (id: string) => void;
   onSlettEntreprise: (id: string) => void;
   onLeggTilArbeidsforlop: (enterpriseId: string) => void;
   onRedigerArbeidsforlop: (af: ArbeidsforlopData, entrepriseNavn: string) => void;
   onSlettArbeidsforlop: (id: string) => void;
+  onLeggTilMedlem: (enterpriseId: string, projectMemberId: string) => void;
+  onFjernMedlem: (enterpriseId: string, projectMemberId: string) => void;
 }) {
   const [ekspandert, setEkspandert] = useState(true);
   const farge = hentFargeForEntreprise(entreprise.color, entreprise.fargeIndeks);
@@ -449,25 +554,13 @@ function EntrepriseGruppeKomponent({
           className={`rounded-b-lg border border-t-0 ${farge.border} bg-white`}
           style={{ width: "fit-content", minWidth: 280 }}
         >
-          {/* Medlemmer under header */}
-          <div className="flex items-center gap-1.5 border-b border-gray-100 px-4 py-2">
-            <Users className="h-3.5 w-3.5 text-gray-400" />
-            {entreprise.medlemmer.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1">
-                {entreprise.medlemmer.map((m) => (
-                  <span
-                    key={m.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                    title={m.epost}
-                  >
-                    {m.navn}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <span className="text-xs text-gray-400">Ingen medlemmer tilknyttet</span>
-            )}
-          </div>
+          {/* Medlemmer under header — redigerbar */}
+          <MedlemmerLinje
+            entreprise={entreprise}
+            alleMedlemmer={alleMedlemmer}
+            onLeggTil={(pmId) => onLeggTilMedlem(entreprise.id, pmId)}
+            onFjern={(pmId) => onFjernMedlem(entreprise.id, pmId)}
+          />
 
           {/* Arbeidsforløp */}
           <div className="py-1">
@@ -1313,6 +1406,19 @@ export default function EntrepriserSide() {
     },
   });
 
+  // Mutasjoner — medlemmer i entreprise
+  const tilknyttEntrepriseMutation = trpc.medlem.tilknyttEntreprise.useMutation({
+    onSuccess: () => {
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId! });
+    },
+  });
+
+  const fjernFraEntrepriseMutation = trpc.medlem.fjernFraEntreprise.useMutation({
+    onSuccess: () => {
+      utils.entreprise.hentForProsjekt.invalidate({ projectId: prosjektId! });
+    },
+  });
+
   // Handlinger
   function handleRedigerEntreprise(id: string) {
     const ent = entrepriser?.find((e) => e.id === id);
@@ -1553,11 +1659,26 @@ export default function EntrepriserSide() {
               entreprise={ent}
               arbeidsforloper={arbeidsforlopMap.get(ent.id) ?? []}
               alleEntrepriser={entrepriseData}
+              alleMedlemmer={(medlemmer as ProsjektMedlemItem[] | undefined) ?? []}
               onRedigerEntreprise={handleRedigerEntreprise}
               onSlettEntreprise={setSlettEntrepriseId}
               onLeggTilArbeidsforlop={handleLeggTilArbeidsforlop}
               onRedigerArbeidsforlop={handleRedigerArbeidsforlop}
               onSlettArbeidsforlop={setSlettAfId}
+              onLeggTilMedlem={(enterpriseId, projectMemberId) =>
+                tilknyttEntrepriseMutation.mutate({
+                  projectMemberId,
+                  enterpriseId,
+                  projectId: prosjektId!,
+                })
+              }
+              onFjernMedlem={(enterpriseId, projectMemberId) =>
+                fjernFraEntrepriseMutation.mutate({
+                  projectMemberId,
+                  enterpriseId,
+                  projectId: prosjektId!,
+                })
+              }
             />
           ))}
         </div>

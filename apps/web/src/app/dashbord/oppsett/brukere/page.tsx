@@ -1076,7 +1076,7 @@ export default function BrukereSide() {
     "generelt" | "field" | "brukergrupper"
   >("brukergrupper");
   const [visningsModus, setVisningsModus] = useState<"grid" | "liste">("grid");
-  const [redigerGruppe, setRedigerGruppe] = useState<BrukerGruppe | null>(null);
+  const [redigerGruppeId, setRedigerGruppeId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -1222,9 +1222,13 @@ export default function BrukereSide() {
   const field = filtrert.filter((g) => g.kategori === "field");
   const brukergrupper = filtrert.filter((g) => g.kategori === "brukergrupper");
 
+  // Utled redigerGruppe fra live data (ikke snapshot)
+  const redigerGruppe = redigerGruppeId
+    ? grupper.find((g) => g.id === redigerGruppeId) ?? null
+    : null;
+
   function handleLeggTilMedlem(gruppeId: string) {
-    const gruppe = grupper.find((g) => g.id === gruppeId);
-    if (gruppe) setRedigerGruppe(gruppe);
+    setRedigerGruppeId(gruppeId);
   }
 
   function handleOpprettGruppe(e: React.FormEvent) {
@@ -1301,19 +1305,19 @@ export default function BrukereSide() {
         tittel="Generelt"
         grupper={generelt}
         onLeggTilMedlem={handleLeggTilMedlem}
-        onDoubleClickGruppe={setRedigerGruppe}
+        onDoubleClickGruppe={(g) => setRedigerGruppeId(g.id)}
       />
       <GruppeSeksjon
         tittel="Feltarbeid"
         grupper={field}
         onLeggTilMedlem={handleLeggTilMedlem}
-        onDoubleClickGruppe={setRedigerGruppe}
+        onDoubleClickGruppe={(g) => setRedigerGruppeId(g.id)}
       />
       <GruppeSeksjon
         tittel="Brukergrupper"
         grupper={brukergrupper}
         onLeggTilMedlem={handleLeggTilMedlem}
-        onDoubleClickGruppe={setRedigerGruppe}
+        onDoubleClickGruppe={(g) => setRedigerGruppeId(g.id)}
       />
 
       {filtrert.length === 0 && (
@@ -1326,7 +1330,7 @@ export default function BrukereSide() {
       {redigerGruppe && prosjektId && (
         <RedigerGruppeModal
           open={!!redigerGruppe}
-          onClose={() => setRedigerGruppe(null)}
+          onClose={() => setRedigerGruppeId(null)}
           gruppe={redigerGruppe}
           prosjektId={prosjektId}
           dbGruppe={(dbGrupper as DbGruppe[] | undefined)?.find((g) => g.id === redigerGruppe.id)}

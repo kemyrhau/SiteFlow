@@ -285,6 +285,55 @@ export const medlemRouter = router({
       });
     }),
 
+  // Tilknytt et eksisterende prosjektmedlem til en entreprise
+  tilknyttEntreprise: protectedProcedure
+    .input(
+      z.object({
+        projectMemberId: z.string().uuid(),
+        enterpriseId: z.string().uuid(),
+        projectId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
+      return ctx.prisma.memberEnterprise.upsert({
+        where: {
+          projectMemberId_enterpriseId: {
+            projectMemberId: input.projectMemberId,
+            enterpriseId: input.enterpriseId,
+          },
+        },
+        create: {
+          projectMemberId: input.projectMemberId,
+          enterpriseId: input.enterpriseId,
+        },
+        update: {},
+      });
+    }),
+
+  // Fjern et prosjektmedlem fra en entreprise (fjerner MemberEnterprise-kobling)
+  fjernFraEntreprise: protectedProcedure
+    .input(
+      z.object({
+        projectMemberId: z.string().uuid(),
+        enterpriseId: z.string().uuid(),
+        projectId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await verifiserAdmin(ctx.userId, input.projectId);
+
+      return ctx.prisma.memberEnterprise.delete({
+        where: {
+          projectMemberId_enterpriseId: {
+            projectMemberId: input.projectMemberId,
+            enterpriseId: input.enterpriseId,
+          },
+        },
+      });
+    }),
+
   // Søk brukere på e-post (autocomplete)
   sokBrukere: protectedProcedure
     .input(z.object({ email: z.string().min(1) }))
