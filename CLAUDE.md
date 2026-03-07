@@ -26,15 +26,36 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 ## Infrastruktur og nettverk
 
 - **Produksjonsserver:** Ubuntu-PC (WSL) som kjører Next.js (web) og Fastify (API) via PM2
-- **Database:** PostgreSQL på produksjonsserveren
+- **Database:** PostgreSQL på produksjonsserveren (`postgresql://kemyr:kemyr@localhost:5432/siteflow`)
 - **Domene:** `sitedoc.no` — DNS og proxy via Cloudflare (gratis plan)
-- **Cloudflare Tunnel:** Eksponerer web (:3100) og API (:3001) fra Ubuntu-PCen til internett via `cloudflared`
-- **SSH-tilgang:** `ssh kemyr@ssh.sitedoc.no` (via Cloudflare Tunnel, krever passord). Fra lokal maskin på samme nettverk: `ssh kemyr@172.23.44.96` (WSL intern IP)
+- **Cloudflare Tunnel:** Eksponerer web (:3100) og API (:3001) fra Ubuntu-PCen til internett via `cloudflared` (systemd-tjeneste)
+- **SSH-tilgang:** `ssh kemyr@ssh.sitedoc.no` (via Cloudflare Tunnel, krever passord, krever `~/.ssh/config` med ProxyCommand). Fra lokal maskin på samme nettverk: `ssh kemyr@172.23.44.96` (WSL intern IP)
 - **PM2-prosesser:** `sitedoc-web` (Next.js), restart med `pm2 restart sitedoc-web`
 - **Env-filer (prod):** `/home/kemyr/programmering/sitedoc/apps/web/.env`
 - **Prosjektsti (prod):** `/home/kemyr/programmering/sitedoc/`
-- **Auth.js:** `trustHost: true` påkrevd pga. Cloudflare-proxy (uten dette feiler CSRF-validering)
-- **Deployment:** Manuell — pull fra git, bygg (`pnpm build --filter web`), restart (`pm2 restart sitedoc-web`)
+- **Auth.js bak proxy:** `trustHost: true` i `auth.ts` påkrevd pga. Cloudflare-proxy. Innloggingssider MÅ bruke klient-side `signIn()` fra `next-auth/react` — server actions gir MissingCSRF-feil bak Cloudflare Tunnel
+- **Auth-providere:** Google OAuth + Microsoft Entra ID (multitenant, Azure App Registration `d7735b7a-c7fb-407c-9bf6-80048f6f3ac5`). Redirect URIs: `https://sitedoc.no/api/auth/callback/microsoft-entra-id` + `http://localhost:3100/api/auth/callback/microsoft-entra-id`
+
+### Deployment (fra Mac via Claude på Ubuntu)
+
+Claude Code på Mac har IKKE direkte SSH-tilgang til serveren. Deployment skjer via Claude Code på Ubuntu-PCen, eller manuelt.
+
+**Steg for å deploye endringer:**
+1. **Mac:** Commit og push til GitHub (`git add ... && git commit && git push`)
+2. **Ubuntu (via Claude eller manuelt):** Pull, bygg og restart:
+   ```
+   cd /home/kemyr/programmering/sitedoc && git pull && pnpm build --filter @sitedoc/web && pm2 restart sitedoc-web
+   ```
+3. **Merk:** Filteret er `@sitedoc/web` (pakkenavn), IKKE `web`
+4. **Ved Prisma-endringer:** Kjør `pnpm db:migrate` FØR bygg
+5. **Ved env-endringer:** Rediger `/home/kemyr/programmering/sitedoc/apps/web/.env` direkte på serveren
+
+**Viktige prod-env-variabler (apps/web/.env):**
+- `AUTH_SECRET` — Sterk nøkkel (generert med `openssl rand -base64 32`)
+- `AUTH_URL=https://sitedoc.no` — Påkrevd for Auth.js bak proxy
+- `NEXTAUTH_URL=https://sitedoc.no` — Legacy, beholdt for kompatibilitet
+- `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — Google OAuth
+- `AUTH_MICROSOFT_ENTRA_ID_ID` / `AUTH_MICROSOFT_ENTRA_ID_SECRET` / `AUTH_MICROSOFT_ENTRA_ID_ISSUER` — Microsoft Entra ID
 
 ## Prosjektstruktur
 
