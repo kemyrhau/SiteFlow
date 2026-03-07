@@ -7,7 +7,6 @@ import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
-  InteractionManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -177,30 +176,45 @@ export default function LokasjonerSkjerm() {
     let aktiv = true;
 
     async function startSporing() {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted" || !aktiv) return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted" || !aktiv) return;
 
-      const geoRef = JSON.parse(geoRefStringifisert!) as GeoReferanse;
-      const transformasjon = beregnTransformasjon(geoRef);
+        const geoRef = JSON.parse(geoRefStringifisert!) as GeoReferanse;
+        const transformasjon = beregnTransformasjon(geoRef);
 
-      gpsAbonnementRef.current = await Location.watchPositionAsync(
-        {
+        // Hent initial posisjon umiddelbart
+        const initialPosisjon = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
-          distanceInterval: 5,
-          timeInterval: 5000,
-        },
-        (lokasjon) => {
-          if (!aktiv) return;
-          const gps = {
-            lat: lokasjon.coords.latitude,
-            lng: lokasjon.coords.longitude,
-          };
-          const posisjon = gpsTilTegning(gps, transformasjon);
-          InteractionManager.runAfterInteractions(() => {
-            if (aktiv) setGpsMarkør({ x: posisjon.x, y: posisjon.y });
-          });
-        },
-      );
+        });
+        if (!aktiv) return;
+        const initialGps = {
+          lat: initialPosisjon.coords.latitude,
+          lng: initialPosisjon.coords.longitude,
+        };
+        const initialPunkt = gpsTilTegning(initialGps, transformasjon);
+        setGpsMarkør({ x: initialPunkt.x, y: initialPunkt.y });
+
+        // Kontinuerlig sporing for oppdateringer
+        gpsAbonnementRef.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 2,
+            timeInterval: 3000,
+          },
+          (lokasjon) => {
+            if (!aktiv) return;
+            const gps = {
+              lat: lokasjon.coords.latitude,
+              lng: lokasjon.coords.longitude,
+            };
+            const posisjon = gpsTilTegning(gps, transformasjon);
+            setGpsMarkør({ x: posisjon.x, y: posisjon.y });
+          },
+        );
+      } catch (feil) {
+        console.warn("GPS-sporing feilet:", feil);
+      }
     }
 
     startSporing();
