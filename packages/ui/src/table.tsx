@@ -1,11 +1,17 @@
-import { useRef, useEffect, type ReactNode } from "react";
+import { useState, useMemo, useRef, useEffect, type ReactNode } from "react";
 
 interface KolonneDef<T> {
   id: string;
   header: string;
   celle: (rad: T) => ReactNode;
   bredde?: string;
+  sorterbar?: boolean;
+  sorterVerdi?: (rad: T) => string | number | null;
+  filtrerbar?: boolean;
+  filterAlternativer?: { value: string; label: string }[];
 }
+
+type SorterRetning = "asc" | "desc";
 
 interface TableProps<T> {
   kolonner: KolonneDef<T>[];
@@ -16,6 +22,8 @@ interface TableProps<T> {
   velgbar?: boolean;
   valgteRader?: Set<string>;
   onValgEndring?: (valgteIder: Set<string>) => void;
+  filterVerdier?: Record<string, string>;
+  onFilterEndring?: (kolonneId: string, verdi: string) => void;
 }
 
 function IndeterminateCheckbox({
@@ -46,6 +54,100 @@ function IndeterminateCheckbox({
   );
 }
 
+/* Inline SVG-ikoner for å unngå lucide-react avhengighet */
+function SorterPilOpp() {
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 15l-6-6-6 6" />
+    </svg>
+  );
+}
+
+function SorterPilNed() {
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function FilterIkon() {
+  return (
+    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
+function FilterDropdown({
+  alternativer,
+  verdi,
+  onChange,
+}: {
+  alternativer: { value: string; label: string }[];
+  verdi: string;
+  onChange: (verdi: string) => void;
+}) {
+  const [apen, setApen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleKlikk(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setApen(false);
+      }
+    }
+    if (apen) document.addEventListener("mousedown", handleKlikk);
+    return () => document.removeEventListener("mousedown", handleKlikk);
+  }, [apen]);
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setApen(!apen);
+        }}
+        className={`ml-1 inline-flex items-center rounded p-0.5 hover:bg-gray-200 ${
+          verdi ? "text-blue-600" : "text-gray-400"
+        }`}
+        title="Filtrer"
+      >
+        <FilterIkon />
+      </button>
+      {apen && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+          <button
+            onClick={() => {
+              onChange("");
+              setApen(false);
+            }}
+            className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 ${
+              !verdi ? "font-semibold text-blue-600" : "text-gray-600"
+            }`}
+          >
+            Alle
+          </button>
+          {alternativer.map((alt) => (
+            <button
+              key={alt.value}
+              onClick={() => {
+                onChange(alt.value);
+                setApen(false);
+              }}
+              className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 ${
+                verdi === alt.value ? "font-semibold text-blue-600" : "text-gray-600"
+              }`}
+            >
+              {alt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Table<T>({
   kolonner,
   data,
@@ -55,7 +157,39 @@ export function Table<T>({
   velgbar,
   valgteRader,
   onValgEndring,
+  filterVerdier,
+  onFilterEndring,
 }: TableProps<T>) {
+  const [sorterKolonne, setSorterKolonne] = useState<string | null>(null);
+  const [sorterRetning, setSorterRetning] = useState<SorterRetning>("asc");
+
+  function handleSorter(kolonneId: string) {
+    if (sorterKolonne === kolonneId) {
+      setSorterRetning((r) => (r === "asc" ? "desc" : "asc"));
+    } else {
+      setSorterKolonne(kolonneId);
+      setSorterRetning("asc");
+    }
+  }
+
+  const sortertData = useMemo(() => {
+    if (!sorterKolonne) return data;
+    const kol = kolonner.find((k) => k.id === sorterKolonne);
+    if (!kol?.sorterVerdi) return data;
+
+    return [...data].sort((a, b) => {
+      const va = kol.sorterVerdi!(a);
+      const vb = kol.sorterVerdi!(b);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      const cmp = typeof va === "string" && typeof vb === "string"
+        ? va.localeCompare(vb, "nb-NO")
+        : Number(va) - Number(vb);
+      return sorterRetning === "asc" ? cmp : -cmp;
+    });
+  }, [data, sorterKolonne, sorterRetning, kolonner]);
+
   if (data.length === 0) {
     return (
       <div className="py-12 text-center text-sm text-gray-500">
@@ -64,7 +198,7 @@ export function Table<T>({
     );
   }
 
-  const alleNokler = data.map(radNokkel);
+  const alleNokler = sortertData.map(radNokkel);
   const antallValgte = valgteRader?.size ?? 0;
   const alleValgt = antallValgte === data.length && data.length > 0;
   const noenValgt = antallValgte > 0 && !alleValgt;
@@ -106,16 +240,33 @@ export function Table<T>({
             {kolonner.map((kol) => (
               <th
                 key={kol.id}
-                className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500"
+                className={`px-4 py-3 text-xs font-medium uppercase tracking-wide text-gray-500 ${
+                  kol.sorterbar ? "cursor-pointer select-none hover:text-gray-700" : ""
+                }`}
                 style={kol.bredde ? { width: kol.bredde } : undefined}
+                onClick={kol.sorterbar ? () => handleSorter(kol.id) : undefined}
               >
-                {kol.header}
+                <span className="inline-flex items-center gap-0.5">
+                  {kol.header}
+                  {kol.sorterbar && sorterKolonne === kol.id && (
+                    sorterRetning === "asc"
+                      ? <SorterPilOpp />
+                      : <SorterPilNed />
+                  )}
+                  {kol.filtrerbar && kol.filterAlternativer && onFilterEndring && (
+                    <FilterDropdown
+                      alternativer={kol.filterAlternativer}
+                      verdi={filterVerdier?.[kol.id] ?? ""}
+                      onChange={(v) => onFilterEndring(kol.id, v)}
+                    />
+                  )}
+                </span>
               </th>
             ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {data.map((rad) => {
+          {sortertData.map((rad) => {
             const nokkel = radNokkel(rad);
             const erValgt = valgteRader?.has(nokkel) ?? false;
             return (
