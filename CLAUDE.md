@@ -147,7 +147,7 @@ sitedoc/
 
 | Tabell | Beskrivelse |
 |--------|-------------|
-| `users` | Brukere med Auth.js-felter (email, name, image, role) |
+| `users` | Brukere med Auth.js-felter (email, name, image, role), valgfri `organizationId`. Role: `user` (default), `company_admin` (firmaadmin), `sitedoc_admin` (superadmin) |
 | `accounts` | OAuth-tilkoblinger (Google, Microsoft Entra ID) |
 | `sessions` | Database-sesjoner for Auth.js |
 | `verification_tokens` | E-postverifiseringstokens |
@@ -174,6 +174,8 @@ sitedoc/
 | `project_invitations` | E-postinvitasjoner med token, status (pending/accepted/expired), utløpsdato |
 | `group_enterprises` | Mange-til-mange kobling mellom `project_groups` og `enterprises` — styrer entreprise-begrenset fagområde-tilgang |
 | `project_modules` | Aktiverte moduler per prosjekt med `moduleSlug` (unique per prosjekt), `active`-flagg for soft-deactivate |
+| `organizations` | Firmaer/organisasjoner med navn, org.nr, fakturaadresse, faktura-e-post, EHF, logo |
+| `organization_projects` | Mange-til-mange kobling mellom organisasjoner og prosjekter |
 
 Viktige relasjoner:
 - `member_enterprises` er mange-til-mange join-tabell: en bruker kan tilhøre flere entrepriser i samme prosjekt via `MemberEnterprise(projectMemberId, enterpriseId)`
@@ -215,6 +217,7 @@ Alle routere i `apps/api/src/routes/`:
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
 | `vaer` | hentVaerdata (Open-Meteo proxy: latitude, longitude, dato → temperatur, værkode, vind) |
 | `modul` | hentForProsjekt, aktiver (oppretter maler+objekter automatisk), deaktiver (soft-deactivate, beholder data) |
+| `organisasjon` | hentMin, hentMedId, hentProsjekter, hentBrukere, oppdater, leggTilProsjekt, fjernProsjekt |
 
 **Auth-nivåer:** `publicProcedure` (åpen) og `protectedProcedure` (krever autentisert userId i context). Context bygges i `context.ts` som verifiserer Auth.js-sesjonstokens. De fleste routere bruker `protectedProcedure` med tilleggs-sjekker fra `tilgangskontroll.ts`.
 
@@ -1047,6 +1050,10 @@ Dalux-inspirert tre-kolonne layout:
 /dashbord/oppsett/field/box                   -> Mappeoppsett (filstruktur/mappestruktur)
 /dashbord/oppsett/field/kontrollplaner        -> Kontrollplaner (kommer)
 /dashbord/oppsett/prosjektoppsett             -> Prosjektoppsett (navn, status, adresse, eksternt prosjektnummer)
+/dashbord/firma                              -> Firma-oversikt (statistikk + firmainformasjon, kun firmaadmin)
+/dashbord/firma/prosjekter                   -> Firmaets prosjekter (tabell med lenker)
+/dashbord/firma/brukere                      -> Firmaets brukere (tabell med roller)
+/dashbord/firma/fakturering                  -> Fakturering (placeholder)
 ```
 
 **Legacy-ruter** (gamle flat-navigasjonsruter, fases ut):
@@ -1275,6 +1282,8 @@ Hele monorepoet bruker ESLint v8 med `.eslintrc.json` (legacy-format). Web bruke
 - **Similaritetstransformasjon:** 2D-transformasjon (skalering + rotasjon + translasjon) som mapper mellom tegningskoordinater (prosent 0-100) og GPS-koordinater. Beregnes fra 2 referansepunkter via `beregnTransformasjon()` i `@sitedoc/shared`
 - **Prosjektnummer:** Unikt, autogenerert nummer på format `SD-YYYYMMDD-XXXX`
 - **Prefiks:** Kort kode for en mal (f.eks. BHO, S-BET, KBO)
+- **Organisasjon (Organization):** Firma/selskap med navn, org.nr, fakturaadresse, EHF-info og logo. Brukere kobles via `User.organizationId`. Prosjekter kobles via `OrganizationProject` (mange-til-mange). Firmaadmin (`role: "company_admin"`) ser alle firmaets prosjekter og brukere via `/dashbord/firma`
+- **Firmaadmin:** Bruker med `role: "company_admin"` — ser `/dashbord/firma` i toppbar, kan administrere firmaets prosjekter og brukere. Opprettes manuelt (fremtidig: SiteDoc-admin-modul)
 - **Invitasjon (ProjectInvitation):** E-postinvitasjon til et prosjekt med unik token, utløpsdato og status (pending/accepted/expired)
 - **Prosjektgruppe (ProjectGroup):** Navngitt gruppe med kategori, tillatelser, fagområder (`domains`) og valgfri entreprise-tilknytning (`groupEnterprises`). Brukes for rollestyring (f.eks. Field-admin, HMS-ledere). Grupper uten entrepriser gir tverrgående tilgang til sine fagområder
 - **Fagområde (domain):** Klassifisering av maler som `"bygg"`, `"hms"` eller `"kvalitet"`. Styrer hvem som ser dokumenter basert på gruppemedlemskap. Definert i `@sitedoc/shared` som `DOMAINS`
