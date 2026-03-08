@@ -1164,7 +1164,7 @@ Dalux-inspirert tre-kolonne layout:
 
 ### Layout-komponenter
 
-- `Toppbar` — Mørk blå bar med logo, prosjektvelger (dropdown med søk), brukermeny med utlogging
+- `Toppbar` — Mørk blå bar med klikkbar SiteDoc-logo (lenker til `/` startsiden), prosjektvelger (dropdown med søk), brukermeny med utlogging
 - `HovedSidebar` — 60px ikonbar med Tooltip, deaktiverte ikoner uten valgt prosjekt. Seksjoner: Dashbord, Sjekklister, Oppgaver, Maler (krever `manage_field`-tillatelse), Tegninger, Entrepriser, Mapper (bunn: Oppsett)
 - `SekundaertPanel` — 280px panel med seksjonsspesifikt innhold (filtre, lister, søk)
 - `Verktoylinje` — Kontekstuell handlingsbar, registreres via `useVerktoylinje`
