@@ -30,6 +30,16 @@ export const gruppeRouter = router({
   hentMinTilgang: protectedProcedure
     .input(z.object({ projectId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      // sitedoc_admin har full tilgang
+      const bruker = await ctx.prisma.user.findUnique({ where: { id: ctx.userId }, select: { role: true } });
+      if (bruker?.role === "sitedoc_admin") {
+        return {
+          tillatelser: [...PERMISSIONS],
+          domener: [],
+          erAdmin: true,
+        };
+      }
+
       const medlem = await ctx.prisma.projectMember.findUnique({
         where: { userId_projectId: { userId: ctx.userId, projectId: input.projectId } },
         include: {

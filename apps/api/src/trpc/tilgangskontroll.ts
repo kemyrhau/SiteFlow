@@ -10,6 +10,10 @@ export async function hentBrukerEntrepriseIder(
   userId: string,
   projectId: string,
 ): Promise<string[] | null> {
+  // sitedoc_admin ser alt
+  const bruker = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (bruker?.role === "sitedoc_admin") return null;
+
   const medlem = await prisma.projectMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
     include: {
@@ -24,7 +28,7 @@ export async function hentBrukerEntrepriseIder(
     });
   }
 
-  // Admin ser alt
+  // Prosjektadmin ser alt
   if (medlem.role === "admin") return null;
 
   return medlem.enterprises.map((e) => e.enterpriseId);
@@ -52,6 +56,10 @@ export async function verifiserEntrepriseTilhorighet(
   userId: string,
   enterpriseId: string,
 ): Promise<void> {
+  // sitedoc_admin har alltid tilgang
+  const bruker = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (bruker?.role === "sitedoc_admin") return;
+
   const kobling = await prisma.memberEnterprise.findFirst({
     where: {
       enterpriseId,
@@ -142,6 +150,10 @@ export async function verifiserDokumentTilgang(
   responderEnterpriseId: string | null,
   templateDomain?: string | null,
 ): Promise<void> {
+  // sitedoc_admin ser alt
+  const bruker = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (bruker?.role === "sitedoc_admin") return;
+
   const medlem = await prisma.projectMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
     include: {
@@ -165,7 +177,7 @@ export async function verifiserDokumentTilgang(
     });
   }
 
-  // Admin ser alt
+  // Prosjektadmin ser alt
   if (medlem.role === "admin") return;
 
   // Direkte entreprise-tilgang
@@ -208,6 +220,10 @@ export async function byggTilgangsFilter(
   userId: string,
   projectId: string,
 ) {
+  // sitedoc_admin ser alt
+  const bruker = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (bruker?.role === "sitedoc_admin") return null;
+
   const medlem = await prisma.projectMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
     include: {
@@ -231,7 +247,7 @@ export async function byggTilgangsFilter(
     });
   }
 
-  // Admin ser alt
+  // Prosjektadmin ser alt
   if (medlem.role === "admin") return null;
 
   // Samle alle OR-betingelser
@@ -289,6 +305,12 @@ export async function hentBrukerTillatelser(
   userId: string,
   projectId: string,
 ): Promise<Set<Permission>> {
+  // sitedoc_admin har alle tillatelser
+  const bruker = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (bruker?.role === "sitedoc_admin") {
+    return new Set([...PERMISSIONS] as Permission[]);
+  }
+
   const medlem = await prisma.projectMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
     include: {
@@ -307,7 +329,7 @@ export async function hentBrukerTillatelser(
     });
   }
 
-  // Admin har alle tillatelser
+  // Prosjektadmin har alle tillatelser
   if (medlem.role === "admin") {
     return new Set([...PERMISSIONS] as Permission[]);
   }
