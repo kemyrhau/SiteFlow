@@ -281,18 +281,32 @@ export const adminRouter = router({
       return { ok: true };
     }),
 
-  // Slett utløpte prøveprosjekter (30+ dager, uten organisasjon)
+  // Deaktiver og slett utløpte prøveprosjekter
+  // 30+ dager → deaktiver (status: "deactivated"), 90+ dager → slett
   slettUtlopteProsjekter: protectedProcedure
     .mutation(async ({ ctx }) => {
       await verifiserSiteDocAdmin(ctx.prisma, ctx.userId);
 
-      const grense = new Date();
-      grense.setDate(grense.getDate() - 30);
+      const deaktiverGrense = new Date();
+      deaktiverGrense.setDate(deaktiverGrense.getDate() - 30);
 
-      // Finn prosjekter eldre enn 30 dager UTEN firmatilknytning
+      const slettGrense = new Date();
+      slettGrense.setDate(slettGrense.getDate() - 90);
+
+      // Deaktiver prosjekter eldre enn 30 dager uten firma (som fortsatt er aktive)
+      const deaktiverte = await ctx.prisma.project.updateMany({
+        where: {
+          createdAt: { lt: deaktiverGrense },
+          organizationProjects: { none: {} },
+          status: "active",
+        },
+        data: { status: "deactivated" },
+      });
+
+      // Slett prosjekter eldre enn 90 dager uten firma
       const utlopte = await ctx.prisma.project.findMany({
         where: {
-          createdAt: { lt: grense },
+          createdAt: { lt: slettGrense },
           organizationProjects: { none: {} },
         },
         select: { id: true, name: true },
@@ -302,7 +316,11 @@ export const adminRouter = router({
         await ctx.prisma.project.delete({ where: { id: p.id } });
       }
 
-      return { slettet: utlopte.length, prosjekter: utlopte };
+      return {
+        deaktivert: deaktiverte.count,
+        slettet: utlopte.length,
+        prosjekter: utlopte,
+      };
     }),
 
   // Hent alle brukere (kun sitedoc_admin)

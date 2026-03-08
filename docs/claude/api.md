@@ -4,7 +4,7 @@ Alle routere i `apps/api/src/routes/`:
 
 | Router | Prosedyrer |
 |--------|-----------|
-| `prosjekt` | hentMine, hentAlle (filtrert på medlemskap), hentMedId, opprett (auto-admin, auto-tilknytt firma), oppdater |
+| `prosjekt` | hentMine, hentAlle (filtrert på medlemskap), hentMedId, opprett (auto-admin, auto-tilknytt firma), opprettTestprosjekt (m/standardgrupper+moduler), oppdater |
 | `entreprise` | hentForProsjekt, hentMedId, opprett, oppdater, slett |
 | `sjekkliste` | hentForProsjekt (m/statusfilter + buildingId-filter), hentMedId (m/changeLog), opprett, oppdater (metadata + entrepriser, kun draft), oppdaterData (m/automatisk endringslogg), endreStatus, slett (kun draft, blokkeres ved tilknyttede oppgaver) |
 | `oppgave` | hentForProsjekt (m/statusfilter), hentForTegning (markører per tegning), hentMedId (m/template.objects+kommentarer), hentForSjekkliste, hentKommentarer, leggTilKommentar, opprett (m/tegningsposisjon, templateId påkrevd), oppdater (m/entrepriser, kun draft), oppdaterData, endreStatus, slett (kun draft) |
@@ -61,8 +61,19 @@ Minnebasert rate limiter i `apps/api/src/utils/rateLimiter.ts`. Automatisk oppry
 - Maks 10 oppgaver per prosjekt (sjekkes i `oppgave.opprett`)
 - `sitedoc_admin` har bypass
 
-## Prøveperiode
+## Prøveperiode og testsider
 
-- 30 dager fra `createdAt` for prosjekter uten `organizationProjects`
-- `admin.slettUtlopteProsjekter` — sletter prosjekter eldre enn 30 dager uten firma
-- Prøveperiode-banner i prosjektoversikt (gul/rød varsling ≤14 dager)
+- 30 dager aktiv prøveperiode fra `createdAt` for prosjekter uten `organizationProjects`
+- Etter 30 dager: prosjektet deaktiveres (`status: "deactivated"`)
+- Etter 90 dager (30 aktiv + 60 grace): prosjektet slettes permanent
+- `admin.slettUtlopteProsjekter` — deaktiverer >30 dager, sletter >90 dager uten firma
+- Prøveperiode-banner i prosjektoversikt (gul/rød varsling ≤14 dager, rød ved deaktivert)
+
+**Testside-opprettelse (`prosjekt.opprettTestprosjekt`):**
+- Én-klikks opprettelse fra `/dashbord/kom-i-gang`
+- Prosjektnavn: `"Testside " + brukerens navn`
+- Auto-oppsett: standardgrupper + alle moduler (Godkjenning, HMS-avvik, Befaringsrapport) med maler og objekter
+- Bruker blir automatisk admin
+- Auto-tilknyttes brukerens firma hvis det finnes
+
+**Admin-oversikt:** `/dashbord/admin/testsider` — viser kun prøveprosjekter (uten firma), splittet i aktive/deaktiverte

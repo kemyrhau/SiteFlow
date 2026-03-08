@@ -52,6 +52,7 @@ export default function ProsjektOversikt() {
 
   // Prøveperiode: 30 dager fra opprettet, kun for prosjekter uten firma
   const harFirma = !!(prosjekt as unknown as { organizationProjects?: unknown[] }).organizationProjects?.length;
+  const erDeaktivert = prosjekt.status === "deactivated";
   const dagerIgjen = (() => {
     if (harFirma) return null;
     const utloper = new Date(prosjekt.createdAt);
@@ -85,7 +86,12 @@ export default function ProsjektOversikt() {
         <DashbordPanel />
       </SekundaertPanel>
       <main className="flex-1 overflow-auto bg-gray-50 p-6">
-        {dagerIgjen !== null && dagerIgjen <= 14 && (
+        {erDeaktivert && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            Prøveperioden har utløpt og prosjektet er deaktivert. Data beholdes i 60 dager. Kontakt SiteDoc for å oppgradere.
+          </div>
+        )}
+        {!erDeaktivert && dagerIgjen !== null && dagerIgjen <= 14 && (
           <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
             dagerIgjen <= 0
               ? "border-red-200 bg-red-50 text-red-800"
@@ -94,7 +100,7 @@ export default function ProsjektOversikt() {
                 : "border-amber-200 bg-amber-50 text-amber-700"
           }`}>
             {dagerIgjen <= 0
-              ? "Prøveperioden har utløpt. Prosjektet kan bli slettet. Kontakt SiteDoc for å oppgradere."
+              ? "Prøveperioden har utløpt. Prosjektet vil bli deaktivert snart. Kontakt SiteDoc for å oppgradere."
               : `Prøveperioden utløper om ${dagerIgjen} dag${dagerIgjen !== 1 ? "er" : ""}. Kontakt SiteDoc for å oppgradere.`
             }
           </div>

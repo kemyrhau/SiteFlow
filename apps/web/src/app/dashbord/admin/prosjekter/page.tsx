@@ -157,14 +157,14 @@ export default function AdminProsjekter() {
             variant="danger"
             size="sm"
             onClick={() => {
-              if (confirm("Slett alle prosjekter uten firma-tilknytning som er eldre enn 30 dager?")) {
+              if (confirm("Deaktiver prosjekter >30 dager og slett prosjekter >90 dager uten firma?")) {
                 slettUtlopteMutasjon.mutate();
               }
             }}
             loading={slettUtlopteMutasjon.isPending}
           >
             <AlertTriangle className="mr-1.5 h-4 w-4" />
-            Slett utløpte
+            Rydd utløpte
           </Button>
           <Button onClick={() => setVisOpprett(true)}>
             <Plus className="mr-1.5 h-4 w-4" />
@@ -175,7 +175,8 @@ export default function AdminProsjekter() {
 
       {slettUtlopteMutasjon.data && (
         <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          Slettet {(slettUtlopteMutasjon.data as { slettet: number }).slettet} utløpte prøveprosjekter.
+          Deaktivert {(slettUtlopteMutasjon.data as { deaktivert: number; slettet: number }).deaktivert} prosjekter,
+          slettet {(slettUtlopteMutasjon.data as { deaktivert: number; slettet: number }).slettet} utløpte prosjekter.
         </div>
       )}
 
@@ -272,9 +273,13 @@ export default function AdminProsjekter() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                      p.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
+                      p.status === "active"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : p.status === "deactivated"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-gray-100 text-gray-600"
                     }`}>
-                      {p.status === "active" ? "Aktiv" : p.status}
+                      {p.status === "active" ? "Aktiv" : p.status === "deactivated" ? "Deaktivert" : p.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">

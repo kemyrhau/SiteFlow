@@ -58,6 +58,7 @@ Dalux-inspirert tre-kolonne layout (skjules på mobil < 768px, hamburger-meny i 
 /dashbord/admin                               -> SiteDoc-admin (kun sitedoc_admin)
 /dashbord/admin/firmaer                       -> Firmaer
 /dashbord/admin/prosjekter                    -> Alle prosjekter (m/prøveperiode-kolonner)
+/dashbord/admin/testsider                     -> Testsider (prøveprosjekter uten firma, aktive/deaktiverte)
 /dashbord/admin/tillatelser                   -> Global tillatelsesmatrise
 /dashbord/firma                               -> Firma-admin
 /dashbord/firma/prosjekter                    -> Firmaets prosjekter

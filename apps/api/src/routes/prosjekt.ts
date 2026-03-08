@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc/trpc";
-import { createProjectSchema } from "@sitedoc/shared";
+import { createProjectSchema, STANDARD_PROJECT_GROUPS, PROSJEKT_MODULER } from "@sitedoc/shared";
 import { generateProjectNumber } from "@sitedoc/shared";
+import type { Prisma } from "@sitedoc/db";
 import {
   verifiserProsjektmedlem,
   verifiserAdmin,
@@ -99,6 +100,99 @@ export const prosjektRouter = router({
       return prosjekt;
     }),
 
+  // Opprett testprosjekt med standardgrupper og moduler (for nye brukere)
+  opprettTestprosjekt: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const bruker = await ctx.prisma.user.findUniqueOrThrow({
+        where: { id: ctx.userId },
+        select: { name: true, organizationId: true },
+      });
+
+      const antall = await ctx.prisma.project.count();
+      const prosjektnummer = generateProjectNumber(antall + 1);
+      const prosjektNavn = `Testside ${bruker.name || "Ukjent"}`;
+
+      return ctx.prisma.$transaction(async (tx) => {
+        // Opprett prosjektet
+        const prosjekt = await tx.project.create({
+          data: {
+            name: prosjektNavn,
+            projectNumber: prosjektnummer,
+            members: {
+              create: {
+                userId: ctx.userId!,
+                role: "admin",
+              },
+            },
+          },
+        });
+
+        // Auto-tilknytt til brukerens firma
+        if (bruker.organizationId) {
+          await tx.organizationProject.create({
+            data: {
+              organizationId: bruker.organizationId,
+              projectId: prosjekt.id,
+            },
+          });
+        }
+
+        // Opprett standardgrupper
+        for (const gruppe of STANDARD_PROJECT_GROUPS) {
+          await tx.projectGroup.create({
+            data: {
+              projectId: prosjekt.id,
+              name: gruppe.name,
+              slug: gruppe.slug,
+              category: gruppe.category,
+              permissions: gruppe.permissions,
+              domains: gruppe.domains,
+              isDefault: true,
+            },
+          });
+        }
+
+        // Aktiver alle moduler (Godkjenning, HMS-avvik, Befaringsrapport)
+        for (const modulDef of PROSJEKT_MODULER) {
+          await tx.projectModule.create({
+            data: {
+              projectId: prosjekt.id,
+              moduleSlug: modulDef.slug,
+            },
+          });
+
+          for (const malDef of modulDef.maler) {
+            const mal = await tx.reportTemplate.create({
+              data: {
+                projectId: prosjekt.id,
+                name: malDef.navn,
+                description: malDef.beskrivelse,
+                prefix: malDef.prefix,
+                category: malDef.kategori,
+                domain: malDef.domain,
+                subjects: (malDef.emner ?? []) as Prisma.InputJsonValue,
+              },
+            });
+
+            if (malDef.objekter.length > 0) {
+              await tx.reportObject.createMany({
+                data: malDef.objekter.map((obj) => ({
+                  templateId: mal.id,
+                  type: obj.type,
+                  label: obj.label,
+                  sortOrder: obj.sortOrder,
+                  required: obj.required ?? false,
+                  config: obj.config as Prisma.InputJsonValue,
+                })),
+              });
+            }
+          }
+        }
+
+        return prosjekt;
+      });
+    }),
+
   // Oppdater prosjekt
   oppdater: protectedProcedure
     .input(
@@ -113,7 +207,7 @@ export const prosjektRouter = router({
         externalProjectNumber: z.string().max(100).nullable().optional(),
         logoUrl: z.string().max(500).nullable().optional(),
         showInternalProjectNumber: z.boolean().optional(),
-        status: z.enum(["active", "archived", "completed"]).optional(),
+        status: z.enum(["active", "archived", "completed", "deactivated"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderKanban, Building2, Shield, Users } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Building2, Shield, FlaskConical } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Spinner } from "@sitedoc/ui";
 
@@ -21,6 +21,11 @@ const navigasjon = [
     label: "Prosjekter",
     href: "/dashbord/admin/prosjekter",
     ikon: <FolderKanban className="h-4 w-4" />,
+  },
+  {
+    label: "Testsider",
+    href: "/dashbord/admin/testsider",
+    ikon: <FlaskConical className="h-4 w-4" />,
   },
   {
     label: "Tillatelser",
