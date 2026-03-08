@@ -77,6 +77,26 @@ export const adminRouter = router({
       });
     }),
 
+  // Oppdater organisasjon (kun sitedoc_admin)
+  oppdaterOrganisasjon: protectedProcedure
+    .input(z.object({
+      id: z.string().uuid(),
+      name: z.string().min(1).optional(),
+      organizationNumber: z.string().optional().nullable(),
+      invoiceAddress: z.string().optional().nullable(),
+      invoiceEmail: z.string().email().optional().nullable(),
+      ehfEnabled: z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await verifiserSiteDocAdmin(ctx.prisma, ctx.userId);
+
+      const { id, ...data } = input;
+      return ctx.prisma.organization.update({
+        where: { id },
+        data,
+      });
+    }),
+
   // Tilknytt bruker til organisasjon + sett rolle (kun sitedoc_admin)
   settBrukerOrganisasjon: protectedProcedure
     .input(z.object({

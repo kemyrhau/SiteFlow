@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Spinner, EmptyState, Button, Input, Modal } from "@sitedoc/ui";
-import { Building2, Plus, Users, FolderKanban, X, Trash2 } from "lucide-react";
+import { Building2, Plus, Users, FolderKanban, X, Pencil } from "lucide-react";
 
 export default function AdminFirmaer() {
   const utils = trpc.useUtils();
@@ -15,6 +15,11 @@ export default function AdminFirmaer() {
   const [visOpprett, setVisOpprett] = useState(false);
   const [nyttNavn, setNyttNavn] = useState("");
   const [nyttOrgNr, setNyttOrgNr] = useState("");
+
+  // Rediger firma
+  const [redigerOrg, setRedigerOrg] = useState<{ id: string; name: string; organizationNumber: string } | null>(null);
+  const [redigertNavn, setRedigertNavn] = useState("");
+  const [redigertOrgNr, setRedigertOrgNr] = useState("");
 
   // Tilknytt prosjekt
   const [tilknyttOrgId, setTilknyttOrgId] = useState<string | null>(null);
@@ -31,6 +36,13 @@ export default function AdminFirmaer() {
       setVisOpprett(false);
       setNyttNavn("");
       setNyttOrgNr("");
+    },
+  });
+
+  const oppdaterOrgMutasjon = trpc.admin.oppdaterOrganisasjon.useMutation({
+    onSuccess: () => {
+      invalidateAll();
+      setRedigerOrg(null);
     },
   });
 
@@ -105,6 +117,17 @@ export default function AdminFirmaer() {
                     <FolderKanban className="h-4 w-4" />
                     {org.projects.length} prosjekter
                   </span>
+                  <button
+                    onClick={() => {
+                      setRedigerOrg({ id: org.id, name: org.name, organizationNumber: org.organizationNumber ?? "" });
+                      setRedigertNavn(org.name);
+                      setRedigertOrgNr(org.organizationNumber ?? "");
+                    }}
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    title="Rediger firma"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
 
@@ -209,6 +232,50 @@ export default function AdminFirmaer() {
             </Button>
             <Button type="submit" disabled={!nyttNavn || opprettMutasjon.isPending}>
               Opprett
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Rediger firma-modal */}
+      <Modal
+        open={!!redigerOrg}
+        onClose={() => setRedigerOrg(null)}
+        title="Rediger firma"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!redigerOrg) return;
+            oppdaterOrgMutasjon.mutate({
+              id: redigerOrg.id,
+              name: redigertNavn,
+              organizationNumber: redigertOrgNr || null,
+            });
+          }}
+          className="space-y-4"
+        >
+          <Input
+            label="Firmanavn"
+            value={redigertNavn}
+            onChange={(e) => setRedigertNavn(e.target.value)}
+            required
+          />
+          <Input
+            label="Org.nr (valgfritt)"
+            value={redigertOrgNr}
+            onChange={(e) => setRedigertOrgNr(e.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setRedigerOrg(null)}
+            >
+              Avbryt
+            </Button>
+            <Button type="submit" disabled={!redigertNavn || oppdaterOrgMutasjon.isPending}>
+              Lagre
             </Button>
           </div>
         </form>
