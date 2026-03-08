@@ -59,6 +59,7 @@ interface DbGruppe {
   name: string;
   slug: string;
   category: string;
+  isDefault?: boolean;
   domains?: unknown;
   groupEnterprises?: {
     id: string;
@@ -228,6 +229,15 @@ function RedigerGruppeModal({
   const trekkTilbake = trpc.invitasjon.trekkTilbake.useMutation({
     onSuccess: () => {
       utils.invitasjon.hentForProsjekt.invalidate({ projectId: prosjektId });
+    },
+  });
+
+  const [bekreftSlett, setBekreftSlett] = useState(false);
+
+  const slettGruppe = trpc.gruppe.slett.useMutation({
+    onSuccess: () => {
+      utils.gruppe.hentForProsjekt.invalidate({ projectId: prosjektId });
+      onClose();
     },
   });
 
@@ -945,6 +955,42 @@ function RedigerGruppeModal({
             <Lock className="h-4 w-4 text-gray-400" />
           </div>
         </div>
+
+        {/* Slett gruppe */}
+        {erDbGruppe && !dbGruppe?.isDefault && (
+          <div className="border-t border-gray-200 pt-4">
+            {bekreftSlett ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600">
+                  Er du sikker? Alle medlemmer fjernes fra gruppen.
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setBekreftSlett(false)}
+                >
+                  Avbryt
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  disabled={slettGruppe.isPending}
+                  onClick={() => slettGruppe.mutate({ id: gruppe.id, projectId: prosjektId })}
+                >
+                  {slettGruppe.isPending ? "Sletter..." : "Bekreft sletting"}
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setBekreftSlett(true)}
+                className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4" />
+                Slett gruppe
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Ettersend-modal med personlig melding */}
