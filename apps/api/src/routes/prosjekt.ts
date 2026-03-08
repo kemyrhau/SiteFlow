@@ -4,10 +4,12 @@ import { createProjectSchema } from "@sitedoc/shared";
 import { generateProjectNumber } from "@sitedoc/shared";
 
 export const prosjektRouter = router({
-  // Hent prosjekter der innlogget bruker er medlem
+  // Hent prosjekter der innlogget bruker er medlem (sitedoc_admin ser alle)
   hentMine: protectedProcedure.query(async ({ ctx }) => {
+    const bruker = await ctx.prisma.user.findUniqueOrThrow({ where: { id: ctx.userId }, select: { role: true } });
+    const erSitedocAdmin = bruker.role === "sitedoc_admin";
     return ctx.prisma.project.findMany({
-      where: { members: { some: { userId: ctx.userId } } },
+      where: erSitedocAdmin ? {} : { members: { some: { userId: ctx.userId } } },
       orderBy: { updatedAt: "desc" },
       include: {
         enterprises: true,
@@ -16,10 +18,12 @@ export const prosjektRouter = router({
     });
   }),
 
-  // Hent alle prosjekter (kun der bruker er medlem)
+  // Hent alle prosjekter (sitedoc_admin ser alle)
   hentAlle: protectedProcedure.query(async ({ ctx }) => {
+    const bruker = await ctx.prisma.user.findUniqueOrThrow({ where: { id: ctx.userId }, select: { role: true } });
+    const erSitedocAdmin = bruker.role === "sitedoc_admin";
     return ctx.prisma.project.findMany({
-      where: { members: { some: { userId: ctx.userId } } },
+      where: erSitedocAdmin ? {} : { members: { some: { userId: ctx.userId } } },
       orderBy: { createdAt: "desc" },
       include: {
         enterprises: true,

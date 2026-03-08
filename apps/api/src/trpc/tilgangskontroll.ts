@@ -91,6 +91,10 @@ export async function verifiserAdmin(
   userId: string,
   projectId: string,
 ): Promise<void> {
+  // sitedoc_admin har alltid tilgang
+  const bruker = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (bruker?.role === "sitedoc_admin") return;
+
   const medlem = await prisma.projectMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
   });
@@ -110,6 +114,10 @@ export async function verifiserProsjektmedlem(
   userId: string,
   projectId: string,
 ): Promise<void> {
+  // sitedoc_admin har alltid tilgang
+  const bruker = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (bruker?.role === "sitedoc_admin") return;
+
   const medlem = await prisma.projectMember.findUnique({
     where: { userId_projectId: { userId, projectId } },
   });
