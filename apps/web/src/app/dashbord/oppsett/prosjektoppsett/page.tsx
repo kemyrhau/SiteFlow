@@ -477,17 +477,16 @@ export default function ProsjektoppsettSide() {
         </Seksjon>
 
         {/* Lagre-knapp nederst */}
-        {harEndringer && (
-          <div className="flex justify-end">
-            <Button
-              onClick={handleLagre}
-              loading={oppdaterMutation.isPending}
-            >
-              <Save className="mr-1.5 h-4 w-4" />
-              Lagre endringer
-            </Button>
-          </div>
-        )}
+        <div className="flex justify-end">
+          <Button
+            onClick={handleLagre}
+            loading={oppdaterMutation.isPending}
+            disabled={!harEndringer}
+          >
+            <Save className="mr-1.5 h-4 w-4" />
+            {harEndringer ? "Lagre endringer" : "Ingen endringer"}
+          </Button>
+        </div>
       </div>
     </div>
   );
