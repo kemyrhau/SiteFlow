@@ -8,6 +8,7 @@ import {
   MapPin,
   Wrench,
   Home,
+  Building2,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -22,6 +23,7 @@ interface NavElement {
   barn?: { label: string; href: string }[];
   kreverProsjekt?: boolean;
   tillatelse?: Permission;
+  kreverRolle?: ("company_admin" | "sitedoc_admin")[];
 }
 
 const navigasjon: NavElement[] = [
@@ -57,9 +59,14 @@ const navigasjon: NavElement[] = [
     href: "/dashbord/oppsett/prosjektoppsett",
     ikon: <Home className="h-4 w-4" />,
     barn: [
-      { label: "Eierportalens brukere", href: "/dashbord/oppsett/eierportal-brukere" },
       { label: "Prosjektoppsett", href: "/dashbord/oppsett/prosjektoppsett" },
     ],
+  },
+  {
+    label: "Firmainnstillinger",
+    href: "/dashbord/oppsett/firma",
+    ikon: <Building2 className="h-4 w-4" />,
+    kreverRolle: ["company_admin", "sitedoc_admin"],
   },
 ];
 
@@ -71,12 +78,19 @@ export default function OppsettLayout({
   const { prosjektId } = useProsjekt();
   const pathname = usePathname();
 
+  // Sjekk om bruker har firma (company_admin / sitedoc_admin med organisasjon)
+  const { data: organisasjon } = trpc.organisasjon.hentMin.useQuery();
+
   const { data: tillatelser } = trpc.gruppe.hentMineTillatelser.useQuery(
     { projectId: prosjektId! },
     { enabled: !!prosjektId },
   );
 
   const filtrertNavigasjon = navigasjon.filter((element) => {
+    if (element.kreverRolle) {
+      // Vis kun hvis bruker har firma tilknyttet
+      if (!organisasjon) return false;
+    }
     if (!element.tillatelse) return true;
     if (!tillatelser) return false;
     return tillatelser.includes(element.tillatelse);
