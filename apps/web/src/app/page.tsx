@@ -35,9 +35,9 @@ export default async function Hjem() {
       {/* Navigasjon */}
       <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#0f1b3d]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <span className="text-xl font-bold text-white tracking-wide">
+          <a href="/" className="text-xl font-bold text-white tracking-wide hover:text-blue-200 transition">
             SiteDoc
-          </span>
+          </a>
           <div className="flex items-center gap-6">
             <a
               href="#funksjoner"

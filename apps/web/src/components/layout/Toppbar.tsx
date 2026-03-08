@@ -39,9 +39,9 @@ export function Toppbar() {
         <div className="flex w-[60px] items-center justify-center">
           <HardHat className="h-6 w-6 text-white" />
         </div>
-        <span className="text-sm font-bold tracking-wide text-white">
+        <Link href="/" className="text-sm font-bold tracking-wide text-white hover:text-blue-200 transition">
           SiteDoc
-        </span>
+        </Link>
         <div className="mx-2 h-5 w-px bg-white/20" />
         <ProsjektVelger />
         {organisasjon && (
