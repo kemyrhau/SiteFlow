@@ -560,6 +560,28 @@ Interaktiv tegningsvisning på `/dashbord/[prosjektId]/tegninger/` med zoom og m
 - HMS-avvik: Eget arbeidsforløp der alle brukere kan opprette uansett entreprisetilhørighet
 - Lisenssystem: Betalingsside før prosjektopprettelse (erstatter "Kom i gang"-placeholder)
 
+### Universelt søk (planlagt)
+
+Søkefunksjon som indekserer alt tekstinnhold i SiteDoc med tre scope-nivåer:
+
+**Søkbare innholdstyper:**
+- Maler — feltnavn, alternativer, beskrivelser, prefiks
+- Utfylte sjekklister og oppgaver — all tekst i `data`-JSON (fritekstfelt, kommentarer, valg)
+- Dokumenter i Mapper — filinnhold ekstrahert via OCR/tekstparsing (PDF, Word, bilder)
+- Mappestruktur — mappenavn, dokumentnavn, metadata
+
+**Tre søke-scopes:**
+
+| Scope | Hva søkes i | Hvem |
+|-------|------------|------|
+| Prosjekt | Alt innhold i ett prosjekt | Prosjektmedlemmer (filtrert på tilgang) |
+| Firma | Alt innhold på tvers av organisasjonens prosjekter | Firmamedlemmer (kun prosjekter de har tilgang til) |
+| SiteDoc | Felles innhold på plattformnivå — f.eks. NS-standarder, TEK17, forskrifter | Alle brukere |
+
+**OCR** er sentralt — skannede dokumenter (PDF-bilder, fotografier av dokumenter) skal også være søkbare, ikke bare digitale tekstfiler.
+
+**Migrasjonsplan:** Se `docs/MIGRERING-FIL-TIL-DATABASE.md` for detaljert plan med faser, database-skjema og porteringstabell fra eksisterende Python-prosjekt.
+
 ### Oppgave fra tegning (mobil)
 
 Brukeren kan opprette oppgaver direkte fra tegningsvisningen i Lokasjoner-taben:
