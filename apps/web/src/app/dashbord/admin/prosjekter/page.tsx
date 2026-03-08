@@ -148,9 +148,11 @@ export default function AdminProsjekter() {
             <tr className="border-b border-gray-200 bg-gray-50">
               <th className="px-4 py-3 text-left font-medium text-gray-600">Prosjekt</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Nr</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Opprettet av</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600" style={{ minWidth: 180 }}>Firma</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600">Medl.</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">Entr.</th>
+              <th className="px-4 py-3 text-center font-medium text-gray-600">Sjekk.</th>
+              <th className="px-4 py-3 text-center font-medium text-gray-600">Oppg.</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600 w-12"></th>
             </tr>
@@ -172,6 +174,9 @@ export default function AdminProsjekter() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{p.projectNumber}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500">
+                    {p.members[0]?.user?.name || p.members[0]?.user?.email || "–"}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <select
@@ -196,7 +201,8 @@ export default function AdminProsjekter() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center text-gray-500">{p.members.length}</td>
-                  <td className="px-4 py-3 text-center text-gray-500">{p.enterprises.length}</td>
+                  <td className="px-4 py-3 text-center text-gray-500">{(p as unknown as { _count: { checklists: number } })._count?.checklists ?? 0}</td>
+                  <td className="px-4 py-3 text-center text-gray-500">{(p as unknown as { _count: { tasks: number } })._count?.tasks ?? 0}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                       p.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"

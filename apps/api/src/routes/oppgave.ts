@@ -220,6 +220,27 @@ export const oppgaveRouter = router({
       // Verifiser at bruker tilhører oppretter-entreprisen
       await verifiserEntrepriseTilhorighet(ctx.userId, input.creatorEnterpriseId);
 
+      // Sjekk grense for gratisbrukere (10 oppgaver per prosjekt)
+      const bruker = await ctx.prisma.user.findUniqueOrThrow({
+        where: { id: ctx.userId },
+        select: { role: true },
+      });
+      if (bruker.role !== "sitedoc_admin") {
+        const entreprise = await ctx.prisma.enterprise.findUniqueOrThrow({
+          where: { id: input.creatorEnterpriseId },
+          select: { projectId: true },
+        });
+        const antall = await ctx.prisma.task.count({
+          where: { creatorEnterprise: { projectId: entreprise.projectId } },
+        });
+        if (antall >= 10) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Grensen på 10 oppgaver per prosjekt er nådd. Kontakt SiteDoc for å oppgradere.",
+          });
+        }
+      }
+
       return ctx.prisma.$transaction(async (tx) => {
         let nummer: number | undefined;
 

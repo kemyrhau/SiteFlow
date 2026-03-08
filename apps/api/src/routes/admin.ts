@@ -33,9 +33,9 @@ export const adminRouter = router({
   hentAlleProsjekter: protectedProcedure.query(async ({ ctx }) => {
     await verifiserSiteDocAdmin(ctx.prisma, ctx.userId);
 
-    return ctx.prisma.project.findMany({
+    const prosjekter = await ctx.prisma.project.findMany({
       include: {
-        members: { select: { id: true } },
+        members: { select: { id: true, user: { select: { name: true, email: true } } } },
         enterprises: { select: { id: true } },
         organizationProjects: {
           include: { organization: { select: { id: true, name: true } } },
@@ -43,6 +43,49 @@ export const adminRouter = router({
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // Hent sjekkliste- og oppgavetellere per prosjekt
+    const prosjektIder = prosjekter.map((p) => p.id);
+    const [sjekklisteTellere, oppgaveTellere] = await Promise.all([
+      ctx.prisma.checklist.groupBy({
+        by: ["creatorEnterpriseId"],
+        _count: true,
+        where: { creatorEnterprise: { projectId: { in: prosjektIder } } },
+      }),
+      ctx.prisma.task.groupBy({
+        by: ["creatorEnterpriseId"],
+        _count: true,
+        where: { creatorEnterprise: { projectId: { in: prosjektIder } } },
+      }),
+    ]);
+
+    // Bygg enterprise→prosjekt-mapping
+    const enterpriseProsjektMap = new Map<string, string>();
+    for (const p of prosjekter) {
+      for (const e of p.enterprises) {
+        enterpriseProsjektMap.set(e.id, p.id);
+      }
+    }
+
+    // Summer per prosjekt
+    const sjekklistePerProsjekt = new Map<string, number>();
+    const oppgavePerProsjekt = new Map<string, number>();
+    for (const s of sjekklisteTellere) {
+      const pid = enterpriseProsjektMap.get(s.creatorEnterpriseId);
+      if (pid) sjekklistePerProsjekt.set(pid, (sjekklistePerProsjekt.get(pid) ?? 0) + s._count);
+    }
+    for (const o of oppgaveTellere) {
+      const pid = enterpriseProsjektMap.get(o.creatorEnterpriseId);
+      if (pid) oppgavePerProsjekt.set(pid, (oppgavePerProsjekt.get(pid) ?? 0) + o._count);
+    }
+
+    return prosjekter.map((p) => ({
+      ...p,
+      _count: {
+        checklists: sjekklistePerProsjekt.get(p.id) ?? 0,
+        tasks: oppgavePerProsjekt.get(p.id) ?? 0,
+      },
+    }));
   }),
 
   // Hent alle organisasjoner (kun sitedoc_admin)
