@@ -34,7 +34,7 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 - **Env-filer (prod):** `/home/kemyr/programmering/sitedoc/apps/web/.env`
 - **Prosjektsti (prod):** `/home/kemyr/programmering/sitedoc/`
 - **Auth.js bak proxy:** `trustHost: true` i `auth.ts` påkrevd pga. Cloudflare-proxy. Innloggingssider MÅ bruke klient-side `signIn()` fra `next-auth/react` — server actions gir MissingCSRF-feil bak Cloudflare Tunnel
-- **Auth-providere:** Google OAuth + Microsoft Entra ID (multitenant, Azure App Registration `d7735b7a-c7fb-407c-9bf6-80048f6f3ac5`). Redirect URIs: `https://sitedoc.no/api/auth/callback/microsoft-entra-id` + `http://localhost:3100/api/auth/callback/microsoft-entra-id`
+- **Auth-providere:** Google OAuth + Microsoft Entra ID (multitenant, Azure App Registration `d7735b7a-c7fb-407c-9bf6-80048f6f3ac5`). Redirect URIs: `https://sitedoc.no/api/auth/callback/microsoft-entra-id` + `http://localhost:3100/api/auth/callback/microsoft-entra-id`. Client secret: `SiteDoc_Prod2` (aktiv i produksjon). Støtter organisasjonskontoer og personlige Microsoft-kontoer (`signInAudience: "AzureADandPersonalMicrosoftAccount"`, `requestedAccessTokenVersion: 2`)
 
 ### Deployment
 
@@ -72,7 +72,7 @@ sitedoc/
 │   ├── web/              # Next.js PC-applikasjon
 │   │   └── src/
 │   │       ├── app/
-│   │       │   ├── page.tsx                  # Landingsside med innlogging
+│   │       │   ├── page.tsx                  # Landingsside (mørk navy hero, CSS app-forhåndsvisning, funksjonskort, plattformkort, arbeidsflyt)
 │   │       │   ├── logg-inn/                 # OAuth-innlogging (Google + Entra ID)
 │   │       │   ├── registrer/                # Redirect til innlogging
 │   │       │   ├── aksepter-invitasjon/      # Aksept av prosjektinvitasjon (Server Component)
