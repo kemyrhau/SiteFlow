@@ -38,20 +38,30 @@ Rapport- og kvalitetsstyringssystem for byggeprosjekter. Flerplattform (PC, mobi
 
 ### Deployment
 
-Claude Code på Mac har IKKE direkte SSH-tilgang til serveren. Deployment skjer via:
-1. **Deploy-script på Ubuntu-PCen:** `bash deploy.sh` (i prosjektroten) — puller, bygger og restarter automatisk
-2. **Claude Code på Ubuntu-PCen** kan kjøre deploy-scriptet direkte
-3. **Manuelt:** SSH inn og kjør kommandoene under
+Claude Code på Mac har SSH-tilgang til serveren via `ssh sitedoc` (konfigurert i `~/.ssh/config`).
 
-**Manuell deployment:**
-1. **Mac:** Commit og push til GitHub (`git add ... && git commit && git push`)
-2. **Ubuntu:** Pull, bygg og restart:
-   ```
-   cd /home/kemyr/programmering/sitedoc && git pull && pnpm build --filter @sitedoc/web && pm2 restart sitedoc-web
-   ```
-3. **Merk:** Filteret er `@sitedoc/web` (pakkenavn), IKKE `web`
-4. **Ved Prisma-endringer:** Kjør `pnpm db:migrate` FØR bygg
-5. **Ved env-endringer:** Rediger filer direkte på serveren (se under)
+**Full deploy (anbefalt):**
+```bash
+ssh sitedoc "cd ~/programmering/sitedoc && git pull && pnpm install --frozen-lockfile && pnpm db:migrate && pnpm build && pm2 restart all"
+```
+Denne kommandoen puller siste kode, installerer avhengigheter, kjører migreringer, bygger alle apps og restarter PM2-prosessene.
+
+**Alternativt — deploy-script fra Mac:**
+```bash
+bash deploy.sh
+```
+Gjør: `git push` → SSH → pull + install + migrate + build + restart.
+
+**Kun web-deploy (raskere, hopper over API-bygg):**
+```bash
+ssh sitedoc "cd ~/programmering/sitedoc && git pull && pnpm build --filter @sitedoc/web && pm2 restart sitedoc-web"
+```
+
+**Viktig:**
+- Filteret er `@sitedoc/web` (pakkenavn), IKKE `web`
+- Ved Prisma-endringer: Kjør `pnpm db:migrate` FØR bygg
+- Ved env-endringer: Rediger filer direkte på serveren (se under)
+- Koden MÅ være pushet til GitHub før deploy (`git push`)
 
 **Env-filer på serveren:**
 - `.env.local` har prioritet over `.env` i Next.js — sjekk BEGGE ved feilsøking

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Spinner, EmptyState, Button, Input, Modal } from "@sitedoc/ui";
-import { FolderKanban, Plus, Trash2, X } from "lucide-react";
+import { FolderKanban, Plus, Trash2, X, Clock, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminProsjekter() {
@@ -60,6 +60,19 @@ export default function AdminProsjekter() {
   const fjernTilknytningMutasjon = trpc.admin.fjernProsjektTilknytning.useMutation({
     onSuccess: () => invalidateAll(),
   });
+
+  const slettUtlopteMutasjon = trpc.admin.slettUtlopteProsjekter.useMutation({
+    onSuccess: (_data: unknown) => {
+      invalidateAll();
+    },
+  });
+
+  function dagerIgjen(opprettet: string | Date) {
+    const utloper = new Date(opprettet);
+    utloper.setDate(utloper.getDate() + 30);
+    const diff = Math.ceil((utloper.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return diff;
+  }
 
   function aapneSlett(id: string, navn: string) {
     setSlettProsjektId(id);
@@ -135,12 +148,36 @@ export default function AdminProsjekter() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">Alle prosjekter</h1>
-        <Button onClick={() => setVisOpprett(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Opprett prosjekt
-        </Button>
+        <h1 className="text-lg font-semibold text-gray-900">
+          Alle prosjekter
+          <span className="ml-2 text-sm font-normal text-gray-400">({prosjekter.length})</span>
+        </h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => {
+              if (confirm("Slett alle prosjekter uten firma-tilknytning som er eldre enn 30 dager?")) {
+                slettUtlopteMutasjon.mutate();
+              }
+            }}
+            loading={slettUtlopteMutasjon.isPending}
+          >
+            <AlertTriangle className="mr-1.5 h-4 w-4" />
+            Slett utløpte
+          </Button>
+          <Button onClick={() => setVisOpprett(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Opprett prosjekt
+          </Button>
+        </div>
       </div>
+
+      {slettUtlopteMutasjon.data && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          Slettet {(slettUtlopteMutasjon.data as { slettet: number }).slettet} utløpte prøveprosjekter.
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <table className="w-full text-sm">
@@ -153,6 +190,7 @@ export default function AdminProsjekter() {
               <th className="px-4 py-3 text-center font-medium text-gray-600">Medl.</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600">Sjekk.</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600">Oppg.</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Prøveperiode</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600 w-12"></th>
             </tr>
@@ -203,6 +241,35 @@ export default function AdminProsjekter() {
                   <td className="px-4 py-3 text-center text-gray-500">{p.members.length}</td>
                   <td className="px-4 py-3 text-center text-gray-500">{(p as unknown as { _count: { checklists: number } })._count?.checklists ?? 0}</td>
                   <td className="px-4 py-3 text-center text-gray-500">{(p as unknown as { _count: { tasks: number } })._count?.tasks ?? 0}</td>
+                  <td className="px-4 py-3">
+                    {orgProj ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                        Aktiv
+                      </span>
+                    ) : (() => {
+                      const dager = dagerIgjen(p.createdAt);
+                      if (dager <= 0) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                            <AlertTriangle className="h-3 w-3" />
+                            Utløpt
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                          dager <= 7
+                            ? "bg-red-100 text-red-700"
+                            : dager <= 14
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-blue-100 text-blue-700"
+                        }`}>
+                          <Clock className="h-3 w-3" />
+                          {dager} dager
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                       p.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"

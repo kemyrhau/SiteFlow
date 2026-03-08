@@ -281,6 +281,30 @@ export const adminRouter = router({
       return { ok: true };
     }),
 
+  // Slett utløpte prøveprosjekter (30+ dager, uten organisasjon)
+  slettUtlopteProsjekter: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      await verifiserSiteDocAdmin(ctx.prisma, ctx.userId);
+
+      const grense = new Date();
+      grense.setDate(grense.getDate() - 30);
+
+      // Finn prosjekter eldre enn 30 dager UTEN firmatilknytning
+      const utlopte = await ctx.prisma.project.findMany({
+        where: {
+          createdAt: { lt: grense },
+          organizationProjects: { none: {} },
+        },
+        select: { id: true, name: true },
+      });
+
+      for (const p of utlopte) {
+        await ctx.prisma.project.delete({ where: { id: p.id } });
+      }
+
+      return { slettet: utlopte.length, prosjekter: utlopte };
+    }),
+
   // Hent alle brukere (kun sitedoc_admin)
   hentAlleBrukere: protectedProcedure.query(async ({ ctx }) => {
     await verifiserSiteDocAdmin(ctx.prisma, ctx.userId);

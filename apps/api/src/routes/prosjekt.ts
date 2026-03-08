@@ -45,6 +45,7 @@ export const prosjektRouter = router({
           templates: true,
           drawings: true,
           folders: { where: { parentId: null }, include: { children: true } },
+          organizationProjects: { select: { id: true } },
         },
       });
     }),

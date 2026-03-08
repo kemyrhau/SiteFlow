@@ -50,6 +50,15 @@ export default function ProsjektOversikt() {
       (m.role === "admin" || m.role === "owner"),
   );
 
+  // Prøveperiode: 30 dager fra opprettet, kun for prosjekter uten firma
+  const harFirma = !!(prosjekt as unknown as { organizationProjects?: unknown[] }).organizationProjects?.length;
+  const dagerIgjen = (() => {
+    if (harFirma) return null;
+    const utloper = new Date(prosjekt.createdAt);
+    utloper.setDate(utloper.getDate() + 30);
+    return Math.ceil((utloper.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  })();
+
   const basePath = `/dashbord/${params.prosjektId}`;
 
   const kort = [
@@ -76,6 +85,20 @@ export default function ProsjektOversikt() {
         <DashbordPanel />
       </SekundaertPanel>
       <main className="flex-1 overflow-auto bg-gray-50 p-6">
+        {dagerIgjen !== null && dagerIgjen <= 14 && (
+          <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+            dagerIgjen <= 0
+              ? "border-red-200 bg-red-50 text-red-800"
+              : dagerIgjen <= 7
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-amber-200 bg-amber-50 text-amber-700"
+          }`}>
+            {dagerIgjen <= 0
+              ? "Prøveperioden har utløpt. Prosjektet kan bli slettet. Kontakt SiteDoc for å oppgradere."
+              : `Prøveperioden utløper om ${dagerIgjen} dag${dagerIgjen !== 1 ? "er" : ""}. Kontakt SiteDoc for å oppgradere.`
+            }
+          </div>
+        )}
         <div className="mb-6 flex items-center gap-3">
           <h2 className="text-xl font-bold">{prosjekt.name}</h2>
           <StatusBadge status={prosjekt.status} />
