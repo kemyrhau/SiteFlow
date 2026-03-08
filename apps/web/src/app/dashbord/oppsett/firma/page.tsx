@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { Spinner, Button, Input, EmptyState } from "@sitedoc/ui";
 import { Building2, Pencil } from "lucide-react";
 
 export default function FirmaInnstillinger() {
   const utils = trpc.useUtils();
-  const { data: organisasjon, isLoading } = trpc.organisasjon.hentMin.useQuery();
+  const { prosjektId } = useProsjekt();
+  const { data: organisasjon, isLoading } = trpc.organisasjon.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
 
   const [redigerer, setRedigerer] = useState(false);
   const [navn, setNavn] = useState("");
@@ -17,7 +22,9 @@ export default function FirmaInnstillinger() {
 
   const oppdaterMutasjon = trpc.organisasjon.oppdater.useMutation({
     onSuccess: () => {
-      utils.organisasjon.hentMin.invalidate();
+      if (prosjektId) {
+        utils.organisasjon.hentForProsjekt.invalidate({ projectId: prosjektId });
+      }
       setRedigerer(false);
     },
   });
@@ -50,6 +57,7 @@ export default function FirmaInnstillinger() {
 
   function lagre() {
     oppdaterMutasjon.mutate({
+      organizationId: organisasjon?.id,
       name: navn,
       organizationNumber: orgNr || null,
       invoiceAddress: fakturaAdresse || null,

@@ -8,7 +8,6 @@ import {
   MapPin,
   Wrench,
   Home,
-  Building2,
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
@@ -16,14 +15,19 @@ import { useProsjekt } from "@/kontekst/prosjekt-kontekst";
 import { trpc } from "@/lib/trpc";
 import type { Permission } from "@sitedoc/shared";
 
+interface NavBarn {
+  label: string;
+  href: string;
+  skjult?: boolean;
+}
+
 interface NavElement {
   label: string;
   href: string;
   ikon: React.ReactNode;
-  barn?: { label: string; href: string }[];
+  barn?: NavBarn[];
   kreverProsjekt?: boolean;
   tillatelse?: Permission;
-  kreverRolle?: ("company_admin" | "sitedoc_admin")[];
 }
 
 const navigasjon: NavElement[] = [
@@ -59,14 +63,10 @@ const navigasjon: NavElement[] = [
     href: "/dashbord/oppsett/prosjektoppsett",
     ikon: <Home className="h-4 w-4" />,
     barn: [
+      // Firmainnstillinger — skjult-flagg settes dynamisk basert på prosjektets firma
+      { label: "Firmainnstillinger", href: "/dashbord/oppsett/firma" },
       { label: "Prosjektoppsett", href: "/dashbord/oppsett/prosjektoppsett" },
     ],
-  },
-  {
-    label: "Firmainnstillinger",
-    href: "/dashbord/oppsett/firma",
-    ikon: <Building2 className="h-4 w-4" />,
-    kreverRolle: ["company_admin", "sitedoc_admin"],
   },
 ];
 
@@ -78,23 +78,38 @@ export default function OppsettLayout({
   const { prosjektId } = useProsjekt();
   const pathname = usePathname();
 
-  // Sjekk om bruker har firma (company_admin / sitedoc_admin med organisasjon)
-  const { data: organisasjon } = trpc.organisasjon.hentMin.useQuery();
+  // Hent prosjektets firma (for Firmainnstillinger-synlighet)
+  const { data: prosjektFirma } = trpc.organisasjon.hentForProsjekt.useQuery(
+    { projectId: prosjektId! },
+    { enabled: !!prosjektId },
+  );
+
+  // Sjekk om bruker er sitedoc_admin
+  const { data: erAdmin } = trpc.admin.erAdmin.useQuery();
 
   const { data: tillatelser } = trpc.gruppe.hentMineTillatelser.useQuery(
     { projectId: prosjektId! },
     { enabled: !!prosjektId },
   );
 
-  const filtrertNavigasjon = navigasjon.filter((element) => {
-    if (element.kreverRolle) {
-      // Vis kun hvis bruker har firma tilknyttet
-      if (!organisasjon) return false;
-    }
-    if (!element.tillatelse) return true;
-    if (!tillatelser) return false;
-    return tillatelser.includes(element.tillatelse);
-  });
+  const harFirmaTilgang = !!prosjektFirma || !!erAdmin;
+
+  const filtrertNavigasjon = navigasjon
+    .filter((element) => {
+      if (!element.tillatelse) return true;
+      if (!tillatelser) return false;
+      return tillatelser.includes(element.tillatelse);
+    })
+    .map((element) => {
+      if (!element.barn) return element;
+      const filtrerBarn = element.barn.filter((barn) => {
+        if (barn.href === "/dashbord/oppsett/firma") {
+          return harFirmaTilgang;
+        }
+        return !barn.skjult;
+      });
+      return { ...element, barn: filtrerBarn };
+    });
 
   const [ekspandert, setEkspandert] = useState<Record<string, boolean>>({
     Lokasjoner: true,

@@ -5,6 +5,7 @@ import { prisma } from "@sitedoc/db";
 
 /**
  * Verifiser at bruker er firmaadmin for sin organisasjon.
+ * Returnerer organisasjonId.
  */
 async function verifiserFirmaAdmin(
   _prisma: typeof prisma,
@@ -26,6 +27,14 @@ async function verifiserFirmaAdmin(
   return bruker.organizationId;
 }
 
+async function erSiteDocAdmin(userId: string): Promise<boolean> {
+  const bruker = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { role: true },
+  });
+  return bruker.role === "sitedoc_admin";
+}
+
 export const organisasjonRouter = router({
   // Hent innlogget brukers organisasjon (null hvis ingen)
   hentMin: protectedProcedure.query(async ({ ctx }) => {
@@ -40,6 +49,17 @@ export const organisasjonRouter = router({
       where: { id: bruker.organizationId },
     });
   }),
+
+  // Hent organisasjon tilknyttet et prosjekt (via OrganizationProject)
+  hentForProsjekt: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const orgProject = await ctx.prisma.organizationProject.findFirst({
+        where: { projectId: input.projectId },
+        include: { organization: true },
+      });
+      return orgProject?.organization ?? null;
+    }),
 
   // Hent organisasjon med ID (kun firmaadmin)
   hentMedId: protectedProcedure
@@ -101,10 +121,11 @@ export const organisasjonRouter = router({
     });
   }),
 
-  // Oppdater organisasjon (kun firmaadmin)
+  // Oppdater organisasjon (firmaadmin for sin egen, sitedoc_admin for vilkårlig)
   oppdater: protectedProcedure
     .input(
       z.object({
+        organizationId: z.string().uuid().optional(),
         name: z.string().min(1).optional(),
         organizationNumber: z.string().optional().nullable(),
         invoiceAddress: z.string().optional().nullable(),
@@ -114,11 +135,22 @@ export const organisasjonRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const { organizationId: inputOrgId, ...data } = input;
+
+      // sitedoc_admin kan redigere vilkårlig firma via organizationId
+      if (inputOrgId && await erSiteDocAdmin(ctx.userId)) {
+        return ctx.prisma.organization.update({
+          where: { id: inputOrgId },
+          data,
+        });
+      }
+
+      // Ellers: brukerens egen organisasjon
       const orgId = await verifiserFirmaAdmin(ctx.prisma, ctx.userId);
 
       return ctx.prisma.organization.update({
         where: { id: orgId },
-        data: input,
+        data,
       });
     }),
 
