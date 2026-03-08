@@ -94,9 +94,12 @@ DatabaseProvider → trpc → QueryClient → Nettverk → OpplastingsKo → Aut
 ```
 
 **Sesjonshåndtering:**
-- `mobilAuth.verifiser` fornyer sesjonen med 30 nye dager
+- `mobilAuth.verifiser` fornyer sesjonen med 30 nye dager OG roterer token (returnerer `nyttToken`)
+- `AuthProvider` lagrer rotert token automatisk via `lagreSessionToken(nyttToken)`
+- Sesjontoken: `crypto.randomBytes(32).toString("hex")` (256-bit entropi)
 - Offline: cached brukerdata fra SecureStore
 - UNAUTHORIZED → automatisk utlogging
+- `loggUt()` sletter sesjon server-side (`mobilAuth.loggUt`) FØR lokal opprydding (med try/catch for offline)
 
 **expo-file-system:** Bruk `expo-file-system/legacy` (IKKE `expo-file-system`)
 

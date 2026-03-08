@@ -18,12 +18,42 @@ Alle routere i `apps/api/src/routes/`:
 | `invitasjon` | hentForProsjekt, validerToken, aksepter, sendPaNytt, trekkTilbake |
 | `vaer` | hentVaerdata (Open-Meteo proxy: latitude, longitude, dato → temperatur, værkode, vind) |
 | `modul` | hentForProsjekt, aktiver (oppretter maler+objekter automatisk), deaktiver (soft-deactivate) |
-| `organisasjon` | hentMin, hentForProsjekt, hentMedId, hentProsjekter, hentBrukere, oppdater, leggTilProsjekt, fjernProsjekt |
+| `organisasjon` | hentMin, hentForProsjekt (firma via OrganizationProject), hentMedId, hentProsjekter, hentBrukere, oppdater (m/organizationId for sitedoc_admin), leggTilProsjekt, fjernProsjekt |
+| `mobilAuth` | byttToken (public, OAuth→sesjon), verifiser (m/tokenrotasjon), loggUt (sletter sesjon) |
 | `admin` | erAdmin, hentAlleProsjekter (m/sjekkliste-/oppgavetellere), hentAlleOrganisasjoner, opprettOrganisasjon, oppdaterOrganisasjon, settBrukerOrganisasjon, tilknyttProsjekt, fjernProsjektTilknytning, opprettProsjekt, hentProsjektStatistikk, slettProsjekt, slettUtlopteProsjekter, hentAlleBrukere |
 
 ## Auth-nivåer
 
 `publicProcedure` (åpen) og `protectedProcedure` (krever autentisert userId i context). Context bygges i `context.ts` som verifiserer Auth.js-sesjonstokens. De fleste routere bruker `protectedProcedure` med tilleggs-sjekker fra `tilgangskontroll.ts`.
+
+**Autorisasjonssjekker per router:**
+Alle routere som opererer på prosjektdata har `verifiserProsjektmedlem`-sjekk. For prosedyrer som ikke tar `projectId` direkte (f.eks. `mal.hentMedId` med template-ID), slås prosjekt-ID opp fra entiteten først. Spesifikke sjekker:
+- `sjekkliste`, `oppgave`: `verifiserDokumentTilgang` (entreprise + domain)
+- `invitasjon.sendPaNytt/trekkTilbake`: `verifiserAdmin`
+- `prosjekt.oppdater`: `verifiserAdmin`
+- `endreStatus`: bruker `ctx.userId` som `senderId` (ikke bruker-input)
+- `medlem.sokBrukere`: krever `projectId` + prosjektmedlemskap
+
+## Filopplasting
+
+`/upload`-endepunkt (REST, ikke tRPC) i `apps/api/src/routes/upload.ts`:
+- Krever autentisert sesjon (sjekker cookie/Authorization-header)
+- Tillatte filtyper: `.pdf`, `.dwg`, `.dxf`, `.ifc`, `.png`, `.jpg`, `.jpeg`
+- Maks 100 MB per fil
+- UUID-baserte filnavn (forhindrer path traversal)
+- Rate limiting: 30 forespørsler/minutt per IP
+- Filer serveres med `X-Content-Type-Options: nosniff`
+
+## Rate limiting
+
+Minnebasert rate limiter i `apps/api/src/utils/rateLimiter.ts`. Automatisk opprydding hvert 5. minutt.
+
+| Endepunkt | Grense | Per |
+|-----------|--------|-----|
+| `/upload` | 30/min | IP |
+| `mobilAuth.byttToken` | 10/min | IP |
+| `invitasjon.validerToken` | 20/min | IP |
+| `invitasjon.aksepter` | 10/min | IP |
 
 ## Gratis-grenser
 
