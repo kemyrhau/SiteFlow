@@ -14,12 +14,19 @@ const server = Fastify({
 });
 
 async function start() {
+  const TILLATTE_ORIGINS = new Set([
+    "https://sitedoc.no",
+    "http://localhost:3100",
+    "http://localhost:3000",
+  ]);
+
   await server.register(cors, {
-    origin: [
-      "https://sitedoc.no",
-      "http://localhost:3100",
-      "http://localhost:3000",
-    ],
+    origin: (origin, cb) => {
+      // Ingen Origin-header (f.eks. server-til-server, curl) → tillat
+      if (!origin) return cb(null, true);
+      if (TILLATTE_ORIGINS.has(origin)) return cb(null, true);
+      return cb(new Error("Ikke tillatt av CORS"), false);
+    },
     credentials: true,
   });
 
