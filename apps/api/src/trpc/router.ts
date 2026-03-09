@@ -7,6 +7,7 @@ import { malRouter } from "../routes/mal";
 import { bygningRouter } from "../routes/bygning";
 import { tegningRouter } from "../routes/tegning";
 import { arbeidsforlopRouter } from "../routes/arbeidsforlop";
+import { dokumentflytRouter } from "../routes/dokumentflyt";
 import { mappeRouter } from "../routes/mappe";
 import { medlemRouter } from "../routes/medlem";
 import { mobilAuthRouter } from "../routes/mobilAuth";
@@ -26,7 +27,8 @@ export const appRouter = router({
   mal: malRouter,
   bygning: bygningRouter,
   tegning: tegningRouter,
-  arbeidsforlop: arbeidsforlopRouter,
+  arbeidsforlop: arbeidsforlopRouter, // bakoverkompatibilitet for mobil
+  dokumentflyt: dokumentflytRouter,
   mappe: mappeRouter,
   medlem: medlemRouter,
   mobilAuth: mobilAuthRouter,

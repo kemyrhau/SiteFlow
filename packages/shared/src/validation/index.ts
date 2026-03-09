@@ -217,6 +217,40 @@ export const removeWorkflowStepMemberSchema = z.object({
   step: z.number().int().min(2).max(3),
 });
 
+// Dokumentflyt-validering (ny modell)
+export const createDokumentflytSchema = z.object({
+  projectId: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  templateIds: z.array(z.string().uuid()).default([]),
+  medlemmer: z.array(z.object({
+    enterpriseId: z.string().uuid().optional(),
+    projectMemberId: z.string().uuid().optional(),
+    rolle: z.enum(["oppretter", "svarer"]),
+    steg: z.number().int().min(1).default(1),
+  })).default([]),
+});
+
+export const updateDokumentflytSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  name: z.string().min(1).max(255).optional(),
+  templateIds: z.array(z.string().uuid()).optional(),
+});
+
+export const addDokumentflytMedlemSchema = z.object({
+  dokumentflytId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  enterpriseId: z.string().uuid().optional(),
+  projectMemberId: z.string().uuid().optional(),
+  rolle: z.enum(["oppretter", "svarer"]),
+  steg: z.number().int().min(1).default(1),
+});
+
+export const removeDokumentflytMedlemSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+});
+
 // Legg til gruppemedlem via e-post
 export const addGroupMemberByEmailSchema = z.object({
   groupId: z.string().uuid(),
