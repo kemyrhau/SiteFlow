@@ -3,15 +3,24 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Spinner, EmptyState, Button, Input, Modal } from "@sitedoc/ui";
-import { FolderKanban, Plus, Trash2, X, Clock, AlertTriangle } from "lucide-react";
+import { FolderKanban, Plus, Trash2, X, Clock, AlertTriangle, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function AdminProsjekter() {
+  const router = useRouter();
   const utils = trpc.useUtils();
   const { data: prosjekter, isLoading } =
     trpc.admin.hentAlleProsjekter.useQuery();
   const { data: organisasjoner } =
     trpc.admin.hentAlleOrganisasjoner.useQuery();
+
+  const opprettMalprosjekt = trpc.prosjekt.opprettTestprosjekt.useMutation({
+    onSuccess: (prosjekt) => {
+      invalidateAll();
+      router.push(`/dashbord/${prosjekt.id}`);
+    },
+  });
 
   const [visOpprett, setVisOpprett] = useState(false);
   const [nyttNavn, setNyttNavn] = useState("");
@@ -165,6 +174,15 @@ export default function AdminProsjekter() {
           >
             <AlertTriangle className="mr-1.5 h-4 w-4" />
             Rydd utløpte
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => opprettMalprosjekt.mutate()}
+            disabled={opprettMalprosjekt.isPending}
+          >
+            <Sparkles className="mr-1.5 h-4 w-4" />
+            {opprettMalprosjekt.isPending ? "Oppretter…" : "Opprett malprosjekt"}
           </Button>
           <Button onClick={() => setVisOpprett(true)}>
             <Plus className="mr-1.5 h-4 w-4" />
