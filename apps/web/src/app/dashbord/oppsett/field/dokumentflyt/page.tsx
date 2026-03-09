@@ -14,6 +14,9 @@ import {
   X,
   FileText,
   User,
+  Mail,
+  Search,
+  UserPlus,
 } from "lucide-react";
 import {
   hentFargeForEntreprise,
@@ -69,6 +72,7 @@ function LeggTilMedlemDropdown({
   medlemmer,
   eksisterende,
   onLagtTil,
+  onInviterNy,
 }: {
   dokumentflytId: string;
   prosjektId: string;
@@ -78,6 +82,7 @@ function LeggTilMedlemDropdown({
   medlemmer: ProsjektMedlemItem[];
   eksisterende: DokumentflytMedlemData[];
   onLagtTil: () => void;
+  onInviterNy?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -179,17 +184,30 @@ function LeggTilMedlemDropdown({
                 disabled={leggTilMutation.isPending}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
               >
-                <User className="h-3.5 w-3.5 text-gray-400" />
-                {m.user.name ?? m.user.email}
+                <User className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <div className="min-w-0">
+                  <div className="truncate">{m.user.name ?? m.user.email}</div>
+                  {m.user.name && (
+                    <div className="truncate text-[11px] text-gray-400">{m.user.email}</div>
+                  )}
+                </div>
               </button>
             ))}
           </div>
 
-          {tilgjengeligeEntrepriser.length === 0 && tilgjengeligeMedlemmer.length === 0 && (
-            <div className="px-3 py-2 text-xs text-gray-400">
-              Alle er allerede lagt til
-            </div>
-          )}
+          {/* Inviter ny person */}
+          <div className="border-t border-gray-100">
+            <button
+              onClick={() => {
+                setOpen(false);
+                if (onInviterNy) onInviterNy();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-sitedoc-primary hover:bg-blue-50"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              Inviter ny person
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -208,6 +226,7 @@ function DokumentflytKort({
   onRediger,
   onSlett,
   onOppdatert,
+  onInviterNy,
 }: {
   dokumentflyt: DokumentflytData;
   prosjektId: string;
@@ -216,6 +235,7 @@ function DokumentflytKort({
   onRediger: () => void;
   onSlett: () => void;
   onOppdatert: () => void;
+  onInviterNy: (dokumentflytId: string, rolle: "oppretter" | "svarer", steg: number) => void;
 }) {
   const [ekspandert, setEkspandert] = useState(true);
 
@@ -308,6 +328,7 @@ function DokumentflytKort({
                   medlemmer={medlemmer}
                   eksisterende={opprettere}
                   onLagtTil={onOppdatert}
+                  onInviterNy={() => onInviterNy(dokumentflyt.id, "oppretter", 1)}
                 />
               </div>
             </div>
@@ -334,6 +355,7 @@ function DokumentflytKort({
                       medlemmer={medlemmer}
                       eksisterende={stegMedlemmer}
                       onLagtTil={onOppdatert}
+                      onInviterNy={() => onInviterNy(dokumentflyt.id, "svarer", steg)}
                     />
                   </div>
                 </div>
@@ -354,6 +376,7 @@ function DokumentflytKort({
                     medlemmer={medlemmer}
                     eksisterende={[]}
                     onLagtTil={onOppdatert}
+                    onInviterNy={() => onInviterNy(dokumentflyt.id, "svarer", 1)}
                   />
                 </div>
               </div>
@@ -437,6 +460,10 @@ function MedlemListe({
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] leading-tight text-gray-700">
                   {m.projectMember.user.name ?? m.projectMember.user.email}
+                </div>
+                <div className="flex items-center gap-1 truncate text-[11px] leading-tight text-gray-400">
+                  <Mail className="h-2.5 w-2.5 shrink-0" />
+                  {m.projectMember.user.email}
                 </div>
               </div>
               <button
@@ -821,6 +848,142 @@ function OpprettDokumentflytModal({
 }
 
 /* ------------------------------------------------------------------ */
+/*  InviterNyMedlemModal — inviter person utenfor prosjektet           */
+/* ------------------------------------------------------------------ */
+
+function InviterNyMedlemModal({
+  open,
+  onClose,
+  prosjektId,
+  dokumentflytId,
+  rolle,
+  steg,
+  onFerdig,
+}: {
+  open: boolean;
+  onClose: () => void;
+  prosjektId: string;
+  dokumentflytId: string;
+  rolle: "oppretter" | "svarer";
+  steg: number;
+  onFerdig: () => void;
+}) {
+  const [epost, setEpost] = useState("");
+  const [fornavn, setFornavn] = useState("");
+  const [etternavn, setEtternavn] = useState("");
+  const [telefon, setTelefon] = useState("");
+
+  const leggTilMedlemMutation = trpc.medlem.leggTil.useMutation();
+  const leggTilDfMedlemMutation = trpc.dokumentflyt.leggTilMedlem.useMutation();
+
+  const [forrigeOpen, setForrigeOpen] = useState(false);
+  if (open && !forrigeOpen) {
+    setEpost("");
+    setFornavn("");
+    setEtternavn("");
+    setTelefon("");
+  }
+  if (open !== forrigeOpen) setForrigeOpen(open);
+
+  const erSending = leggTilMedlemMutation.isPending || leggTilDfMedlemMutation.isPending;
+
+  async function handleInviter(e: React.FormEvent) {
+    e.preventDefault();
+    if (!epost.trim() || !fornavn.trim() || !etternavn.trim()) return;
+
+    try {
+      // 1. Legg til som prosjektmedlem (oppretter bruker + sender invitasjon)
+      const nyttMedlem = await leggTilMedlemMutation.mutateAsync({
+        projectId: prosjektId,
+        email: epost.trim(),
+        firstName: fornavn.trim(),
+        lastName: etternavn.trim(),
+        phone: telefon.trim() || undefined,
+        role: "member",
+        enterpriseIds: [],
+      });
+
+      // 2. Legg til i dokumentflyten
+      if (nyttMedlem) {
+        await leggTilDfMedlemMutation.mutateAsync({
+          dokumentflytId,
+          projectId: prosjektId,
+          projectMemberId: nyttMedlem.id,
+          rolle,
+          steg,
+        });
+      }
+
+      onFerdig();
+      onClose();
+    } catch (_err) {
+      // Feilen vises via mutation.error
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Inviter ny person">
+      <form onSubmit={handleInviter} className="flex flex-col gap-4">
+        <p className="text-sm text-gray-500">
+          Personen blir lagt til i prosjektet og denne dokumentflyten, og mottar en invitasjon på e-post.
+        </p>
+
+        <Input
+          label="E-postadresse"
+          type="email"
+          placeholder="navn@firma.no"
+          value={epost}
+          onChange={(e) => setEpost(e.target.value)}
+          required
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Fornavn"
+            value={fornavn}
+            onChange={(e) => setFornavn(e.target.value)}
+            required
+          />
+          <Input
+            label="Etternavn"
+            value={etternavn}
+            onChange={(e) => setEtternavn(e.target.value)}
+            required
+          />
+        </div>
+
+        <Input
+          label="Telefon (valgfritt)"
+          type="tel"
+          value={telefon}
+          onChange={(e) => setTelefon(e.target.value)}
+        />
+
+        {leggTilMedlemMutation.error && (
+          <p className="text-sm text-red-600">
+            {leggTilMedlemMutation.error.message}
+          </p>
+        )}
+
+        <div className="flex gap-3 pt-2">
+          <Button variant="secondary" type="button" onClick={onClose}>
+            Avbryt
+          </Button>
+          <Button
+            type="submit"
+            loading={erSending}
+            disabled={!epost.trim() || !fornavn.trim() || !etternavn.trim()}
+          >
+            <UserPlus className="mr-1.5 h-4 w-4" />
+            Inviter og legg til
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Hovedside                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -830,6 +993,12 @@ export default function DokumentflytSide() {
   const [visOpprett, setVisOpprett] = useState(false);
   const [slettId, setSlettId] = useState<string | null>(null);
   const [redigerDf, setRedigerDf] = useState<DokumentflytData | null>(null);
+  const [sok, setSok] = useState("");
+  const [inviterInfo, setInviterInfo] = useState<{
+    dokumentflytId: string;
+    rolle: "oppretter" | "svarer";
+    steg: number;
+  } | null>(null);
 
   // Data
   const { data: dokumentflyter, isLoading } = trpc.dokumentflyt.hentForProsjekt.useQuery(
@@ -884,10 +1053,24 @@ export default function DokumentflytSide() {
       {/* Verktøylinje */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-900">Dokumentflyt</h2>
-        <Button size="sm" onClick={() => setVisOpprett(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Ny dokumentflyt
-        </Button>
+        <div className="flex items-center gap-3">
+          {(dokumentflyter ?? []).length > 4 && (
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Søk dokumentflyt..."
+                value={sok}
+                onChange={(e) => setSok(e.target.value)}
+                className="rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-sm focus:border-sitedoc-primary focus:outline-none focus:ring-1 focus:ring-sitedoc-primary"
+              />
+            </div>
+          )}
+          <Button size="sm" onClick={() => setVisOpprett(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Ny dokumentflyt
+          </Button>
+        </div>
       </div>
 
       {/* Innhold */}
@@ -902,18 +1085,25 @@ export default function DokumentflytSide() {
         />
       ) : (
         <div className="space-y-4">
-          {(dokumentflyter as DokumentflytData[]).map((df) => (
-            <DokumentflytKort
-              key={df.id}
-              dokumentflyt={df}
-              prosjektId={prosjektId}
-              entrepriser={entrepriseListe}
-              medlemmer={medlemListe}
-              onRediger={() => setRedigerDf(df)}
-              onSlett={() => setSlettId(df.id)}
-              onOppdatert={handleOppdatert}
-            />
-          ))}
+          {(dokumentflyter as DokumentflytData[])
+            .filter((df) =>
+              !sok.trim() || df.name.toLowerCase().includes(sok.toLowerCase()),
+            )
+            .map((df) => (
+              <DokumentflytKort
+                key={df.id}
+                dokumentflyt={df}
+                prosjektId={prosjektId}
+                entrepriser={entrepriseListe}
+                medlemmer={medlemListe}
+                onRediger={() => setRedigerDf(df)}
+                onSlett={() => setSlettId(df.id)}
+                onOppdatert={handleOppdatert}
+                onInviterNy={(dokumentflytId, rolle, steg) =>
+                  setInviterInfo({ dokumentflytId, rolle, steg })
+                }
+              />
+            ))}
         </div>
       )}
 
@@ -964,6 +1154,20 @@ export default function DokumentflytSide() {
           </div>
         </div>
       </Modal>
+
+      {/* Inviter ny person */}
+      <InviterNyMedlemModal
+        open={inviterInfo !== null}
+        onClose={() => setInviterInfo(null)}
+        prosjektId={prosjektId}
+        dokumentflytId={inviterInfo?.dokumentflytId ?? ""}
+        rolle={inviterInfo?.rolle ?? "oppretter"}
+        steg={inviterInfo?.steg ?? 1}
+        onFerdig={() => {
+          handleOppdatert();
+          utils.medlem.hentForProsjekt.invalidate({ projectId: prosjektId });
+        }}
+      />
     </div>
   );
 }
